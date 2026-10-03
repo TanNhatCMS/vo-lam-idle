@@ -4,11 +4,15 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
+import android.net.Uri
 import android.os.Bundle
+import android.util.Base64
 import android.util.Log
 import android.view.View
 import android.view.WindowManager
 import android.webkit.ConsoleMessage
+import android.webkit.JavascriptInterface
+import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
@@ -17,8 +21,10 @@ import android.webkit.WebViewClient
 import android.widget.Button
 import android.widget.ProgressBar
 import android.widget.TextView
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.webkit.WebViewAssetLoader
 import java.io.ByteArrayInputStream
 import java.io.File
@@ -28,6 +34,32 @@ private const val TAG = "VLWeb"
 private const val APP_ASSET_DOMAIN = "appassets.androidplatform.net"
 private const val GAME_URL = "https://$APP_ASSET_DOMAIN/index.html"
 private const val GAME_BG = "#0e1412"
+
+/**
+ * Hook JS: game tai file bang anchor an voi href blob: + download (save.js, stash.js),
+ * ma WebView khong co download handler. Patch HTMLAnchorElement.click de doc blob,
+ * gui base64 ve bridge AndroidSave — bridge mo popup SAF chon noi luu.
+ */
+private const val SAVE_HOOK_JS = """
+(function(){
+  if (window.__vlSaveHook) return; window.__vlSaveHook = 1;
+  var orig = HTMLAnchorElement.prototype.click;
+  HTMLAnchorElement.prototype.click = function() {
+    var a = this;
+    try {
+      if (a && a.download && typeof a.href === 'string' && a.href.indexOf('blob:') === 0 && window.AndroidSave) {
+        fetch(a.href).then(function(r){ return r.blob(); }).then(function(b){
+          var fr = new FileReader();
+          fr.onload = function(){ AndroidSave.exportFile(String(a.download || 'download'), String(fr.result).split(',').pop()); };
+          fr.readAsDataURL(b);
+        }).catch(function(){ orig.call(a); });
+        return;
+      }
+    } catch (e) { /* roi ve hanh vi goc */ }
+    orig.call(a);
+  };
+})();
+"""
 
 /**
  * Phuc vu file game: uu tien thu muc da tai OTA (filesDir/game-assets),
@@ -90,10 +122,52 @@ private class GameAssetHandler(private val context: Context) : WebViewAssetLoade
     }
 }
 
+/** Bridge nhan noi dung save (base64) tu hook JS roi mo popup SAF chon noi luu. */
+private class SaveBridge(private val host: MainActivity) {
+    @JavascriptInterface
+    fun exportFile(name: String, base64: String) = host.launchSaveDocument(name, base64)
+}
+
 class MainActivity : ComponentActivity() {
 
     private lateinit var webView: WebView
     private var gameStarted = false
+
+    // Luu file (SAF create document): nhan base64 tu bridge -> chon noi luu -> ghi
+    private var pendingSave: Pair<String, ByteArray>? = null
+    private val saveFileLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val uri = result.data?.data
+        val pending = pendingSave
+        pendingSave = null
+        if (uri != null && pending != null) {
+            try {
+                contentResolver.openOutputStream(uri)?.use { it.write(pending.second) }
+                Toast.makeText(this, "Đã lưu ${pending.first}", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                Toast.makeText(this, "Lỗi lưu file: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    // Nạp từ file (input type=file của game): SAF/picker -> trả về WebView
+    private var fileChooserCallback: ValueCallback<Array<Uri>>? = null
+    private val chooserLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val cb = fileChooserCallback
+        fileChooserCallback = null
+        cb?.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data))
+    }
+
+    fun launchSaveDocument(name: String, base64: String) {
+        runOnUiThread {
+            pendingSave = name to Base64.decode(base64, Base64.DEFAULT)
+            val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                addCategory(Intent.CATEGORY_OPENABLE)
+                type = "application/octet-stream"
+                putExtra(Intent.EXTRA_TITLE, name)
+            }
+            saveFileLauncher.launch(intent)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -224,6 +298,10 @@ class MainActivity : ComponentActivity() {
                 request: WebResourceRequest
             ): WebResourceResponse? = assetLoader.shouldInterceptRequest(request.url)
 
+            override fun onPageFinished(view: WebView, url: String) {
+                view.evaluateJavascript(SAVE_HOOK_JS, null)
+            }
+
             override fun shouldOverrideUrlLoading(
                 view: WebView,
                 request: WebResourceRequest
@@ -243,7 +321,31 @@ class MainActivity : ComponentActivity() {
                 Log.d(TAG, "[console] ${message.message()} (${message.sourceId()}:${message.lineNumber()})")
                 return true
             }
+
+            // <input type="file"> của game (Nạp từ file) -> popup chọn file SAF
+            override fun onShowFileChooser(
+                webView: WebView?,
+                filePathCallback: ValueCallback<Array<Uri>>,
+                fileChooserParams: FileChooserParams
+            ): Boolean {
+                fileChooserCallback?.onReceiveValue(null)
+                fileChooserCallback = filePathCallback
+                // Dùng */* thay vì createIntent(): accept của game (.jxsave,.json,.txt...)
+                // khiến picker disable file .jxsave vì không map được MIME
+                val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                    type = "*/*"
+                }
+                return try {
+                    chooserLauncher.launch(Intent.createChooser(intent, "Chọn file lưu game"))
+                    true
+                } catch (e: Exception) {
+                    fileChooserCallback = null
+                    false
+                }
+            }
         }
+        webView.addJavascriptInterface(SaveBridge(this), "AndroidSave")
 
         setContentView(webView)
         webView.loadUrl(GAME_URL)
