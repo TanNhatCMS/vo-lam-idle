@@ -26,7 +26,7 @@ Yêu cầu: JDK 17, Android SDK (API 35). Gradle wrapper (8.10.2) đã kèm theo
 ./gradlew assembleDebug       # Linux/macOS
 ```
 
-APK ra tại `app/build/outputs/apk/debug/app-debug.apk`. Bản release:
+APK ra tại `app/build/outputs/apk/debug/volam-idle-v<phiên-bản>-debug.apk` (vd `volam-idle-v1.3.0-debug.apk`). Bản release:
 
 ```bash
 ./gradlew.bat assembleRelease
@@ -34,39 +34,47 @@ APK ra tại `app/build/outputs/apk/debug/app-debug.apk`. Bản release:
 
 Bản `release` được ký bằng keystore tại `keystore/` với thông số trong `keystore.properties` — cả hai **gitignored, không commit**; thiếu file này thì `assembleRelease` tự fallback sang debug signing. **Sao lưu cẩn thận keystore + mật khẩu** (bản backup tại repo private `android-keystores`): mất keystore thì các bản cập nhật sau không giữ được chữ ký cũ.
 
-## Cơ chế OTA assets
+## Cơ chế OTA tài nguyên
 
-APK chỉ chứa code game cơ bản; **code và media đều cập nhật qua OTA** khi mở app:
+APK chỉ chứa bản code dự phòng; **toàn bộ tài nguyên của game (gọi chung là `data`: code + media) cập nhật qua OTA dạng ZIP** khi mở app:
 
-1. App đọc `assets-manifest.json` ở **gốc repo** (qua `raw.githubusercontent.com`) gồm 2 phần:
-   - `media`: ZIP đính kèm GitHub Release (img, snd, music, fx ~115MB) — `zipSha256` làm version
-   - `code`: index.html, js, data.js, fonts, ui (~4.1MB) — từng file tải riêng qua raw (delta per-file), `version` là hash tổng
-2. Lần chạy đầu: tải ZIP media về **bộ tạm** `cache/ota/ota.zip.part` — **tự resume** bằng HTTP Range nếu đứt giữa chừng; tải các file code còn thiếu về staging riêng.
-3. Verify sha256 ZIP sau khi tải → giải nén → **verify từng file** theo manifest → move vào `files/game-assets` → **verify lại toàn bộ (code + media) sau khi cài** → dọn bộ tạm.
-4. Các lần mở sau: so version (nhanh, chỉ check size) — khác thì chỉ tải phần thay đổi (media giữ ZIP, code tải từng file); vào game ngay cả khi offline nếu đã cài đủ bộ từ trước.
+1. App đọc `assets-manifest.json` ở **gốc repo** (qua `raw.githubusercontent.com`) — **2 gói** theo tần suất thay đổi, mỗi gói một **ZIP đính kèm GitHub Release**:
+   - `data` (`ota-data-<v>.zip` ~4.1MB): index.html, js, data.js, fonts, ui — **thường thay đổi**
+   - `assets` (`ota-assets-<v>.zip` ~115MB): img, snd, music, fx — **hiếm khi đổi**
+   - `patch`: bản vá **từng gói** (`patch.data` / `patch.assets`) — chỉ chứa file đổi/thêm + `remove[]`; `from` là zipSha256 của gói ở bản liền trước.
+2. **Lần chạy đầu**: tải đủ cả 2 gói về bộ tạm `cache/ota/<data|assets>.zip.part` — **tự resume** bằng HTTP Range nếu đứt giữa chừng.
+3. Verify sha256 ZIP → giải nén → **verify từng file** theo manifest → move vào `files/game-assets` → **verify toàn bộ** → ghi index → dọn bộ tạm.
+4. **Các lần mở sau**: gói nào đổi mới xử lý — `dataVersion`/`assetsVersion` khớp `patch.<gói>.from` thì **chỉ tải bản vá gói đó** (vài KB–MB), lệch nhánh thì tải lại full gói đó; **vá xong verify fail (file local hỏng ngoài phạm vi vá) thì tự chữa bằng full của gói đó**. Vào game ngay cả khi offline nếu đã cài đủ từ trước.
 5. Khi lỗi: rác tạm tự dọn; ZIP giữ `.part` để tải tiếp, file hỏng thì tải lại.
 
-Màn hình cập nhật hiển thị **phiên bản hiện tại**: `App vX · Game <hash> · Tài nguyên <hash>`, kèm nút **"Cập nhật app"** khi GitHub Releases có bản APK mới hơn (mở trang release).
+Màn hình cập nhật hiển thị **phiên bản hiện tại**: `App vX · Tài nguyên vX.Y`, kèm nút **"Cập nhật app"** khi GitHub Releases có bản APK mới hơn (mở trang release).
 
 ### Quy trình phát hành bản cập nhật game
 
 ```bash
 # 1. Copy file game mới vào game/ (giữ nguyên cấu trúc)
-# 2. Sinh ZIP + manifest mới (deterministic: media không đổi -> zipSha256 không đổi -> người chơi khỏi tải lại media)
-python tools/make_ota_manifest.py --version 1.3.0
+# 2. Sinh 2 ZIP (data + assets) + bản vá từng gói (tool diff với manifest bản trước ở git HEAD; deterministic)
+python tools/make_ota_manifest.py --version 1.4.0
 # 3. Commit + push manifest (file zip gitignored)
 git add assets-manifest.json && git commit && git push
 # 4. Bump versionCode/versionName trong app/build.gradle.kts rồi:
 ./gradlew.bat assembleRelease
-# 5. Đính kèm cả ZIP OTA vào release (chỉ khi media đổi; đổi code thì không cần ZIP mới)
-gh release create v1.3.0 app/build/outputs/apk/release/app-release.apk ota-assets-1.3.0.zip
+# 5. Đính kèm APK + ZIP gói có thay đổi vào release (data hay đổi → ota-data; media đổi → ota-assets)
+gh release create v1.4.0 app/build/outputs/apk/release/volam-idle-v1.4.0-release.apk ota-data-1.4.0.zip ota-assets-1.4.0.zip
 ```
 
-ZIP đính kèm release phải khớp `media.zipUrl` trong `assets-manifest.json` đã push (pattern `ota-assets-<version>.zip`, tag `v<version>`).
+ZIP đính kèm release phải khớp `data.zipUrl` / `assets.zipUrl` (và `patch.*.zipUrl` nếu có bản vá) trong `assets-manifest.json` đã push (pattern `ota-data-<version>.zip` / `ota-assets-<version>.zip` / `ota-<gói>-patch-<version>.zip`, tag `v<version>`). Bản vá của gói chỉ áp dụng cho người đang cài **bản phát hành liền trước** — bỏ qua một phiên thì app tự rơi về tải full gói đó.
+
+### Tính năng của vỏ app (v1.3.0)
+
+- **Nhường âm thanh** — cuộc gọi đến, app nhạc khác phát, hoặc thông báo ping: game tự im/nhạc nhỏ xuống đúng chuẩn Android, quay lại thì phát tiếp theo cài đặt trong game.
+- **Hỏi trước khi tải qua data di động** — Wi-Fi tải tự động; mạng đo lượng thì hiện dialog kèm dung lượng (bản cập nhật có nút "Để sau" để chơi tiếp bộ cũ).
+- **Tự động sao lưu save** — mỗi ~60 giây và mỗi lần ẩn app, toàn bộ dữ liệu game (cả 3 slot nhân vật) được chụp ra bộ nhớ riêng của app. Nếu lần mở sau mất dữ liệu, app tự hỏi khôi phục lại; máy đang chơi bình thường không bao giờ bị đụng tới. Kênh chủ động "Tải file lưu"/"Nạp từ file" vẫn như cũ.
+- **Kiểm soát dữ liệu** — nút **Hủy tải** khi đang tải (tải tiếp từ chỗ dừng bằng Thử lại), nút **Xóa dữ liệu đã tải** để tải lại sạch từ đầu.
 
 ### Test OTA local
 
-`python tools/local_ota_server.py` (port 8000, hỗ trợ Range) phục vụ repo tại chỗ; tạm trỏ `MANIFEST_URL`, `FILES_URL` trong `OtaManager.kt` + `media.zipUrl` trong manifest về `http://10.0.2.2:8000/...`. Bản debug cho phép cleartext qua `app/src/debug/AndroidManifest.xml` (bản release vẫn HTTPS-only).
+`python tools/local_ota_server.py` (port 8000, hỗ trợ Range) phục vụ repo tại chỗ, rồi build bản debug cờ local: `./gradlew.bat assembleDebug -PotaLocal` — bản này tự trỏ manifest + ZIP về `http://10.0.2.2:8000/` qua `BuildConfig.OTA_LOCAL` (không phải sửa URL tay trong code hay manifest). Build thường (`assembleDebug` không cờ / `assembleRelease`) luôn dùng GitHub production. Cleartext chỉ được phép ở bản debug (`app/src/debug/AndroidManifest.xml`, bản release vẫn HTTPS-only).
 
 ## Cấu trúc
 

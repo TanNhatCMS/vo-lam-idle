@@ -9,48 +9,70 @@ import java.io.File
 import java.io.IOException
 import java.io.RandomAccessFile
 import java.security.MessageDigest
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.atomic.AtomicInteger
 import java.util.zip.ZipFile
 
 /**
- * OTA game theo manifest v3 (assets-manifest.json o goc repo):
- *  - media (img, snd, music, fx): ZIP dinh kem GitHub Release, version = zipSha256.
- *    Tai ve bo tam cache/ota/ota.zip.part (resume HTTP Range neu dut), verify sha256,
- *    giai nen, verify tung file, move vao filesDir/game-assets.
- *  - code (index.html, js, data.js, fonts, ui...): tung file tai rieng tu
- *    raw.githubusercontent (delta per-file), staging cache/ota/code roi move.
- *  - Sau cung: verify toan bo file (code+media) da cai -> ghi index -> don bo tam.
- * Cap nhat chay moi lan mo app; mat mang ma da co bo cu thi vao game binh thuong.
+ * OTA tai nguyen theo manifest v6 (assets-manifest.json o goc repo) — 2 goi
+ * rieng theo tan suat thay doi, moi goi mot ZIP dinh kem GitHub Release + ban
+ * va (patch) rieng:
+ *  - data   : ZIP ota-data-<v>.zip   (index.html, js, data.js, fonts, ui — ~4MB, hay doi)
+ *  - assets : ZIP ota-assets-<v>.zip (img, snd, music, fx — ~115MB, it doi)
+ *  - patch  : {data:{from,zip,files,remove}|null, assets:{...}|null} — chi ap
+ *            goi nao khi <goi>Version dang cai == patch.<goi>.from; lech nhanh
+ *            thi tai lai full goi do.
+ * Ca hai di cung luong: tai ZIP (resume HTTP Range qua .part) -> verify sha256
+ * -> giai nen -> verify tung file -> move vao filesDir/game-assets; cuoi cung
+ * verify toan bo theo manifest.data.files -> ghi index -> don bo tam.
+ * ZIP deterministic (timestamp cung). Mat mang ma da co bo cu thi vao game binh thuong.
  * fetchLatestRelease() check ban APK moi tren GitHub Releases (chi bao + mo link).
  */
 object OtaManager {
     private const val TAG = "VLOta"
     private const val MANIFEST_URL =
         "https://raw.githubusercontent.com/TanNhatCMS/volam-idle-android/main/assets-manifest.json"
-    private const val FILES_URL =
-        "https://raw.githubusercontent.com/TanNhatCMS/volam-idle-android/main/game/"
     private const val RELEASES_API =
         "https://api.github.com/repos/TanNhatCMS/volam-idle-android/releases/latest"
-    private const val CODE_CONCURRENCY = 4
-    private const val RETRIES = 3
+
+    /**
+     * Cau hinh OTA theo variant: build thuong (debug/release) deu dung GitHub
+     * production; build voi co -PotaLocal (chi debug) tro toan bo OTA ve server
+     * local — MANIFEST_URL thay bang OTA_LOCAL_BASE + "assets-manifest.json",
+     * URL ZIP trong manifest thay bang OTA_LOCAL_BASE + zipName. Khong phai sua
+     * URL tay trong code/manifest khi test nua.
+     */
+    private fun manifestUrl(): String =
+        if (BuildConfig.OTA_LOCAL) BuildConfig.OTA_LOCAL_BASE + "assets-manifest.json" else MANIFEST_URL
+
+    private fun zipUrlFrom(o: JSONObject): String =
+        if (BuildConfig.OTA_LOCAL) BuildConfig.OTA_LOCAL_BASE + o.getString("zipName") else o.getString("zipUrl")
 
     class Entry(val path: String, val sha256: String, val size: Long)
 
-    class Manifest(
-        val zipUrl: String,
-        val zipSha256: String,
-        val zipSize: Long,
-        val mediaFiles: List<Entry>,
-        val codeVersion: String,
-        val codeBytes: Long,
-        val codeFiles: List<Entry>,
+    /** Mot goi ZIP tai nguyen (data full | patch). */
+    class ZipPart(val url: String, val sha256: String, val size: Long, val files: List<Entry>)
+
+    /** Ban va: ap duoc khi dataVersion dang cai == from; remove = file can xoa. */
+    class PatchPart(
+        val from: String,
+        val url: String,
+        val sha256: String,
+        val size: Long,
+        val files: List<Entry>,
+        val remove: List<String>,
     )
 
-    class InstalledIndex(val mediaVersion: String?, val codeVersion: String?, val files: Map<String, String>)
+    class Manifest(val version: String, val data: ZipPart, val assets: ZipPart, val patch: Patches)
+
+    /** Bản vá từng gói: data hay đổi (~4MB), assets ít đổi (~115MB). */
+    class Patches(val data: PatchPart?, val assets: PatchPart?)
+
+    class InstalledIndex(
+        val resVersion: String?,
+        val dataVersion: String?,
+        val assetsVersion: String?,
+        val files: Map<String, String>,
+    )
 
     class ReleaseInfo(val tag: String, val url: String)
 
@@ -61,8 +83,8 @@ object OtaManager {
 
     // ---------- Huy cap nhat (F4) ----------
     // canceled bat boi cancelUpdate(); updateAll() dat lai false khi chay vong moi.
-    // activeCall: call OkHttp dang chay (ZIP hoac file code) de cancel truc tiep —
-    // execute/read nem IOException ngay thay cho cho het stream. .part luon duoc giu.
+    // activeCall: call OkHttp dang chay de cancel truc tiep — execute/read nem
+    // IOException ngay thay cho cho het stream. .part luon duoc giu de tai tiep.
     @Volatile private var canceled = false
     @Volatile private var activeCall: okhttp3.Call? = null
 
@@ -71,44 +93,61 @@ object OtaManager {
         activeCall?.cancel()
     }
 
+    /** true neu vong updateAll gan nhat ket thuc do nguoi dung huy. */
     fun wasCanceled(): Boolean = canceled
 
     private fun otaTmp(ctx: Context): File = File(ctx.cacheDir, "ota")
-    private fun zipPart(ctx: Context): File = File(otaTmp(ctx), "ota.zip.part")
-    private fun zipDone(ctx: Context): File = File(otaTmp(ctx), "ota.zip")
-    private fun extractDir(ctx: Context): File = File(otaTmp(ctx), "extracted")
-    private fun codeDir(ctx: Context): File = File(otaTmp(ctx), "code")
+    private fun partFile(ctx: Context, section: String) = File(otaTmp(ctx), "$section.zip.part")
+    private fun zipFile(ctx: Context, section: String) = File(otaTmp(ctx), "$section.zip")
+    private fun extractDir(ctx: Context, section: String) = File(otaTmp(ctx), "$section-extract")
     fun assetsDir(ctx: Context): File = File(ctx.filesDir, "game-assets")
     private fun indexFile(ctx: Context): File = File(ctx.filesDir, "ota-index.json")
 
     fun cleanStaleTemp(ctx: Context) {
-        // Chi don extracted; code staging duoc giu de "Thử lại" tai tiep phan con
-        // thieu (file trong staging da verify se bo qua qua hashOnDisk khi tinh pending).
-        extractDir(ctx).deleteRecursively()
+        extractDir(ctx, "data").deleteRecursively()
+        extractDir(ctx, "assets").deleteRecursively()
+        extractDir(ctx, "data-patch").deleteRecursively()
+        extractDir(ctx, "assets-patch").deleteRecursively()
     }
 
     fun fetchManifest(): Manifest? = try {
-        val body = http.newCall(Request.Builder().url(MANIFEST_URL).build()).execute().use { resp ->
+        val body = http.newCall(Request.Builder().url(manifestUrl()).build()).execute().use { resp ->
             if (!resp.isSuccessful) return null
             resp.body!!.string()
         }
         val obj = JSONObject(body)
-        val media = obj.getJSONObject("media")
-        val code = obj.getJSONObject("code")
-        val mFiles = media.getJSONArray("files")
-        val cFiles = code.getJSONArray("files")
-        fun parse(arr: org.json.JSONArray): List<Entry> {
-            val out = ArrayList<Entry>(arr.length())
+        fun zipPart(section: String): ZipPart {
+            val o = obj.getJSONObject(section)
+            val arr = o.getJSONArray("files")
+            val files = ArrayList<Entry>(arr.length())
             for (i in 0 until arr.length()) {
                 val e = arr.getJSONObject(i)
-                out.add(Entry(e.getString("p"), e.getString("h"), e.getLong("s")))
+                files.add(Entry(e.getString("p"), e.getString("h"), e.getLong("s")))
             }
-            return out
+            return ZipPart(zipUrlFrom(o), o.getString("zipSha256"), o.getLong("zipSize"), files)
         }
-        Manifest(
-            media.getString("zipUrl"), media.getString("zipSha256"), media.getLong("zipSize"),
-            parse(mFiles), code.getString("version"), code.getLong("totalBytes"), parse(cFiles)
+        val patchJson = obj.optJSONObject("patch")
+        fun parsePatch(p: JSONObject): PatchPart {
+            val arr = p.getJSONArray("files")
+            val files = ArrayList<Entry>(arr.length())
+            for (i in 0 until arr.length()) {
+                val e = arr.getJSONObject(i)
+                files.add(Entry(e.getString("p"), e.getString("h"), e.getLong("s")))
+            }
+            val remove = ArrayList<String>()
+            p.optJSONArray("remove")?.let { r ->
+                for (i in 0 until r.length()) remove.add(r.getString(i))
+            }
+            return PatchPart(
+                p.getString("from"), zipUrlFrom(p), p.getString("zipSha256"),
+                p.getLong("zipSize"), files, remove,
+            )
+        }
+        val patches = Patches(
+            patchJson?.optJSONObject("data")?.let { parsePatch(it) },
+            patchJson?.optJSONObject("assets")?.let { parsePatch(it) },
         )
+        Manifest(obj.getString("version"), zipPart("data"), zipPart("assets"), patches)
     } catch (e: Exception) {
         Log.w(TAG, "fetchManifest: ${e.message}")
         null
@@ -119,17 +158,22 @@ object OtaManager {
         val fObj = obj.getJSONObject("files")
         val m = HashMap<String, String>(fObj.length())
         for (k in fObj.keys()) m[k] = fObj.getString(k)
-        InstalledIndex(obj.optString("mediaVersion", ""), obj.optString("codeVersion", ""), m)
+        InstalledIndex(
+            obj.optString("resVersion", ""),
+            obj.optString("dataVersion", ""),
+            obj.optString("assetsVersion", ""),
+            m,
+        )
     } catch (e: Exception) {
-        InstalledIndex(null, null, emptyMap())
+        InstalledIndex(null, null, null, emptyMap())
     }
 
     /** Fast path: dung version trong index + size tung file, khong hash. */
     fun installedUpToDate(ctx: Context, manifest: Manifest): Boolean {
         val idx = loadIndex(ctx)
-        if (idx.mediaVersion != manifest.zipSha256 || idx.codeVersion != manifest.codeVersion) return false
+        if (idx.dataVersion != manifest.data.sha256 || idx.assetsVersion != manifest.assets.sha256) return false
         val dir = assetsDir(ctx)
-        for (e in manifest.mediaFiles + manifest.codeFiles) {
+        for (e in manifest.data.files + manifest.assets.files) {
             if (File(dir, e.path).length() != e.size) return false
         }
         return true
@@ -151,179 +195,64 @@ object OtaManager {
     }
 
     /**
-     * Dong bo toan bo game theo manifest. onPhase(phase, done, total) cho cac buoc
-     * dem duoc; onZipProgress(bytes, total) cho viec tai ZIP. Chay o thread nen,
-     * callback cung tu thread do — UI tu boc ra main thread.
+     * Dong bo tai nguyen theo manifest, MOI GOI DI RIENG (data hay doi, assets it doi):
+     *  - file tren dia da dung het goi -> bo qua (delta);
+     *  - <gói>Version dang cai khop patch.<gói>.from -> chi tai BAN VA cua goi do;
+     *  - con lai (lan dau / bo phien) -> tai full goi do.
+     * Verify tung goi ngay sau khi cai — hong thi tu chua bang full cua goi do,
+     * roi cuoi cung verify toan bo. onPhase(phase, done, total) voi phase co tien
+     * to "data." / "assets." / "data-patch." / "assets-patch.";
+     * onZipProgress(section, bytes, total) cho viec tai ZIP. UI tu boc ra main thread.
      */
     fun updateAll(
         ctx: Context,
         manifest: Manifest,
         onPhase: (String, Int, Int) -> Unit,
-        onZipProgress: (Long, Long) -> Unit,
+        onZipProgress: (String, Long, Long) -> Unit,
     ): Boolean {
         canceled = false
         val dir = assetsDir(ctx)
         dir.mkdirs()
 
-        // ---------- 1. CODE: tai file doi (delta) vao staging roi move (4 luong) ----------
-        // Staging duoc giu qua cac lan retry (file da verify + rename dung se bo qua
-        // lan tai sau qua hashOnDisk(codeDir)); chi xoa khi cai dat thanh cong.
-        val codePending = manifest.codeFiles.filter { e ->
-            hashOnDisk(dir, e) != e.sha256 && hashOnDisk(codeDir(ctx), e) != e.sha256
-        }
-        if (codePending.isNotEmpty()) {
-            val staging = codeDir(ctx)
-            staging.mkdirs()
-            onPhase("code", 0, codePending.size)
-            val latch = CountDownLatch(codePending.size)
-            val done = AtomicInteger()
-            val failed = AtomicBoolean()
-            val pool = Executors.newFixedThreadPool(CODE_CONCURRENCY)
-            for (e in codePending) {
-                pool.execute {
-                    try {
-                        if (failed.get()) return@execute
-                        var ok = false
-                        var attempt = 0
-                        while (!ok && attempt < RETRIES && !failed.get()) {
-                            if (canceled) { failed.set(true); break }
-                            attempt++
-                            try {
-                                val url = FILES_URL + e.path.split('/').joinToString("/") { segment ->
-                                    java.net.URLEncoder.encode(segment, "UTF-8").replace("+", "%20")
-                                }
-                                val tmp = File(staging, e.path + ".part")
-                                tmp.parentFile?.mkdirs()
-                                val call = http.newCall(Request.Builder().url(url).build())
-                                activeCall = call
-                                try {
-                                    call.execute().use { resp ->
-                                        if (!resp.isSuccessful) throw IOException("HTTP ${resp.code} ${e.path}")
-                                        resp.body!!.byteStream().use { ins ->
-                                            tmp.outputStream().use { outs -> ins.copyTo(outs) }
-                                        }
-                                    }
-                                } finally {
-                                    activeCall = null
-                                }
-                                if (hash(tmp) != e.sha256) {
-                                    tmp.delete()
-                                    throw IOException("hash mismatch ${e.path}")
-                                }
-                                if (!tmp.renameTo(File(staging, e.path))) throw IOException("rename ${e.path}")
-                                ok = true
-                            } catch (ex: Exception) {
-                                Log.w(TAG, "code lan $attempt loi ${e.path}: ${ex.message}")
-                                if (attempt >= RETRIES) failed.set(true) else Thread.sleep(1200L * attempt)
-                            }
-                        }
-                        if (!ok) failed.set(true) else onPhase("code", done.incrementAndGet(), codePending.size)
-                    } finally {
-                        latch.countDown()
-                    }
-                }
+        val idx = loadIndex(ctx)
+        val parts = listOf(
+            Triple("data", manifest.data, manifest.patch.data),
+            Triple("assets", manifest.assets, manifest.patch.assets),
+        )
+        for ((part, full, patch) in parts) {
+            if (full.files.all { hashOnDisk(dir, it) == it.sha256 }) continue
+            val cur = if (part == "data") idx.dataVersion else idx.assetsVersion
+            val ok = if (patch != null && cur == patch.from) {
+                installPatch(ctx, patch, "$part-patch", dir, onPhase, onZipProgress)
+            } else {
+                installZip(ctx, full, part, dir, onPhase, onZipProgress)
             }
-            latch.await()
-            pool.shutdown()
-            if (failed.get() || canceled) return false
-            for (e in codePending) {
-                val from = File(staging, e.path)
-                val to = File(dir, e.path)
-                to.parentFile?.mkdirs()
-                if (to.isFile) to.delete()
-                if (!from.renameTo(to)) {
-                    from.copyTo(to, overwrite = true)
-                    from.delete()
-                }
-            }
-            staging.deleteRecursively()
-        }
-
-        // ---------- 2. MEDIA: zip -> extract -> verify -> move ----------
-        val mediaInstalled = manifest.mediaFiles.all { hashOnDisk(dir, it) == it.sha256 }
-        if (!mediaInstalled) {
-            val tmp = otaTmp(ctx)
-            val part = zipPart(ctx)
-            val zip = zipDone(ctx)
-            val ex = extractDir(ctx)
-            try {
-                if (!downloadZip(ctx, manifest, onZipProgress)) return false
-
-                if (canceled) return false
-                onPhase("verify_zip", 0, 0)
-                val src = if (part.isFile) part else zip
-                if (!src.isFile || src.length() != manifest.zipSize || hash(src) != manifest.zipSha256) {
-                    src.delete()
-                    return false
-                }
-                if (src == part && !part.renameTo(zip)) throw IOException("rename zip")
-
-                ex.deleteRecursively()
-                ex.mkdirs()
-                ZipFile(zip).use { zf ->
-                    val entries = zf.entries().toList()
-                    var i = 0
-                    for (ze in entries) {
-                        i++
-                        if (ze.isDirectory) continue
-                        val out = File(ex, ze.name)
-                        if (!out.canonicalPath.startsWith(ex.canonicalPath)) return false
-                        out.parentFile?.mkdirs()
-                        zf.getInputStream(ze).use { ins ->
-                            out.outputStream().use { outs -> ins.copyTo(outs) }
-                        }
-                        if (i % 200 == 0) {
-                            if (canceled) return false
-                            onPhase("extract", i, entries.size)
-                        }
-                    }
-                }
-
-                onPhase("verify_files", 0, manifest.mediaFiles.size)
-                var vi = 0
-                for (e in manifest.mediaFiles) {
-                    val f = File(ex, e.path)
-                    if (!f.isFile || f.length() != e.size || hash(f) != e.sha256) {
-                        throw IOException("verify extract fail ${e.path}")
-                    }
-                    vi++
-                    if (vi % 200 == 0) {
-                        if (canceled) return false
-                        onPhase("verify_files", vi, manifest.mediaFiles.size)
-                    }
-                }
-
-                onPhase("install_media", 0, manifest.mediaFiles.size)
-                var mi = 0
-                for (e in manifest.mediaFiles) {
-                    val from = File(ex, e.path)
-                    val to = File(dir, e.path)
-                    to.parentFile?.mkdirs()
-                    if (to.isFile) to.delete()
-                    if (!from.renameTo(to)) {
-                        from.copyTo(to, overwrite = true)
-                        from.delete()
-                    }
-                    mi++
-                    if (mi % 200 == 0) {
-                        if (canceled) return false
-                        onPhase("install_media", mi, manifest.mediaFiles.size)
-                    }
-                }
-            } catch (e: Exception) {
-                Log.w(TAG, "media: ${e.message}")
-                ex.deleteRecursively()
-                zip.delete()
-                part.delete()
-                return false
+            if (!ok) return false
+            if (!verifyFiles(ctx, full.files, onPhase)) {
+                // Vá xong mà verify fail = file local hỏng ở ngoài phạm vi vá → tự chữa full
+                Log.w(TAG, "verify fail goi $part — tu chua bang full")
+                if (!installZip(ctx, full, part, dir, onPhase, onZipProgress)) return false
+                if (!verifyFiles(ctx, full.files, onPhase)) return false
             }
         }
 
-        // ---------- 3. Verify toan bo sau khi cai ----------
-        val all = manifest.mediaFiles + manifest.codeFiles
-        onPhase("verify_install", 0, all.size)
+        // ---------- Verify toan bo (data + assets) ----------
+        if (!verifyFiles(ctx, manifest.data.files + manifest.assets.files, onPhase)) return false
+        writeIndex(ctx, manifest)
+        otaTmp(ctx).deleteRecursively()
+        return true
+    }
+
+    /** Verify danh sach file da cai theo manifest. */
+    private fun verifyFiles(
+        ctx: Context,
+        files: List<Entry>,
+        onPhase: (String, Int, Int) -> Unit,
+    ): Boolean {
+        val dir = assetsDir(ctx)
+        onPhase("verify", 0, files.size)
         var ci = 0
-        for (e in all) {
+        for (e in files) {
             val f = File(dir, e.path)
             if (!f.isFile || f.length() != e.size || hash(f) != e.sha256) {
                 Log.w(TAG, "verify install fail ${e.path}")
@@ -332,31 +261,219 @@ object OtaManager {
             ci++
             if (ci % 200 == 0) {
                 if (canceled) return false
-                onPhase("verify_install", ci, all.size)
+                onPhase("verify", ci, files.size)
             }
         }
-
-        // ---------- 4. Ghi index + don bo tam ----------
-        writeIndex(ctx, manifest)
-        otaTmp(ctx).deleteRecursively()
         return true
     }
 
     /**
-     * Tai ZIP media co resume: .part ton tai thi gui Range bytes=N- ghi tiep;
-     * server tra 200 thi tai lai tu dau. Giu .part qua cac lan that bai.
+     * Cai mot goi ZIP tai nguyen: bo qua neu cac file da dung tren dia (delta),
+     * khong thi tai ZIP (resume) -> verify sha256 -> giai nen -> verify tung file
+     * -> move vao dir. Loi giua chung: ZIP xong nhung hu thi xoa, .part giu lai.
      */
-    private fun downloadZip(ctx: Context, manifest: Manifest, onProgress: (Long, Long) -> Unit): Boolean {
-        val tmp = otaTmp(ctx)
-        tmp.mkdirs()
-        if (zipDone(ctx).isFile) return true
-        val part = zipPart(ctx)
+    private fun installZip(
+        ctx: Context,
+        sec: ZipPart,
+        section: String,
+        dir: File,
+        onPhase: (String, Int, Int) -> Unit,
+        onZipProgress: (String, Long, Long) -> Unit,
+    ): Boolean {
+        if (sec.files.all { hashOnDisk(dir, it) == it.sha256 }) return true
+        val part = partFile(ctx, section)
+        val zip = zipFile(ctx, section)
+        val ex = extractDir(ctx, section)
+        try {
+            if (!downloadZip(part, zip, sec.url, sec.size) { d, t -> onZipProgress(section, d, t) }) return false
+            if (canceled) return false
+
+            onPhase("$section.verify_zip", 0, 0)
+            val src = if (part.isFile) part else zip
+            if (!src.isFile || src.length() != sec.size || hash(src) != sec.sha256) {
+                src.delete()
+                return false
+            }
+            if (src == part && !part.renameTo(zip)) throw IOException("rename $section zip")
+
+            ex.deleteRecursively()
+            ex.mkdirs()
+            ZipFile(zip).use { zf ->
+                val entries = zf.entries().toList()
+                var i = 0
+                for (ze in entries) {
+                    i++
+                    if (ze.isDirectory) continue
+                    val out = File(ex, ze.name)
+                    if (!out.canonicalPath.startsWith(ex.canonicalPath)) return false // zip slip
+                    out.parentFile?.mkdirs()
+                    zf.getInputStream(ze).use { ins ->
+                        out.outputStream().use { outs -> ins.copyTo(outs) }
+                    }
+                    if (i % 200 == 0) {
+                        if (canceled) return false
+                        onPhase("$section.extract", i, entries.size)
+                    }
+                }
+            }
+
+            onPhase("$section.files", 0, sec.files.size)
+            var vi = 0
+            for (e in sec.files) {
+                val f = File(ex, e.path)
+                if (!f.isFile || f.length() != e.size || hash(f) != e.sha256) {
+                    throw IOException("verify extract fail ${e.path}")
+                }
+                vi++
+                if (vi % 200 == 0) {
+                    if (canceled) return false
+                    onPhase("$section.files", vi, sec.files.size)
+                }
+            }
+
+            onPhase("$section.install", 0, sec.files.size)
+            var mi = 0
+            for (e in sec.files) {
+                val from = File(ex, e.path)
+                val to = File(dir, e.path)
+                to.parentFile?.mkdirs()
+                if (to.isFile) to.delete()
+                if (!from.renameTo(to)) {
+                    from.copyTo(to, overwrite = true)
+                    from.delete()
+                }
+                mi++
+                if (mi % 200 == 0) {
+                    if (canceled) return false
+                    onPhase("$section.install", mi, sec.files.size)
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "$section: ${e.message}")
+            ex.deleteRecursively()
+            zip.delete()
+            part.delete()
+            return false
+        }
+        return true
+    }
+
+    /**
+     * Ap ban va: tai patch ZIP (nho) -> verify -> giai nen -> verify tung file
+     * -> move de len file cu -> xoa cac file trong remove[]. Verify toan bo sau
+     * do updateAll lo; index chi ghi khi verify pass — that bai thi lan sau van
+     * khop patch.from de ap lai.
+     */
+    private fun installPatch(
+        ctx: Context,
+        patch: PatchPart,
+        section: String,
+        dir: File,
+        onPhase: (String, Int, Int) -> Unit,
+        onZipProgress: (String, Long, Long) -> Unit,
+    ): Boolean {
+        val part = partFile(ctx, section)
+        val zip = zipFile(ctx, section)
+        val ex = extractDir(ctx, section)
+        try {
+            if (!downloadZip(part, zip, patch.url, patch.size) { d, t -> onZipProgress(section, d, t) }) return false
+            if (canceled) return false
+
+            onPhase("$section.verify_zip", 0, 0)
+            val src = if (part.isFile) part else zip
+            if (!src.isFile || src.length() != patch.size || hash(src) != patch.sha256) {
+                src.delete()
+                return false
+            }
+            if (src == part && !part.renameTo(zip)) throw IOException("rename $section zip")
+
+            ex.deleteRecursively()
+            ex.mkdirs()
+            ZipFile(zip).use { zf ->
+                val entries = zf.entries().toList()
+                var i = 0
+                for (ze in entries) {
+                    i++
+                    if (ze.isDirectory) continue
+                    val out = File(ex, ze.name)
+                    if (!out.canonicalPath.startsWith(ex.canonicalPath)) return false // zip slip
+                    out.parentFile?.mkdirs()
+                    zf.getInputStream(ze).use { ins ->
+                        out.outputStream().use { outs -> ins.copyTo(outs) }
+                    }
+                    if (i % 50 == 0) {
+                        if (canceled) return false
+                        onPhase("$section.extract", i, entries.size)
+                    }
+                }
+            }
+
+            onPhase("$section.files", 0, patch.files.size)
+            var vi = 0
+            for (e in patch.files) {
+                val f = File(ex, e.path)
+                if (!f.isFile || f.length() != e.size || hash(f) != e.sha256) {
+                    throw IOException("verify patch fail ${e.path}")
+                }
+                vi++
+                if (vi % 50 == 0) {
+                    if (canceled) return false
+                    onPhase("$section.files", vi, patch.files.size)
+                }
+            }
+
+            onPhase("$section.install", 0, patch.files.size)
+            var mi = 0
+            for (e in patch.files) {
+                val from = File(ex, e.path)
+                val to = File(dir, e.path)
+                to.parentFile?.mkdirs()
+                if (to.isFile) to.delete()
+                if (!from.renameTo(to)) {
+                    from.copyTo(to, overwrite = true)
+                    from.delete()
+                }
+                mi++
+                if (mi % 50 == 0) {
+                    if (canceled) return false
+                    onPhase("$section.install", mi, patch.files.size)
+                }
+            }
+
+            // Xoa file bi loai bo o ban moi (chi trong game-assets, chan path traversal)
+            for (rel in patch.remove) {
+                if (rel.split('/').any { it == ".." || it == "." }) return false
+                File(dir, rel).delete()
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "$section: ${e.message}")
+            ex.deleteRecursively()
+            zip.delete()
+            part.delete()
+            return false
+        }
+        return true
+    }
+
+    /**
+     * Tai ZIP co resume: .part ton tai thi gui Range bytes=N- ghi tiep; server tra
+     * 200 thi tai lai tu dau. Giu .part qua cac lan that bai de "Thử lại" tai tiep.
+     */
+    private fun downloadZip(
+        part: File,
+        done: File,
+        url: String,
+        size: Long,
+        onProgress: (Long, Long) -> Unit,
+    ): Boolean {
+        part.parentFile?.mkdirs()
+        if (done.isFile) return true
         var start = if (part.isFile) part.length() else 0L
-        if (start > manifest.zipSize) {
+        if (start > size) {
             part.delete()
             start = 0L
         }
-        val req = Request.Builder().url(manifest.zipUrl)
+        val req = Request.Builder().url(url)
         if (start > 0) req.header("Range", "bytes=$start-")
         val call = http.newCall(req.build())
         activeCall = call
@@ -379,7 +496,7 @@ object OtaManager {
                             if (n < 0) break
                             raf.write(buf, 0, n)
                             total += n
-                            onProgress(total, manifest.zipSize)
+                            onProgress(total, size)
                         }
                     }
                 }
@@ -390,23 +507,24 @@ object OtaManager {
         } finally {
             activeCall = null
         }
-        return part.length() == manifest.zipSize
+        return part.length() == size
     }
 
     fun writeIndex(ctx: Context, manifest: Manifest) {
         val files = JSONObject()
-        for (e in manifest.mediaFiles + manifest.codeFiles) files.put(e.path, e.sha256)
+        for (e in manifest.data.files + manifest.assets.files) files.put(e.path, e.sha256)
         val obj = JSONObject()
-        obj.put("mediaVersion", manifest.zipSha256)
-        obj.put("codeVersion", manifest.codeVersion)
+        obj.put("resVersion", manifest.version)
+        obj.put("dataVersion", manifest.data.sha256)
+        obj.put("assetsVersion", manifest.assets.sha256)
         obj.put("files", files)
         indexFile(ctx).writeText(obj.toString())
     }
 
     /**
-     * Xoa toan bo du lieu da tai (code + media + index + bo tam) — lan mo sau
-     * di nhanh nhu lan chay dau, tai lai tu dau. Khong dong gi den asset bundle
-     * trong APK (van la fallback khi doc file).
+     * Xoa toan bo du lieu da tai (data + index + bo tam) — lan mo sau di nhanh
+     * nhu lan chay dau, tai lai tu dau. Khong dong gi den asset bundle trong APK
+     * (van la fallback khi doc file).
      */
     fun resetInstalled(ctx: Context) {
         assetsDir(ctx).deleteRecursively()

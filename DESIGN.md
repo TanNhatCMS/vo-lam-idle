@@ -1,7 +1,7 @@
 # Thiết kế cập nhật App Android — Võ Lâm Idle
 
-- Ngày lập: 2026-10-03
-- Trạng thái: **bản thiết kế chờ duyệt, chưa triển khai**
+- Ngày lập: 2026-10-03 · Cập nhật: 2026-10-04 (triển khai v1.3.0)
+- Trạng thái: **đang triển khai** — code v1.3.0 đã vào working tree; còn E2E + release
 - Phạm vi: (A) hoàn thiện & phát hành WIP v1.2.0 — OTA manifest v3; (B) tính năng mới v1.3.0 — audio focus, hỏi trước khi tải qua dữ liệu di động, tự động sao lưu save, hoàn thiện màn hình tải.
 
 ---
@@ -121,7 +121,7 @@ Trên emulator Bdb_API_35 (build qua Bash background, không dùng MCP 30s):
 3. **Mở lại (offline):** bật airplane mode → vẫn vào game (đã có bộ cũ).
 4. **Update game:** sửa 1 dòng JS trong `game/js/` → regenerate manifest → commit + push → mở app → "Cập nhật game n/54 file…" → vào game thấy thay đổi (không cài APK).
 5. **Nút "Cập nhật app":** hiện khi versionName < tag Release mới nhất; bấm mở trang Release.
-6. Build `assembleRelease`, ký keystore `volam-idle`, `gh release create v1.2.0 app-release.apk ota-assets-1.2.0.zip`.
+6. Build `assembleRelease`, ký keystore `volam-idle`, `gh release create v1.2.0 app/build/outputs/apk/release/volam-idle-v1.2.0-release.apk ota-assets-1.2.0.zip` — APK đặt tên kèm phiên bản qua `applicationVariants` trong `build.gradle.kts` (mục 10).
 
 ---
 
@@ -264,7 +264,7 @@ Save nằm 100% trong localStorage của WebView — gỡ app / "xóa dữ liệ
 
 ### Hành vi — backup
 
-- **Kích hoạt:** trong `onPause()` khi `gameStarted`, **trước** `webView.onPause()/pauseTimers()` (JS phải chạy trước khi renderer ngừng).
+- **Kích hoạt (điều chỉnh sau khi cân nhắc timing):** chu kỳ `BACKUP_INTERVAL_MS = 60s` khi chơi (Handler re-arm), ngay tại `onResume()` (game đã save localStorage trong `pagehide` khi rời đi), và best-effort trong `onPause()` trước `webView.onPause()/pauseTimers()`. **Không dựa vào onPause làm kênh chính** — `pauseTimers` có thể nuốt task `evaluateJavascript` chưa kịp chạy; chu kỳ + resume là đảm bảo, snapshot lệch tối đa 1 phút so với localStorage (game tự save mỗi ~10s).
 - JS inject `BACKUP_SNAPSHOT_JS` (chạy 1 lần qua `evaluateJavascript`, không gắn listener):
 
 ```js
@@ -433,4 +433,73 @@ Trên emulator Bdb_API_35 + build debug (`./gradlew.bat assembleDebug`, Bash bac
 2. F2 metered confirm + permission ACCESS_NETWORK_STATE (mục 5)
 3. F3 auto-backup + khôi phục (mục 6)
 4. F4 hủy tải + xóa dữ liệu (mục 7)
-5. Bump versionCode 6 / versionName 1.3.0 → E2E checklist mục 8 → release
+5. Bump versionCode 6 / versionName 1.3.0 → E2E checklist mục 8 → release. APK đặt tên kèm phiên bản: `volam-idle-v<version>-<debug|release>.apk` (block `applicationVariants` trong `app/build.gradle.kts` đổi `outputFileName`).
+
+---
+
+## 11. Phụ lục — v1.4.0: OTA một gói `data` + cập nhật qua bản vá (manifest v5)
+
+Yêu cầu (2026-10-04, chốt khi triển khai): phần OTA **không phải "game" mà là tài nguyên**, **gộp data + media làm MỘT**; lần đầu vào game tải full `data`, sau đó chỉ **check bản vá và cập nhật bản vá**.
+
+**Manifest v5:**
+
+```json
+{ "otaVersion": 5, "version": "1.4.0",
+  "data":  { "zipName": "ota-data-1.4.0.zip", "zipUrl": …, "zipSha256": …, "zipSize": ~124MB, "totalBytes": …, "files": [{p,h,s} × 2090] },
+  "patch": { "from": "<zipSha256 data bản liền trước>", "zipName": "ota-patch-1.4.1.zip", "zipUrl": …, "zipSha256": …, "zipSize": nhỏ,
+             "files": [{p,h,s} — chỉ file đổi/thêm], "remove": ["path bị xóa"] } }
+```
+
+**Hành vi app (`OtaManager.updateAll`):**
+
+- `dataVersion` trong index khớp `patch.from` → **chỉ tải bản vá** (`patch.zip` vài KB–MB), áp lên bộ đã cài (overwrite file đổi/thêm + xóa `remove[]`), rồi verify toàn bộ theo `data.files` — pass mới ghi index. Thất bại giữa đường: index chưa ghi → lần sau vẫn khớp `from` → vá lại được.
+- Không khớp (lần đầu, hoặc bỏ qua phiên) → tải full data ZIP: resume `.part`, verify sha256, giải nén, verify từng file, move.
+- Nhãn UI: "Tải dữ liệu · x%" / "Tải bản vá · x%"; dòng phiên bản "App vX · Tài nguyên vX.Y" (`resVersion` trong index).
+
+**Tool (`make_ota_manifest.py`):** đọc manifest bản trước từ `git show HEAD:assets-manifest.json` (hỗ trợ v4 `resource.data` và v5 `data`), diff theo hash từng file → sinh `ota-patch-<v>.zip` (chỉ file đổi/thêm) + `remove[]`; không đọc được bản trước định dạng mới → `patch: null`. Cả 2 ZIP đều deterministic (FIXED_ZIP_TIME).
+
+**Giới hạn:** bản vá nối thẳng 1 phiên (liền trước → hiện tại); bỏ qua một phiên → tự rơi về tải full. Nếu sau này cần chuỗi nhiều bản vá, đổi `patch` thành mảng `patches[]` và app chọn mục khớp `from`.
+
+**Tương thích:** manifest v5 làm app cũ (≤ v1.3.0, chưa phát hành rộng) coi như "mất mạng" — chơi tiếp bộ đã cài, muốn nhận update phải cài APK mới. Chấp nhận vì v3/v4 chưa từng release.
+
+---
+
+## 12. Phụ lục — Màn hình Loading & Update (v1.4.x)
+
+Yêu cầu (2026-10-04): thêm màn hình loading có hiệu ứng + kiểm tra cập nhật, hiện thông tin phiên bản ở góc màn hình; có update thì chuyển qua màn update riêng với thông tin phiên bản hợp lý hơn. (File thiết kế này chuyển về root repo, đổi tên `DESIGN.md`.)
+
+### Luồng
+
+```
+Mở app → MÀN HÌNH LOADING (activity_loading.xml)
+   ├─ logo thở + title mờ dần + spinner + status chấm nhấp nháy
+   ├─ góc phải-dưới: "App v1.4.0 · Tài nguyên v1.4.0"
+   ├─ (nút "Cập nhật app vX" nếu GitHub Releases có APK mới)
+   ├─ fetch manifest → ĐANG CÀI ĐỦ → "Đã sẵn sàng" (0.5s) → vào game
+   ├─ fetch manifest → MẤT MẠNG + chưa cài → lỗi + Thử lại (trên loading)
+   └─ fetch manifest → CÓ BẢN MỚI / LẦN ĐẦU → MÀN HÌNH UPDATE (activity_download.xml)
+         ├─ thẻ phiên bản: "Đã cài: Tài nguyên v1.4.0" / "Trên máy chủ: Tài nguyên v1.4.1"
+         │                 "Cần tải: ~0.3 MB · bản vá"  (hoặc ~119 MB · tải đầy đủ)
+         ├─ góc phải-dưới lặp lại "App vX · Tài nguyên vX.Y"
+         ├─ tiến trình tải + Hủy tải / Thử lại / Xóa dữ liệu đã tải / Cập nhật app
+         └─ mạng đo lượng → dialog hỏi trước (giữ nguyên F2)
+```
+
+### Hiệu ứng loading (MainActivity.startLoadingFx)
+
+- Logo (ic_launcher) **thở**: scale 1 → 1.07, 1200ms, reverse lặp vô hạn (`ObjectAnimator` + `PropertyValuesHolder`).
+- Title "Võ Lâm Idle" **mờ dần**: alpha 1 → 0.55 cùng nhịp.
+- Spinner tròn tint vàng game `#E8D8A8` (indeterminate mặc định).
+- Status **chấm nhấp nháy**: "Đang kiểm tra cập nhật" + 0–3 chấm, chu kỳ 450ms (`Handler`).
+- Rời màn (vào game / sang màn update) → `stopLoadingFx()`: cancel animator + removeCallbacks, tránh leak view/animation.
+
+### Thông tin phiên bản
+
+- **Góc màn hình** (cả 2 màn): `App vX · Tài nguyên vX.Y` — `resVersion` trong index (fallback hash 8 ký tự). 11sp, xám `#6E7A70`, gravity `bottom|end`.
+- **Thẻ phiên bản trên màn update** (`bg_card` bo góc): dòng "đã cài" (hoặc "lần đầu cài đặt"), dòng "trên máy chủ", dòng "Cần tải" phân biệt **bản vá / tải đầy đủ** kèm dung lượng thực (ZIP patch hay ZIP full tùy `patch.from` có khớp bản đang cài hay không).
+
+### Kỹ thuật
+
+- `startOtaFlow()` chỉ làm loading + check; `showUpdateScreen(manifest, idx)` dựng màn update và tự chạy `runUpdate` (hoặc dialog metered). `screenRoot` giữ root view hiện hành để callback bất đồng bộ (checkApkUpdate) gắn nút đúng màn đang mở; `apkRelease` cache kết quả API Releases cho cả 2 màn.
+- Layout mới: `activity_loading.xml`, `drawable/bg_card.xml`; `activity_download.xml` dựng lại theo FrameLayout + thẻ phiên bản.
+- Đổi tên file thiết kế: `docs/DESIGN-v1.2.0-v1.3.0.md` → `DESIGN.md` (root repo).

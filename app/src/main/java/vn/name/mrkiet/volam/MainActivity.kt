@@ -1,5 +1,9 @@
 package vn.name.mrkiet.volam
 
+import android.animation.Animator
+import android.animation.ObjectAnimator
+import android.animation.PropertyValuesHolder
+import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.app.AlertDialog
 import android.content.Context
@@ -228,6 +232,29 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    // Hiệu ứng màn hình loading: logo thở, title mờ dần, chấm nhấp nháy ở status
+    private var loadingAnimators: List<Animator> = emptyList()
+    private var loadingStatusRef: TextView? = null
+    private var loadingBaseStatus: String = ""
+    private var dotsCount = 0
+    private val dotsHandler = Handler(Looper.getMainLooper())
+    private val dotsRunnable = object : Runnable {
+        override fun run() {
+            dotsCount = (dotsCount + 1) % 4
+            loadingStatusRef?.text = loadingBaseStatus + ".".repeat(dotsCount)
+            dotsHandler.postDelayed(this, 450)
+        }
+    }
+
+    // Màn hình hiện tại (loading hoặc update) — callback bất đồng bộ gắn nút đúng chỗ
+    private var screenRoot: View? = null
+
+    // Bản APK mới trên GitHub Releases (nếu có) — hiện nút trên màn đang mở
+    @Volatile private var apkRelease: OtaManager.ReleaseInfo? = null
+
+    // Trễ ngắn "Đã sẵn sàng" rồi mới vào game cho mượt
+    private val pendingStart = Runnable { startGame() }
+
     // Luu file (SAF create document): nhan base64 tu bridge -> chon noi luu -> ghi
     private var pendingSave: Pair<String, ByteArray>? = null
     private val saveFileLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -344,14 +371,149 @@ class MainActivity : ComponentActivity() {
 
     private fun startOtaFlow() {
         gameStarted = false
+        dotsHandler.removeCallbacks(dotsRunnable)
+        dotsHandler.removeCallbacks(pendingStart)
+
+        // ----- Màn hình loading: logo thở + spinner + kiểm tra cập nhật -----
+        val ui = layoutInflater.inflate(R.layout.activity_loading, null)
+        screenRoot = ui
+        setContentView(ui)
+        val status = ui.findViewById<TextView>(R.id.loadingStatus)
+        loadingStatusRef = status
+        loadingBaseStatus = "Đang kiểm tra cập nhật"
+        status.text = loadingBaseStatus
+        ui.findViewById<TextView>(R.id.versionCorner).text = versionCornerText()
+        startLoadingFx(ui)
+        ui.findViewById<Button>(R.id.loadingRetry).setOnClickListener { startOtaFlow() }
+        checkApkUpdate()
+        showApkUpdateButton(ui)
+
+        Thread {
+            val manifest = OtaManager.fetchManifest()
+            val idx = OtaManager.loadIndex(this)
+            runOnUiThread {
+                when {
+                    // Mất mạng nhưng đã từng cài đủ (data + assets) → chơi tiếp
+                    manifest == null && idx.dataVersion != null && idx.assetsVersion != null -> startGame()
+                    manifest == null ->
+                        showLoadingError(ui, "Không tải được dữ liệu game.\nCần kết nối mạng cho lần chạy đầu tiên.")
+                    OtaManager.installedUpToDate(this, manifest) -> {
+                        loadingBaseStatus = "Đã sẵn sàng"
+                        status.text = loadingBaseStatus
+                        dotsHandler.postDelayed(pendingStart, 500)
+                    }
+                    else -> showUpdateScreen(manifest, idx)
+                }
+            }
+        }.start()
+    }
+
+    // ----- Hiệu ứng loading: logo thở, title mờ dần, chấm nhấp nháy -----
+
+    private fun startLoadingFx(ui: View) {
+        val logo = ui.findViewById<View>(R.id.loadingLogo)
+        val title = ui.findViewById<View>(R.id.loadingTitle)
+        val breathe = ObjectAnimator.ofPropertyValuesHolder(
+            logo,
+            PropertyValuesHolder.ofFloat(View.SCALE_X, 1f, 1.07f),
+            PropertyValuesHolder.ofFloat(View.SCALE_Y, 1f, 1.07f),
+        ).apply {
+            duration = 1200
+            repeatCount = ValueAnimator.INFINITE
+            repeatMode = ValueAnimator.REVERSE
+        }
+        val fade = ObjectAnimator.ofFloat(title, View.ALPHA, 1f, 0.55f).apply {
+            duration = 1200
+            repeatCount = ValueAnimator.INFINITE
+            repeatMode = ValueAnimator.REVERSE
+        }
+        breathe.start()
+        fade.start()
+        loadingAnimators = listOf(breathe, fade)
+        dotsCount = 0
+        dotsHandler.removeCallbacks(dotsRunnable)
+        dotsHandler.postDelayed(dotsRunnable, 450)
+    }
+
+    private fun stopLoadingFx() {
+        loadingAnimators.forEach { it.cancel() }
+        loadingAnimators = emptyList()
+        dotsHandler.removeCallbacks(dotsRunnable)
+        dotsHandler.removeCallbacks(pendingStart)
+        loadingStatusRef = null
+    }
+
+    /** Lỗi khi còn ở màn hình loading (chưa vào được màn cập nhật). */
+    private fun showLoadingError(ui: View, msg: String) {
+        loadingBaseStatus = msg
+        dotsCount = 0
+        dotsHandler.removeCallbacks(dotsRunnable) // giữ nguyên text lỗi, bỏ chấm nhấp nháy
+        ui.findViewById<TextView>(R.id.loadingStatus).text = msg
+        ui.findViewById<View>(R.id.loadingSpinner).visibility = View.INVISIBLE
+        ui.findViewById<Button>(R.id.loadingRetry).visibility = View.VISIBLE
+    }
+
+    /** "App v1.4.0 · Tài nguyên v1.4.0" — phiên bản app + bộ tài nguyên đã cài. */
+    private fun versionCornerText(): String {
+        val app = try {
+            packageManager.getPackageInfo(packageName, 0).versionName
+        } catch (e: Exception) {
+            "?"
+        }
+        val idx = OtaManager.loadIndex(this)
+        val res = idx.resVersion?.let { "v$it" } ?: idx.dataVersion?.take(8) ?: "—"
+        return "App v$app · Tài nguyên $res"
+    }
+
+    /**
+     * Có bản mới (hoặc lần chạy đầu) → chuyển từ loading sang màn cập nhật:
+     * thẻ phiên bản (đã cài → máy chủ + dung lượng bản vá/full), tự chạy cập
+     * nhật qua Wi-Fi; mạng đo lượng thì hỏi trước.
+     */
+    private fun showUpdateScreen(manifest: OtaManager.Manifest, idx: OtaManager.InstalledIndex) {
+        stopLoadingFx()
         val ui = layoutInflater.inflate(R.layout.activity_download, null)
-        val retry = ui.findViewById<Button>(R.id.otaRetry)
-        retry.setOnClickListener { startOtaFlow() }
+        screenRoot = ui
+        setContentView(ui)
+
+        val fresh = idx.dataVersion == null && idx.assetsVersion == null
+        fun partLine(name: String, full: OtaManager.ZipPart, patch: OtaManager.PatchPart?, cur: String?): String? =
+            when {
+                cur == full.sha256 -> null
+                patch != null && cur == patch.from ->
+                    String.format(Locale.US, "%s ~%.1f MB (bản vá)", name, patch.size / 1048576.0)
+                else ->
+                    String.format(Locale.US, "%s ~%.1f MB (đầy đủ)", name, full.size / 1048576.0)
+            }
+        val lines = listOfNotNull(
+            partLine("Dữ liệu", manifest.data, manifest.patch.data, idx.dataVersion),
+            partLine("Assets", manifest.assets, manifest.patch.assets, idx.assetsVersion),
+        ).ifEmpty {
+            listOf(
+                String.format(
+                    Locale.US, "Toàn bộ ~%.1f MB",
+                    (manifest.data.size + manifest.assets.size) / 1048576.0,
+                )
+            )
+        }
+
+        ui.findViewById<TextView>(R.id.otaTitle).text = if (fresh) "Tải dữ liệu game" else "Cập nhật game"
+        ui.findViewById<TextView>(R.id.otaVerCurrent).text = if (fresh) {
+            "Máy chưa có dữ liệu game (lần đầu cài đặt)"
+        } else {
+            "Đã cài: Tài nguyên v${idx.resVersion ?: idx.dataVersion?.take(8)}"
+        }
+        ui.findViewById<TextView>(R.id.otaVerNew).text = "Trên máy chủ: Tài nguyên v${manifest.version}"
+        ui.findViewById<TextView>(R.id.otaVerSize).text = "Cần tải:\n" + lines.joinToString("\n")
+        ui.findViewById<TextView>(R.id.versionCorner).text = versionCornerText()
+
+        ui.findViewById<Button>(R.id.otaRetry).setOnClickListener { startOtaFlow() }
         ui.findViewById<Button>(R.id.otaCancel).setOnClickListener { OtaManager.cancelUpdate() }
-        ui.findViewById<Button>(R.id.otaReset).setOnClickListener {
+        val resetBtn = ui.findViewById<Button>(R.id.otaReset)
+        resetBtn.setOnClickListener {
             AlertDialog.Builder(this)
                 .setTitle("Xóa dữ liệu đã tải")
-                .setMessage("Xóa toàn bộ dữ liệu game đã tải (code + tài nguyên)?\nLần chạy sau sẽ tải lại từ đầu.")
+                .setMessage("Xóa toàn bộ dữ liệu game đã tải?\nLần chạy sau sẽ tải lại từ đầu.")
                 .setNegativeButton("Hủy", null)
                 .setPositiveButton("Xóa") { _, _ ->
                     OtaManager.resetInstalled(this)
@@ -359,26 +521,10 @@ class MainActivity : ComponentActivity() {
                 }
                 .show()
         }
-        setContentView(ui)
-        ui.findViewById<TextView>(R.id.otaStatus).text = "Đang kiểm tra cập nhật game…"
-        ui.findViewById<Button>(R.id.otaReset).visibility = View.VISIBLE
-        showVersions(ui, OtaManager.loadIndex(this))
-        checkApkUpdate(ui)
+        resetBtn.visibility = View.VISIBLE
+        showApkUpdateButton(ui)
 
-        Thread {
-            val manifest = OtaManager.fetchManifest()
-            val idx = OtaManager.loadIndex(this)
-            runOnUiThread {
-                when {
-                    // Mất mạng nhưng đã từng cài đủ bộ (code + media) → chơi tiếp
-                    manifest == null && idx.codeVersion != null && idx.mediaVersion != null -> startGame()
-                    manifest == null ->
-                        showError(ui, "Không tải được dữ liệu game.\nCần kết nối mạng cho lần chạy đầu tiên.")
-                    OtaManager.installedUpToDate(this, manifest) -> startGame()
-                    else -> if (isMetered()) confirmMeteredDownload(ui, manifest, idx) else runUpdate(ui, manifest)
-                }
-            }
-        }.start()
+        if (isMetered()) confirmMeteredDownload(ui, manifest, idx) else runUpdate(ui, manifest)
     }
 
     private fun isMetered(): Boolean = try {
@@ -393,8 +539,17 @@ class MainActivity : ComponentActivity() {
         manifest: OtaManager.Manifest,
         idx: OtaManager.InstalledIndex,
     ) {
-        val fresh = idx.codeVersion == null && idx.mediaVersion == null
-        val mb = (manifest.zipSize + manifest.codeBytes) / 1048576.0
+        val fresh = idx.dataVersion == null && idx.assetsVersion == null
+        // Dung lượng cần tải = tổng các gói chưa có (khớp from → bản vá, không → full)
+        fun partBytes(full: OtaManager.ZipPart, patch: OtaManager.PatchPart?, cur: String?): Long = when {
+            cur == full.sha256 -> 0L
+            patch != null && cur == patch.from -> patch.size
+            else -> full.size
+        }
+        val mb = (
+            partBytes(manifest.data, manifest.patch.data, idx.dataVersion) +
+                partBytes(manifest.assets, manifest.patch.assets, idx.assetsVersion)
+            ) / 1048576.0
         val builder = AlertDialog.Builder(this)
         if (fresh) {
             builder
@@ -424,17 +579,6 @@ class MainActivity : ComponentActivity() {
             .show()
     }
 
-    /** Dòng phiên bản hiện tại trên màn hình update: App / Game (code) / Tài nguyên (media). */
-    private fun showVersions(ui: View, idx: OtaManager.InstalledIndex) {
-        val app = try {
-            packageManager.getPackageInfo(packageName, 0).versionName
-        } catch (e: Exception) {
-            "?"
-        }
-        ui.findViewById<TextView>(R.id.otaVersions).text =
-            "App v$app · Game ${idx.codeVersion?.take(8) ?: "—"} · Tài nguyên ${idx.mediaVersion?.take(8) ?: "—"}"
-    }
-
     private fun runUpdate(ui: View, manifest: OtaManager.Manifest) {
         val bar = ui.findViewById<ProgressBar>(R.id.otaBar)
         val status = ui.findViewById<TextView>(R.id.otaStatus)
@@ -455,24 +599,33 @@ class MainActivity : ComponentActivity() {
                     val pct = if (total > 0) done * 100 / total else 0
                     runOnUiThread {
                         if (total > 0) bar.progress = pct
-                        status.text = when (phase) {
-                            "code" -> String.format(Locale.US, "Cập nhật game %d/%d file…", done, total)
-                            "verify_zip" -> "Kiểm tra file đã tải…"
-                            "extract" -> String.format(Locale.US, "Giải nén %d/%d…", done, total)
-                            "verify_files" -> String.format(Locale.US, "Kiểm tra tài nguyên %d/%d…", done, total)
-                            "install_media" -> String.format(Locale.US, "Cài đặt tài nguyên %d/%d…", done, total)
-                            "verify_install" -> String.format(Locale.US, "Kiểm tra sau cài %d/%d…", done, total)
+                        status.text = when {
+                            phase == "verify" && total > 0 ->
+                                String.format(Locale.US, "Kiểm tra sau cài %d/%d…", done, total)
+                            phase.endsWith(".verify_zip") -> "Kiểm tra file đã tải…"
+                            phase.endsWith(".extract") ->
+                                String.format(Locale.US, "Giải nén %d/%d…", done, total)
+                            phase.endsWith(".files") ->
+                                String.format(Locale.US, "Kiểm tra tài nguyên %d/%d…", done, total)
+                            phase.endsWith(".install") ->
+                                String.format(Locale.US, "Cài đặt tài nguyên %d/%d…", done, total)
                             else -> "Đang xử lý…"
                         }
                     }
                 },
-                onZipProgress = { done, total ->
+                onZipProgress = { section, done, total ->
                     runOnUiThread {
                         val pct = if (total > 0) (done * 100 / total).toInt() else 0
                         bar.progress = pct
+                        val label = when (section) {
+                            "assets" -> "assets"
+                            "data-patch" -> "bản vá dữ liệu"
+                            "assets-patch" -> "bản vá assets"
+                            else -> "dữ liệu"
+                        }
                         status.text = String.format(
-                            Locale.US, "Tải tài nguyên · %d%% (%.0f/%.0f MB)",
-                            pct, done / 1048576.0, total / 1048576.0
+                            Locale.US, "Tải %s · %d%% (%.0f/%.0f MB)",
+                            label, pct, done / 1048576.0, total / 1048576.0
                         )
                     }
                 },
@@ -500,8 +653,8 @@ class MainActivity : ComponentActivity() {
         return false
     }
 
-    /** Check APK mới trên GitHub Releases — không chặn vào game, chỉ hiện nút. */
-    private fun checkApkUpdate(ui: View) {
+    /** Check APK mới trên GitHub Releases — không chặn, hiện nút trên màn đang mở. */
+    private fun checkApkUpdate() {
         Thread {
             val rel = OtaManager.fetchLatestRelease() ?: return@Thread
             val current = try {
@@ -510,18 +663,22 @@ class MainActivity : ComponentActivity() {
                 null
             } ?: return@Thread
             if (!isNewerVersion(rel.tag, current)) return@Thread
-            runOnUiThread {
-                val btn = ui.findViewById<Button>(R.id.otaApk)
-                btn.text = "Cập nhật app ${rel.tag}"
-                btn.visibility = View.VISIBLE
-                btn.setOnClickListener {
-                    try {
-                        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(rel.url)))
-                    } catch (e: Exception) {
-                    }
-                }
-            }
+            apkRelease = rel
+            runOnUiThread { screenRoot?.let { showApkUpdateButton(it) } }
         }.start()
+    }
+
+    private fun showApkUpdateButton(root: View) {
+        val rel = apkRelease ?: return
+        val btn = root.findViewById<Button>(R.id.otaApk) ?: return
+        btn.text = "Cập nhật app ${rel.tag}"
+        btn.visibility = View.VISIBLE
+        btn.setOnClickListener {
+            try {
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(rel.url)))
+            } catch (e: Exception) {
+            }
+        }
     }
 
     private fun showError(ui: View, msg: String) {
@@ -534,6 +691,8 @@ class MainActivity : ComponentActivity() {
 
     @SuppressLint("SetJavaScriptEnabled")
     private fun startGame() {
+        stopLoadingFx()
+        screenRoot = null
         gameStarted = true
         webView = WebView(this)
         webView.setBackgroundColor(Color.parseColor(GAME_BG))
@@ -651,12 +810,20 @@ class MainActivity : ComponentActivity() {
     /** F1: giữ audio focus khi game foreground — cuộc gọi/app nhạc khác làm game tự im. */
     private fun requestGameFocus() {
         if (Build.VERSION.SDK_INT >= 26) {
+            // Tái dùng request cũ qua các lần resume. Listener BẮT BUỘC — thiếu nó thì
+            // sự kiện mất focus (cuộc gọi đến) không bao giờ kích hoạt AUDIO_PAUSE_JS.
+            val existing = focusRequest
+            if (existing != null) {
+                audioManager.requestAudioFocus(existing)
+                return
+            }
             val req = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
                 .setAudioAttributes(
                     AudioAttributes.Builder()
                         .setUsage(AudioAttributes.USAGE_GAME)
                         .build()
                 )
+                .setOnAudioFocusChangeListener(focusListener)
                 .build()
             focusRequest = req
             audioManager.requestAudioFocus(req)
@@ -672,6 +839,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        stopLoadingFx()
         if (gameStarted) webView.destroy()
         super.onDestroy()
     }

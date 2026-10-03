@@ -1,80 +1,128 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- Màn hình cập nhật: chuyển tới từ màn hình loading khi có bản mới (hoặc lần
+     chạy đầu). Thẻ phiên bản: bản đã cài → bản trên máy chủ + dung lượng cần tải
+     (bản vá hay full). Thông tin phiên bản app/tài nguyên lặp lại ở góc phải-dưới. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:gravity="center"
-    android:background="#0E1412"
-    android:padding="32dp">
+    android:background="#0E1412">
 
-    <TextView
-        android:id="@+id/otaTitle"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Võ Lâm Idle"
-        android:textSize="24sp"
-        android:textStyle="bold"
-        android:textColor="#E8D8A8" />
-
-    <ProgressBar
-        android:id="@+id/otaBar"
-        style="?android:attr/progressBarStyleHorizontal"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="24dp" />
+        android:layout_gravity="center"
+        android:orientation="vertical"
+        android:padding="28dp">
+
+        <TextView
+            android:id="@+id/otaTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:text="Cập nhật game"
+            android:textColor="#E8D8A8"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:background="@drawable/bg_card"
+            android:orientation="vertical"
+            android:padding="14dp">
+
+            <TextView
+                android:id="@+id/otaVerCurrent"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="#A8B5A8"
+                android:textSize="13sp" />
+
+            <TextView
+                android:id="@+id/otaVerNew"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:textColor="#A8B5A8"
+                android:textSize="13sp" />
+
+            <TextView
+                android:id="@+id/otaVerSize"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:textColor="#E8D8A8"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <ProgressBar
+            android:id="@+id/otaBar"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/otaStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:gravity="center"
+            android:text="Đang chuẩn bị tải…"
+            android:textColor="#CCCCCC"
+            android:textSize="14sp" />
+
+        <Button
+            android:id="@+id/otaApk"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="16dp"
+            android:visibility="gone"
+            android:text="Cập nhật app" />
+
+        <Button
+            android:id="@+id/otaCancel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="16dp"
+            android:visibility="gone"
+            android:text="Hủy tải" />
+
+        <Button
+            android:id="@+id/otaRetry"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="16dp"
+            android:visibility="gone"
+            android:text="Thử lại" />
+
+        <Button
+            android:id="@+id/otaReset"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="10dp"
+            android:background="?android:attr/selectableItemBackground"
+            android:padding="8dp"
+            android:textAllCaps="false"
+            android:textColor="#98A397"
+            android:textSize="12sp"
+            android:visibility="gone"
+            android:text="Xóa dữ liệu đã tải" />
+    </LinearLayout>
 
     <TextView
-        android:id="@+id/otaStatus"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:gravity="center"
-        android:textSize="14sp"
-        android:textColor="#CCCCCC"
-        android:text="Đang kiểm tra cập nhật game…" />
-
-    <TextView
-        android:id="@+id/otaVersions"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
-        android:gravity="center"
-        android:textSize="12sp"
-        android:textColor="#777777" />
-
-    <Button
-        android:id="@+id/otaApk"
+        android:id="@+id/versionCorner"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:visibility="gone"
-        android:text="Cập nhật app" />
-
-    <Button
-        android:id="@+id/otaCancel"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:visibility="gone"
-        android:text="Hủy tải" />
-
-    <Button
-        android:id="@+id/otaReset"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
-        android:visibility="gone"
-        android:background="?android:attr/selectableItemBackground"
-        android:textAllCaps="false"
-        android:textColor="#98A397"
-        android:textSize="12sp"
-        android:text="Xóa dữ liệu đã tải" />
-
-    <Button
-        android:id="@+id/otaRetry"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="20dp"
-        android:visibility="gone"
-        android:text="Thử lại" />
-</LinearLayout>
+        android:layout_gravity="bottom|end"
+        android:padding="14dp"
+        android:textColor="#6E7A70"
+        android:textSize="11sp" />
+</FrameLayout>

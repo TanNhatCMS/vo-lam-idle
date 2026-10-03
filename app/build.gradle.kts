@@ -21,8 +21,8 @@ android {
         applicationId = "vn.name.mrkiet.volam"
         minSdk = 24
         targetSdk = 35
-        versionCode = 6
-        versionName = "1.3.0"
+        versionCode = 7
+        versionName = "1.4.0"
     }
 
     compileOptions {
@@ -44,11 +44,37 @@ android {
         }
     }
 
+    buildFeatures {
+        buildConfig = true
+    }
+
     buildTypes {
+        debug {
+            // Test OTA local: ./gradlew.bat assembleDebug -PotaLocal
+            // -> manifest + ZIP tro ve server tools/local_ota_server.py (10.0.2.2:8000).
+            // Khong co co thi debug cung dung GitHub production nhu release.
+            buildConfigField(
+                "boolean", "OTA_LOCAL",
+                ((findProperty("otaLocal") as? String)?.toBoolean() ?: false).toString(),
+            )
+            buildConfigField("String", "OTA_LOCAL_BASE", "\"http://10.0.2.2:8000/\"")
+        }
         release {
+            buildConfigField("boolean", "OTA_LOCAL", "false")
+            buildConfigField("String", "OTA_LOCAL_BASE", "\"\"")
             isMinifyEnabled = false
             signingConfig = if (keystorePropsFile.exists()) signingConfigs.getByName("release")
                 else signingConfigs.getByName("debug")
+        }
+    }
+
+    // Ten file APK kep phien ban: volam-idle-v1.3.0-debug.apk / volam-idle-v1.3.0-release.apk
+    // (mac dinh la app-debug.apk / app-release.apk — kho phan biet cac ban khi luu tru)
+    applicationVariants.all {
+        val variantName = name
+        outputs.all {
+            (this as com.android.build.gradle.internal.api.BaseVariantOutputImpl).outputFileName =
+                "volam-idle-v$versionName-$variantName.apk"
         }
     }
 }

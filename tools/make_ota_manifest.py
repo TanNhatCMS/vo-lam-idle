@@ -1,31 +1,38 @@
 #!/usr/bin/env python3
-"""Sinh OTA ZIP (media) + assets-manifest.json cho app Android (OtaManager.kt).
+"""Sinh OTA ZIP tài nguyên + assets-manifest.json cho app Android (OtaManager.kt).
 
-Manifest v3 gom 2 phần:
-  - media: ZIP đính kèm GitHub Release (img, snd, music, fx) — zipSha256 làm version
-  - code:  index.html, *.js, style.css, manifest.json, js/, fonts/, ui/ — từng file
-           tải riêng qua raw.githubusercontent (delta per-file), code.version là
-           sha256 tổng của danh sách file
+Manifest v6 — tài nguyên tách 2 gói theo tần suất thay đổi, mỗi gói một ZIP
+đính kèm GitHub Release + bản vá riêng:
+  - data   : ZIP ota-data-<v>.zip   — index.html, js, data.js, fonts, ui
+             (~4MB, THƯỜNG SỬA)
+  - assets : ZIP ota-assets-<v>.zip — img, snd, music, fx (~115MB, ÍT SỬA)
+  - patch  : { "data": {...}|null, "assets": {...}|null } — bản vá từng gói:
+             chỉ chứa file THAY ĐỔI/THÊM MỚI so với bản phát hành TRƯỚC +
+             danh sách file bị xóa. App áp vá của gói nào khi dataVersion/
+             assetsVersion đang cài == patch.<gói>.from; lệch nhánh thì tải
+             lại full gói đó. patch.<gói> = null nếu không có gì đổi.
 
 Quy trình phát hành:
   1. Copy file game mới vào game/
-  2. python tools/make_ota_manifest.py --version 1.3.0
+  2. python tools/make_ota_manifest.py --version 1.4.0
+     (tool đọc manifest bản trước từ git HEAD để tính bản vá)
   3. git add assets-manifest.json && git commit && git push
-  4. gh release create v1.3.0 app-release.apk ota-assets-1.3.0.zip
-ZIP tạo với timestamp cố định nên deterministic: bộ media không đổi -> zipSha256
-không đổi -> app đang cài sẽ bỏ qua tải media (chỉ update code nếu code đổi).
+  4. gh release create v1.4.0 <apk> ota-data-1.4.0.zip ota-assets-1.4.0.zip
+     (chỉ đính kèm ZIP gói có thay đổi — gói không đổi không cần ZIP mới)
+ZIP tạo với timestamp cố định nên deterministic.
 """
 import argparse
 import hashlib
 import json
 import os
+import subprocess
 import sys
 import zipfile
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 GAME = os.path.join(REPO, "game")
 OUT_MANIFEST = os.path.join(REPO, "assets-manifest.json")
-MEDIA_DIRS = ["img", "snd", "music", "fx"]
+MEDIA_DIRS = ["img", "snd", "music", "fx"]  # gói assets; còn lại thuộc gói data
 EXCLUDE_FILES = {"sw.js", "README.md", "wrangler.jsonc", ".gitignore", ".gitattributes", ".assetsignore"}
 EXCLUDE_DIRS = {".git", ".wrangler", ".zcode", ".claude", "android"}
 ZIP_URL_BASE = "https://github.com/TanNhatCMS/volam-idle-android/releases/download/v{v}/{name}"
@@ -40,15 +47,17 @@ def sha256(path: str) -> str:
     return h.hexdigest()
 
 
-def scan(only_dirs=None) -> list:
+def scan(only_assets: bool) -> list:
+    """Gói assets = các thư mục media; gói data = mọi thứ còn lại."""
     out = []
     for root, dirs, names in os.walk(GAME):
         rel_root = os.path.relpath(root, GAME).replace(os.sep, "/")
         top = rel_root.split("/")[0] if rel_root != "." else ""
         dirs[:] = [d for d in dirs if d not in EXCLUDE_DIRS]
-        if only_dirs is not None and top not in only_dirs:
+        if top in EXCLUDE_DIRS:
             continue
-        if only_dirs is None and top in MEDIA_DIRS:
+        in_media = top in MEDIA_DIRS
+        if in_media != only_assets:
             continue
         for name in sorted(names):
             if name in EXCLUDE_FILES:
@@ -60,52 +69,135 @@ def scan(only_dirs=None) -> list:
     return out
 
 
-def code_version(files: list) -> str:
-    blob = json.dumps(files, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
-    return hashlib.sha256(blob).hexdigest()
-
-
-def main() -> int:
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--version", required=True, help="phien ban OTA, vd 1.3.0")
-    args = ap.parse_args()
-    version = args.version
-    zip_name = f"ota-assets-{version}.zip"
+def build_zip(kind: str, files: list, sources: dict) -> dict:
+    zip_name = f"ota-{kind}-{version}.zip"
     zip_path = os.path.join(REPO, zip_name)
-
-    media = scan(only_dirs=set(MEDIA_DIRS))
-    code = scan(only_dirs=None)
-
     with zipfile.ZipFile(zip_path, "w") as zf:
-        for f in media:
+        for f in files:
             zi = zipfile.ZipInfo(f["p"], date_time=FIXED_ZIP_TIME)
             zi.compress_type = zipfile.ZIP_STORED
             zi.external_attr = 0o644 << 16
-            with open(os.path.join(GAME, f["p"]), "rb") as src:
+            with open(sources[f["p"]], "rb") as src:
                 zf.writestr(zi, src.read())
-    zip_size = os.path.getsize(zip_path)
-    zip_hash = sha256(zip_path)
+    return {
+        "zipName": zip_name,
+        "zipUrl": ZIP_URL_BASE.format(v=version, name=zip_name),
+        "zipSha256": sha256(zip_path),
+        "zipSize": os.path.getsize(zip_path),
+        "totalBytes": sum(f["s"] for f in files),
+        "files": files,
+    }
+
+
+def previous_manifest() -> dict | None:
+    """Manifest của bản phát hành trước (commit ở HEAD), trả None nếu không đọc được."""
+    try:
+        blob = subprocess.run(
+            ["git", "show", "HEAD:assets-manifest.json"],
+            cwd=REPO, capture_output=True, check=True,
+        ).stdout
+        return json.loads(blob)
+    except Exception as e:
+        print(f"(khong doc duoc manifest cu tu git HEAD: {e} — bo qua ban va)")
+        return None
+
+
+def old_parts(old: dict) -> dict | None:
+    """{tên gói: {zipSha256, files}} của manifest cũ. Hỗ trợ v4/v6 (data+media/assets)
+    và v5 (data full — tự tách theo MEDIA_DIRS)."""
+    if not isinstance(old, dict):
+        return None
+    out: dict[str, dict] = {}
+    if "data" in old and isinstance(old["data"], dict):          # v6
+        out["data"] = old["data"]
+        out["assets"] = old.get("assets", {}) if isinstance(old.get("assets"), dict) else {}
+    elif isinstance(old.get("resource"), dict):                  # v4
+        res = old["resource"]
+        if isinstance(res.get("data"), dict):
+            out["data"] = res["data"]
+        if isinstance(res.get("media"), dict):
+            out["assets"] = res["media"]
+    elif isinstance(old.get("data"), dict) and old["data"].get("files"):  # v5: data full
+        full = old["data"]["files"]
+        out["data"] = {"zipSha256": old["data"].get("zipSha256"),
+                       "files": [f for f in full if f["p"].split("/")[0] not in MEDIA_DIRS]}
+        out["assets"] = {"zipSha256": None,
+                         "files": [f for f in full if f["p"].split("/")[0] in MEDIA_DIRS]}
+    return out if out.get("data", {}).get("files") else None
+
+
+version = ""  # đặt trong main(), dùng bởi build_zip
+
+
+def build_patch(kind: str, old_part: dict, new_files: list, sources: dict) -> dict | None:
+    old_map = {f["p"]: f["h"] for f in old_part.get("files", [])}
+    new_map = {f["p"]: f["h"] for f in new_files}
+    changed = [f for f in new_files if old_map.get(f["p"]) != f["h"]]
+    removed = sorted(p for p in old_map if p not in new_map)
+    if not changed and not removed:
+        print(f"patch {kind:6s}: khong co gi thay doi")
+        return None
+    desc = build_zip(f"{kind}-patch", changed, sources)  # zip ota-<kind>-patch-<v>.zip
+    desc["from"] = old_part.get("zipSha256") or ""
+    desc["remove"] = removed
+    return desc
+
+
+def main() -> int:
+    global version
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--version", required=True, help="phien ban OTA, vd 1.4.0")
+    args = ap.parse_args()
+    version = args.version
+
+    data_files = scan(only_assets=False)
+    assets_files = scan(only_assets=True)
+    sources = {f["p"]: os.path.join(GAME, f["p"]) for f in data_files + assets_files}
+    data_desc = build_zip("data", data_files, sources)
+    assets_desc = build_zip("assets", assets_files, sources)
+
+    # ---------- Bản vá từng gói: diff so với bản phát hành trước ----------
+    patches: dict[str, dict | None] = {"data": None, "assets": None}
+    old = previous_manifest()
+    old_parts_map = old_parts(old) if old else None
+    if old_parts_map:
+        for kind, new_files, new_desc in (
+            ("data", data_files, data_desc),
+            ("assets", assets_files, assets_desc),
+        ):
+            old_part = old_parts_map.get(kind)
+            if not old_part or not old_part.get("zipSha256"):
+                print(f"patch {kind:6s}: bo qua (khong co ban truoc cua goi nay)")
+                continue
+            p = build_patch(kind, old_part, new_files, sources)
+            if p is None:
+                continue
+            ratio = p["zipSize"] * 100 // max(new_desc["zipSize"], 1)
+            if ratio > 60:  # vá gần bằng full thì bỏ, cho tải full cho nhanh
+                print(f"patch {kind:6s}: bo qua (chiem ~{ratio}% full) — chi phat full")
+                p = None
+            else:
+                print(f"patch {kind:6s}: {len(p['files'])} doi/them, {len(p['remove'])} xoa | "
+                      f"zip {p['zipSize']/1048576:.2f} MB (~{ratio}% full) "
+                      f"tu {p['from'][:12]}…")
+            patches[kind] = p
+    else:
+        print("patch: bo qua (khong co ban truoc dinh dang moi de diff)")
 
     payload = {
-        "otaVersion": 3,
-        "media": {
-            "zipName": zip_name,
-            "zipUrl": ZIP_URL_BASE.format(v=version, name=zip_name),
-            "zipSha256": zip_hash,
-            "zipSize": zip_size,
-            "totalBytes": sum(f["s"] for f in media),
-            "files": media,
-        },
-        "code": {
-            "version": code_version(code),
-            "totalBytes": sum(f["s"] for f in code),
-            "files": code,
-        },
+        "otaVersion": 6,
+        "version": version,
+        "data": data_desc,
+        "assets": assets_desc,
+        "patch": patches,
     }
     with open(OUT_MANIFEST, "w", encoding="utf-8", newline="\n") as f:
         json.dump(payload, f, ensure_ascii=False, separators=(",", ":"))
-    print(f"media: {len(media)} files, {sum(f['s'] for f in media)/1048576:.1f} MB | zip {zip_size/1048576:.1f} MB sha256={zip_hash[:12]}…")
-    print(f"code:  {len(code)} files, {sum(f['s'] for f in code)/1048576:.1f} MB | version={code_version(code)[:12]}…")
+
+    print(f"data  : {len(data_files)} files, {data_desc['totalBytes']/1048576:6.1f} MB | "
+          f"zip {data_desc['zipSize']/1048576:6.1f} MB sha256={data_desc['zipSha256'][:12]}… ({data_desc['zipName']})")
+    print(f"assets: {len(assets_files)} files, {assets_desc['totalBytes']/1048576:6.1f} MB | "
+          f"zip {assets_desc['zipSize']/1048576:6.1f} MB sha256={assets_desc['zipSha256'][:12]}… ({assets_desc['zipName']})")
     return 0
 
 
