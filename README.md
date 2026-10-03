@@ -1,6 +1,21 @@
 # Võ Lâm Idle — Android
 
-App Android (WebView) đóng gói game Võ Lâm Idle chơi **offline hoàn toàn**: toàn bộ file game nằm trong APK, không cần server hay mạng.
+**Võ Lâm Idle** là game võ hiệp thể loại idle (tự động) chạy hoàn toàn trên thiết bị của bạn: nhân vật tự đi, tự đánh, tự nhặt đồ — cứ để game luyện công, muốn tay nghề thì cầm lái lúc nào cũng được. Tiến trình lưu tại máy, **chơi offline 100%**, không quảng cáo, không thanh toán — đúng tinh thần game tự giới thiệu: *"Phi thương mại, ưu tiên giải trí trên chính thiết bị của mình"*.
+
+## Giới thiệu game
+
+- **Hành tẩu tự động** — nhân vật tự đánh quái, tự nhặt đồ, tự uống thuốc và vượt ải. Có joystick để tự điều khiển khi muốn, nút ⚙ Tự động để quay lại chế độ idle.
+- **10 môn phái, 5 hành** — Thiếu Lâm, Thiên Vương Bang, Đường Môn, Ngũ Độc Giáo, Nga My, Thúy Yên, Cái Bang, Thiên Nhẫn, Võ Đang, Côn Lôn; thuộc Kim–Mộc–Thủy–Hỏa–Thổ tương sinh tương khắc.
+- **Trang bị thông minh** — đồ rơi trên đất, nhân vật tự nhặt món khớp bộ lọc và tự mặc món mạnh hơn (tắt được); bấm vào món để xem so sánh sức mạnh chi tiết.
+- **Cộng điểm có gợi ý** — mỗi cấp nhận điểm tiềm năng và điểm kỹ năng; cộng/rút thoải mái, có bản xem trước cách cộng hiệu quả.
+- **Rèn đồ 3 chặng** — Tím (hợp Huyền Tinh từ nhẫn/dây chuyền/ngọc bội rồi khảm), Hoàng Kim (gom mảnh từ trùm) và Bạch Kim; bật "Tự động rèn đồ" nếu không muốn bấm tay.
+- **Luyện Công (sinh tồn)** — chế độ sống sót 10 phút, dùng tuyệt kỹ, bom và bình HP đúng lúc.
+- **Thế giới theo cấp** — bản đồ luyện công nhiều vùng (Hoa Sơn Cấp 1–10, Kiếm Các Tây Bắc 10–20, Tân Lãng 20–30, Kiếm Các Tây Nam 30–40...), thành phố với cửa hàng và kho chung, quái trùm, nhiệm vụ, thành tựu và điểm danh quà 🎁.
+- **Đa nhân vật & sao lưu** — nhiều slot save với bản backup tự động, xuất/nhập file lưu để chơi tiếp trên thiết bị khác.
+
+---
+
+App này là một cái vỏ WebView gọn: **toàn bộ game bundle sẵn trong APK**, không cần server hay mạng khi chơi.
 
 ## Build
 
