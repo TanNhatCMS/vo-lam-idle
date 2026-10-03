@@ -383,10 +383,10 @@ function pickFaction() {
     document.querySelectorAll('.facpick button').forEach(b => b.onclick = () => startFaction(b.dataset.f));
   }, true);
 }
-const NOTICE_TXT = 'JxOffline - Phi thương mại, ưu tiên giải trí trên chính thiết bị của mình';
+const NOTICE_TXT = 'Võ Lâm Idle - Phi thương mại, ưu tiên giải trí trên chính thiết bị của mình';
 /* Hien moi lan khoi tao nhan vat moi */
 function noticeModal() {
-  modal(`<h3>JxOffline</h3><p class="desc notice">${esc(NOTICE_TXT)}</p><div class="btnrow"><button class="btn" id="bNotice">Đã hiểu</button></div>`, () => { $('#bNotice').onclick = () => { closeModal(true); if (!S.tut) tutorialModal(0); }; });
+  modal(`<h3>Võ Lâm Idle</h3><p class="desc notice">${esc(NOTICE_TXT)}</p><div class="btnrow"><button class="btn" id="bNotice">Đã hiểu</button></div>`, () => { $('#bNotice').onclick = () => { closeModal(true); if (!S.tut) tutorialModal(0); }; });
   log(`<span class="dim">${esc(NOTICE_TXT)}</span>`);
 }
 function startFaction(key) {
