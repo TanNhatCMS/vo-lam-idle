@@ -28,7 +28,11 @@ Yêu cầu: JDK 17, Android SDK (API 35). Gradle wrapper (8.10.2) đã kèm theo
 
 APK ra tại `app/build/outputs/apk/debug/app-debug.apk` (~124MB), cài trực tiếp lên máy (cho phép "cài từ nguồn không xác định").
 
-Bản release chưa cấu hình ký số — khi cần: tạo keystore, thêm `signingConfig` rồi `assembleRelease`.
+## Tải xuống
+
+Không muốn build? Tải APK release đã ký sẵn tại [GitHub Releases](https://github.com/TanNhatCMS/volam-idle-android/releases).
+
+Bản `release` được ký bằng keystore tại `keystore/` với thông số trong `keystore.properties` — cả hai **gitignored, không commit**; thiếu file này thì `assembleRelease` tự fallback sang debug signing. **Sao lưu cẩn thận keystore + mật khẩu**: mất keystore thì các bản cập nhật sau không giữ được chữ ký cũ.
 
 ## Cập nhật game
 

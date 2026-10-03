@@ -4,3 +4,7 @@ app/build/
 local.properties
 # Game assets duoc dong bo tu game/ boi task syncGameAssets (preBuild)
 app/src/main/assets/game/
+
+# Ky so release - khong commit keystore va mat khau
+keystore/
+keystore.properties
