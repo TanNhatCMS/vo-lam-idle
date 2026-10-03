@@ -9,7 +9,11 @@ import java.io.File
 import java.io.IOException
 import java.io.RandomAccessFile
 import java.security.MessageDigest
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.zip.ZipFile
 
 /**
@@ -67,7 +71,6 @@ object OtaManager {
         activeCall?.cancel()
     }
 
-    /** true neu vong updateAll gan nhat ket thuc do nguoi dung huy. */
     fun wasCanceled(): Boolean = canceled
 
     private fun otaTmp(ctx: Context): File = File(ctx.cacheDir, "ota")
@@ -79,8 +82,9 @@ object OtaManager {
     private fun indexFile(ctx: Context): File = File(ctx.filesDir, "ota-index.json")
 
     fun cleanStaleTemp(ctx: Context) {
+        // Chi don extracted; code staging duoc giu de "Thử lại" tai tiep phan con
+        // thieu (file trong staging da verify se bo qua qua hashOnDisk khi tinh pending).
         extractDir(ctx).deleteRecursively()
-        codeDir(ctx).deleteRecursively()
     }
 
     fun fetchManifest(): Manifest? = try {
@@ -161,55 +165,67 @@ object OtaManager {
         val dir = assetsDir(ctx)
         dir.mkdirs()
 
-        // ---------- 1. CODE: tai file doi (delta) vao staging roi move ----------
-        val codePending = manifest.codeFiles.filter { hashOnDisk(dir, it) != it.sha256 }
+        // ---------- 1. CODE: tai file doi (delta) vao staging roi move (4 luong) ----------
+        // Staging duoc giu qua cac lan retry (file da verify + rename dung se bo qua
+        // lan tai sau qua hashOnDisk(codeDir)); chi xoa khi cai dat thanh cong.
+        val codePending = manifest.codeFiles.filter { e ->
+            hashOnDisk(dir, e) != e.sha256 && hashOnDisk(codeDir(ctx), e) != e.sha256
+        }
         if (codePending.isNotEmpty()) {
             val staging = codeDir(ctx)
-            staging.deleteRecursively()
             staging.mkdirs()
             onPhase("code", 0, codePending.size)
-            var done = 0
+            val latch = CountDownLatch(codePending.size)
+            val done = AtomicInteger()
+            val failed = AtomicBoolean()
+            val pool = Executors.newFixedThreadPool(CODE_CONCURRENCY)
             for (e in codePending) {
-                if (canceled) return false
-                var ok = false
-                var attempt = 0
-                while (!ok && attempt < RETRIES) {
-                    if (canceled) return false
-                    attempt++
+                pool.execute {
                     try {
-                        val url = FILES_URL + e.path.split('/').joinToString("/") { segment ->
-                            java.net.URLEncoder.encode(segment, "UTF-8").replace("+", "%20")
-                        }
-                        val tmp = File(staging, e.path + ".part")
-                        tmp.parentFile?.mkdirs()
-                        val call = http.newCall(Request.Builder().url(url).build())
-                        activeCall = call
-                        try {
-                            call.execute().use { resp ->
-                                if (!resp.isSuccessful) throw IOException("HTTP ${resp.code} ${e.path}")
-                                resp.body!!.byteStream().use { ins ->
-                                    tmp.outputStream().use { outs -> ins.copyTo(outs) }
+                        if (failed.get()) return@execute
+                        var ok = false
+                        var attempt = 0
+                        while (!ok && attempt < RETRIES && !failed.get()) {
+                            if (canceled) { failed.set(true); break }
+                            attempt++
+                            try {
+                                val url = FILES_URL + e.path.split('/').joinToString("/") { segment ->
+                                    java.net.URLEncoder.encode(segment, "UTF-8").replace("+", "%20")
                                 }
+                                val tmp = File(staging, e.path + ".part")
+                                tmp.parentFile?.mkdirs()
+                                val call = http.newCall(Request.Builder().url(url).build())
+                                activeCall = call
+                                try {
+                                    call.execute().use { resp ->
+                                        if (!resp.isSuccessful) throw IOException("HTTP ${resp.code} ${e.path}")
+                                        resp.body!!.byteStream().use { ins ->
+                                            tmp.outputStream().use { outs -> ins.copyTo(outs) }
+                                        }
+                                    }
+                                } finally {
+                                    activeCall = null
+                                }
+                                if (hash(tmp) != e.sha256) {
+                                    tmp.delete()
+                                    throw IOException("hash mismatch ${e.path}")
+                                }
+                                if (!tmp.renameTo(File(staging, e.path))) throw IOException("rename ${e.path}")
+                                ok = true
+                            } catch (ex: Exception) {
+                                Log.w(TAG, "code lan $attempt loi ${e.path}: ${ex.message}")
+                                if (attempt >= RETRIES) failed.set(true) else Thread.sleep(1200L * attempt)
                             }
-                        } finally {
-                            activeCall = null
                         }
-                        if (hash(tmp) != e.sha256) {
-                            tmp.delete()
-                            throw IOException("hash mismatch ${e.path}")
-                        }
-                        if (!tmp.renameTo(File(staging, e.path))) throw IOException("rename ${e.path}")
-                        ok = true
-                    } catch (ex: Exception) {
-                        Log.w(TAG, "code lan $attempt loi ${e.path}: ${ex.message}")
-                        if (attempt >= RETRIES) codeDir(ctx).deleteRecursively()
-                        else Thread.sleep(1200L * attempt)
+                        if (!ok) failed.set(true) else onPhase("code", done.incrementAndGet(), codePending.size)
+                    } finally {
+                        latch.countDown()
                     }
                 }
-                if (!ok) return false
-                done++
-                onPhase("code", done, codePending.size)
             }
+            latch.await()
+            pool.shutdown()
+            if (failed.get() || canceled) return false
             for (e in codePending) {
                 val from = File(staging, e.path)
                 val to = File(dir, e.path)

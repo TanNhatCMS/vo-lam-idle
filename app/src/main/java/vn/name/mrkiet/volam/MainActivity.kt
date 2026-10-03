@@ -264,6 +264,67 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    // F3: ghi snapshot backup (thread rieng) — bỏ qua nếu trùng bản mới nhất, giữ BACKUP_KEEP bản
+    private val backupWriter = Executors.newSingleThreadExecutor()
+
+    fun handleAutoBackup(json: String) {
+        backupWriter.execute {
+            try {
+                val dir = File(filesDir, BACKUP_DIR)
+                dir.mkdirs()
+                val latest = dir.listFiles { f -> f.name.endsWith(".json") }?.maxByOrNull { it.name }
+                if (latest != null && latest.length() == json.length.toLong() && latest.readText() == json) return@execute
+                val name = "auto_" + SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date()) + ".json"
+                val tmp = File(dir, "$name.tmp")
+                tmp.writeText(json)
+                val dest = File(dir, name)
+                if (!tmp.renameTo(dest)) tmp.copyTo(dest, overwrite = true)
+                dir.listFiles { f -> f.name.endsWith(".json") }
+                    ?.sortedByDescending { it.name }?.drop(BACKUP_KEEP)?.forEach { it.delete() }
+            } catch (e: Exception) {
+                Log.w(TAG, "autoBackup: ${e.message}")
+            }
+        }
+    }
+
+    /** Gọi từ game khi 'jxidle_slot' === null (máy trống/mất dữ liệu): hỏi khôi phục từ
+     *  backup mới nhất. Từ chối thì nhớ theo tên file — không hỏi lại với cùng bản đó. */
+    fun handleCheckRestore() {
+        if (restoreAsked) return
+        val dir = File(filesDir, BACKUP_DIR)
+        val latest = dir.listFiles { f -> f.name.endsWith(".json") }?.maxByOrNull { it.name } ?: return
+        val prefs = getSharedPreferences(BACKUP_PREFS, Context.MODE_PRIVATE)
+        if (prefs.getBoolean("declined_${latest.name}", false)) return
+        restoreAsked = true
+        runOnUiThread {
+            try {
+                val obj = JSONObject(latest.readText())
+                val whenStr = SimpleDateFormat("HH:mm dd/MM", Locale.US).format(Date(obj.optLong("when", 0L)))
+                AlertDialog.Builder(this)
+                    .setTitle("Phát hiện máy chưa có dữ liệu game")
+                    .setMessage("Khôi phục từ bản sao lưu tự động lúc $whenStr?")
+                    .setNegativeButton("Bỏ qua") { _, _ ->
+                        prefs.edit().putBoolean("declined_${latest.name}", true).apply()
+                    }
+                    .setPositiveButton("Khôi phục") { _, _ ->
+                        val keys = obj.getJSONObject("keys")
+                        val sb = StringBuilder()
+                        for (k in keys.keys()) {
+                            sb.append("try{localStorage.setItem(")
+                                .append(JSONObject.quote(k)).append(",")
+                                .append(JSONObject.quote(keys.getString(k)))
+                                .append(")}catch(e){}")
+                        }
+                        sb.append("location.reload();")
+                        if (::webView.isInitialized) webView.evaluateJavascript(sb.toString(), null)
+                    }
+                    .show()
+            } catch (e: Exception) {
+                Log.w(TAG, "checkRestore: ${e.message}")
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -300,6 +361,7 @@ class MainActivity : ComponentActivity() {
         }
         setContentView(ui)
         ui.findViewById<TextView>(R.id.otaStatus).text = "Đang kiểm tra cập nhật game…"
+        ui.findViewById<Button>(R.id.otaReset).visibility = View.VISIBLE
         showVersions(ui, OtaManager.loadIndex(this))
         checkApkUpdate(ui)
 
@@ -377,6 +439,11 @@ class MainActivity : ComponentActivity() {
         val bar = ui.findViewById<ProgressBar>(R.id.otaBar)
         val status = ui.findViewById<TextView>(R.id.otaStatus)
         ui.findViewById<Button>(R.id.otaRetry).visibility = View.GONE
+        ui.findViewById<Button>(R.id.otaApk).visibility = View.GONE
+        ui.findViewById<Button>(R.id.otaReset).visibility = View.GONE
+        val cancelBtn = ui.findViewById<Button>(R.id.otaCancel)
+        cancelBtn.visibility = View.VISIBLE
+        cancelBtn.setOnClickListener { OtaManager.cancelUpdate() }
         bar.visibility = View.VISIBLE
         bar.max = 100
         OtaManager.cleanStaleTemp(this)
@@ -411,7 +478,10 @@ class MainActivity : ComponentActivity() {
                 },
             )
             runOnUiThread {
+                cancelBtn.visibility = View.GONE
+                ui.findViewById<Button>(R.id.otaReset).visibility = View.VISIBLE
                 if (ok) startGame()
+                else if (OtaManager.wasCanceled()) showError(ui, "Đã dừng tải.\nBấm Thử lại để tải tiếp từ chỗ dừng.")
                 else showError(ui, "Cập nhật game thất bại.\nBấm Thử lại — tải tiếp từ chỗ dừng.")
             }
         }.start()
@@ -492,6 +562,7 @@ class MainActivity : ComponentActivity() {
 
             override fun onPageFinished(view: WebView, url: String) {
                 view.evaluateJavascript(SAVE_HOOK_JS, null)
+                view.evaluateJavascript(RESTORE_CHECK_JS, null)
             }
 
             override fun shouldOverrideUrlLoading(
@@ -541,11 +612,24 @@ class MainActivity : ComponentActivity() {
 
         setContentView(webView)
         webView.loadUrl(GAME_URL)
+        // onResume chay TRUOC startGame (gameStarted con false) nen F1/F3 phai bat o day;
+        // removeCallbacks truoc post de resume-tiep khong tao chuoi tick kep
+        requestGameFocus()
+        backupHandler.removeCallbacks(backupTick)
+        backupHandler.post(backupTick)
     }
 
     override fun onPause() {
         if (gameStarted) {
+            backupHandler.removeCallbacks(backupTick)
+            webView.evaluateJavascript(BACKUP_SNAPSHOT_JS, null)
             webView.evaluateJavascript(AUDIO_PAUSE_JS, null)
+            if (Build.VERSION.SDK_INT >= 26) {
+                focusRequest?.let { audioManager.abandonAudioFocusRequest(it) }
+            } else {
+                @Suppress("DEPRECATION")
+                audioManager.abandonAudioFocus(focusListener)
+            }
             webView.onPause()
             webView.pauseTimers()
         }
@@ -555,9 +639,30 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         if (gameStarted) {
+            requestGameFocus()
             webView.resumeTimers()
             webView.onResume()
             webView.evaluateJavascript(AUDIO_RESUME_JS, null)
+            backupHandler.removeCallbacks(backupTick)
+            backupHandler.post(backupTick)
+        }
+    }
+
+    /** F1: giữ audio focus khi game foreground — cuộc gọi/app nhạc khác làm game tự im. */
+    private fun requestGameFocus() {
+        if (Build.VERSION.SDK_INT >= 26) {
+            val req = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+                .setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_GAME)
+                        .build()
+                )
+                .build()
+            focusRequest = req
+            audioManager.requestAudioFocus(req)
+        } else {
+            @Suppress("DEPRECATION")
+            audioManager.requestAudioFocus(focusListener, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN)
         }
     }
 

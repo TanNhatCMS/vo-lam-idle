@@ -51,6 +51,26 @@
         android:text="Cập nhật app" />
 
     <Button
+        android:id="@+id/otaCancel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:visibility="gone"
+        android:text="Hủy tải" />
+
+    <Button
+        android:id="@+id/otaReset"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:visibility="gone"
+        android:background="?android:attr/selectableItemBackground"
+        android:textAllCaps="false"
+        android:textColor="#98A397"
+        android:textSize="12sp"
+        android:text="Xóa dữ liệu đã tải" />
+
+    <Button
         android:id="@+id/otaRetry"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
