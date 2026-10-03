@@ -55,6 +55,12 @@ function makeItem(detail, particular, tier, nMagic) {
   const b = baseRow(detail, particular, tier); if (!b) return null;
   const it = { uid: S.uid++, d: detail, k: particular, p: b.p, n: b.n, ic: b.ic || '', lvl: b.lvl, s: b.s >= 0 ? b.s : randomSeries(),
     base: b.base.map(x => x.slice()), req: b.req.map(x => x.slice()), price: b.price };
+  /* Template khong co he (s < 0) nhung chot san req he (vd "Yeu cau he Tho") -> khi roll he ngau nhien
+     thi dong bo yeu cau theo he da roll: ra he nao thi he do mang duoc, het lech he voi he hien thi. */
+  if (b.s < 0) {
+    const rq = it.req.find(q => q[0] === 37);
+    if (rq && rq[1] >= 0) rq[1] = it.s;
+  }
   it.mag = rollMagic(it, magicLevels(nMagic, b.lvl), R.P ? R.P.lucky : 0);
   it.r = rarityOf(it.mag.length);
   return it;
@@ -169,7 +175,9 @@ function pickUp(drop, quiet) {
 function updateGround(dt) {
   for (const d of R.ground) d.age += dt;
   let target = R.pickTarget && R.ground.includes(R.pickTarget) ? R.pickTarget : null;
-  if (!target && lootFilter().auto && !(typeof manual === 'function' && manual()) && !R.enemies.some(e => !e.dead)) {
+  const lf = lootFilter();
+  /* auto + (luôn nhặt: đồ vừa rớt là đi nhặt ngay, kể cả còn quái | mặc định: chờ hết quái) */
+  if (!target && lf.auto && !(typeof manual === 'function' && manual()) && (lf.always || !R.enemies.some(e => !e.dead))) {
     let best = null, bd = 1e9;
     const full = S.inv.length >= INV_MAX, floor = full ? Math.min(...S.inv.filter(x => !x.set).map(itemPower), Infinity) : -Infinity;
     for (const d of R.ground) { if (d.age < 0.4 || !lootMatch(d.it) || (full && itemPower(d.it) <= floor)) continue; const k = Math.hypot(d.x - H.x, d.y - H.y); if (k < bd) { bd = k; best = d; } }

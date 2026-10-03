@@ -249,6 +249,7 @@ function renderInv() {
     <h3>Đồ rơi trên đất <small>${onGround} món · ${match} khớp bộ lọc</small></h3>
     <div class="card lootf">
       <label><input type="checkbox" id="fAuto" ${f.auto ? 'checked' : ''}> Tự đi nhặt đồ khớp bộ lọc khi hết quái</label>
+      <label><input type="checkbox" id="fAlways" ${f.always ? 'checked' : ''} ${f.auto ? '' : 'disabled'}> Luôn nhặt ngay khi đồ rớt (không chờ hết quái)</label>
       <div class="row">Độ hiếm từ <select id="fRar">${rar}</select> · cấp đồ từ <select id="fLvl">${lv}</select></div>
       <div class="dim small">Có ít nhất một thuộc tính (bỏ trống = mọi thuộc tính):</div><div class="chips">${grp}</div>
       <div class="dim small">Hệ của món đồ (bỏ trống = mọi hệ):</div><div class="chips">${ser}</div>
@@ -256,6 +257,7 @@ function renderInv() {
     </div>`;
   const upd = () => { save(); renderInv(); };
   $('#fAuto').onchange = e => { f.auto = e.target.checked; upd(); };
+  $('#fAlways').onchange = e => { f.always = e.target.checked; upd(); };
   $('#fRar').onchange = e => { f.minRar = +e.target.value; upd(); };
   $('#fLvl').onchange = e => { f.minLvl = +e.target.value; upd(); };
   document.querySelectorAll('#t-inv [data-g]').forEach(b => b.onchange = () => { const g = +b.dataset.g; f.groups = b.checked ? [...new Set(f.groups.concat(g))] : f.groups.filter(x => x !== g); upd(); });
