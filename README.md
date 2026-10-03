@@ -36,35 +36,37 @@ Bản `release` được ký bằng keystore tại `keystore/` với thông số
 
 ## Cơ chế OTA assets
 
-APK chỉ chứa code game (index.html, js, data.js, fonts, ui). Media (img, snd, music, fx) được tải qua OTA:
+APK chỉ chứa code game cơ bản; **code và media đều cập nhật qua OTA** khi mở app:
 
-1. App đọc `assets-manifest.json` ở **gốc repo** (qua `raw.githubusercontent.com`) — file này khai báo ZIP OTA (URL kèm GitHub Release), sha256 + size của ZIP, và hash SHA-256 của từng file.
-2. Lần chạy đầu: tải ZIP về **bộ tạm** `cache/ota/ota.zip.part` — **tự resume** bằng HTTP Range nếu đứt giữa chừng (giữ `.part` qua các lần retry; server không hỗ trợ Range thì tải lại từ đầu).
-3. Verify sha256 ZIP sau khi tải → giải nén ra tạm → **verify từng file** theo manifest → move vào `files/game-assets` → **verify lại toàn bộ sau khi cài** → dọn bộ tạm.
-4. Các lần mở sau: chỉ check nhanh (so version + size file), vào game luôn. Mất mạng vẫn chơi nếu đã cài OTA từ trước.
-5. Khi lỗi: rác tạm tự dọn (extracted, ZIP hỏng); chỉ giữ `.part` để tải tiếp.
+1. App đọc `assets-manifest.json` ở **gốc repo** (qua `raw.githubusercontent.com`) gồm 2 phần:
+   - `media`: ZIP đính kèm GitHub Release (img, snd, music, fx ~115MB) — `zipSha256` làm version
+   - `code`: index.html, js, data.js, fonts, ui (~4.1MB) — từng file tải riêng qua raw (delta per-file), `version` là hash tổng
+2. Lần chạy đầu: tải ZIP media về **bộ tạm** `cache/ota/ota.zip.part` — **tự resume** bằng HTTP Range nếu đứt giữa chừng; tải các file code còn thiếu về staging riêng.
+3. Verify sha256 ZIP sau khi tải → giải nén → **verify từng file** theo manifest → move vào `files/game-assets` → **verify lại toàn bộ (code + media) sau khi cài** → dọn bộ tạm.
+4. Các lần mở sau: so version (nhanh, chỉ check size) — khác thì chỉ tải phần thay đổi (media giữ ZIP, code tải từng file); vào game ngay cả khi offline nếu đã cài đủ bộ từ trước.
+5. Khi lỗi: rác tạm tự dọn; ZIP giữ `.part` để tải tiếp, file hỏng thì tải lại.
 
-Code JS **không bao giờ** đi qua OTA — luôn bundle trong APK, không có kịch bản chạy code tải từ server.
+Màn hình cập nhật hiển thị **phiên bản hiện tại**: `App vX · Game <hash> · Tài nguyên <hash>`, kèm nút **"Cập nhật app"** khi GitHub Releases có bản APK mới hơn (mở trang release).
 
 ### Quy trình phát hành bản cập nhật game
 
 ```bash
 # 1. Copy file game mới vào game/ (giữ nguyên cấu trúc)
-# 2. Sinh ZIP + manifest mới
-python tools/make_ota_manifest.py --version 1.2.0
+# 2. Sinh ZIP + manifest mới (deterministic: media không đổi -> zipSha256 không đổi -> người chơi khỏi tải lại media)
+python tools/make_ota_manifest.py --version 1.3.0
 # 3. Commit + push manifest (file zip gitignored)
 git add assets-manifest.json && git commit && git push
 # 4. Bump versionCode/versionName trong app/build.gradle.kts rồi:
 ./gradlew.bat assembleRelease
-# 5. Đính kèm cả ZIP OTA vào release
-gh release create v1.2.0 app/build/outputs/apk/release/app-release.apk ota-assets-1.2.0.zip
+# 5. Đính kèm cả ZIP OTA vào release (chỉ khi media đổi; đổi code thì không cần ZIP mới)
+gh release create v1.3.0 app/build/outputs/apk/release/app-release.apk ota-assets-1.3.0.zip
 ```
 
-ZIP đính kèm release phải khớp `zipUrl` trong `assets-manifest.json` đã push (đặt tên theo pattern `ota-assets-<version>.zip`, tag `v<version>`).
+ZIP đính kèm release phải khớp `media.zipUrl` trong `assets-manifest.json` đã push (pattern `ota-assets-<version>.zip`, tag `v<version>`).
 
 ### Test OTA local
 
-`python tools/local_ota_server.py` (port 8000, hỗ trợ Range) phục vụ repo tại chỗ; tạm trỏ `MANIFEST_URL` trong `OtaManager.kt` + `zipUrl` trong manifest về `http://10.0.2.2:8000/...`. Bản debug cho phép cleartext qua `app/src/debug/AndroidManifest.xml` (bản release vẫn HTTPS-only).
+`python tools/local_ota_server.py` (port 8000, hỗ trợ Range) phục vụ repo tại chỗ; tạm trỏ `MANIFEST_URL`, `FILES_URL` trong `OtaManager.kt` + `media.zipUrl` trong manifest về `http://10.0.2.2:8000/...`. Bản debug cho phép cleartext qua `app/src/debug/AndroidManifest.xml` (bản release vẫn HTTPS-only).
 
 ## Cấu trúc
 

@@ -17,6 +17,7 @@ button[disabled]{opacity:.4;cursor:default}
 .topmid{flex:1;min-width:0}
 .topmid .row{display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px}
 .topmid b{color:var(--gold);font-family:var(--font)}
+#heroName small{display:block;font-size:10px;font-weight:400;color:var(--dim);line-height:1.15;letter-spacing:.5px}
 #stageLbl{color:var(--dim)}
 .gold{display:flex;align-items:center;gap:5px;font-weight:600;color:var(--gold);font-size:13px}
 .coin{width:14px;height:10px;border-radius:50% 50% 45% 45%;background:radial-gradient(circle at 40% 35%,#fbe9ad,#a7792b);box-shadow:0 0 0 1px #5a3d14}
@@ -105,6 +106,7 @@ h3 small{font:12px var(--font);color:var(--dim)}
 
 .invbar{display:flex;gap:6px;align-items:center;margin-bottom:8px;font-size:12px}
 select,textarea{background:#0b100e;color:var(--text);border:1px solid var(--line2);border-radius:5px;padding:4px;font:12px var(--font);width:100%}
+input.nameinp{background:#0b100e;color:var(--text);border:1px solid var(--line2);border-radius:5px;padding:10px;font:14px var(--font);width:100%;margin-top:6px}
 .invbar select{width:auto}
 .invgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:5px}
 .it{position:relative;aspect-ratio:1;width:100%;border:1px solid var(--line2);border-radius:5px;background:#0c1210;display:grid;place-items:center;overflow:hidden}

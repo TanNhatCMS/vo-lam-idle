@@ -1,11 +1,19 @@
 package vn.name.mrkiet.volam
 
 import android.annotation.SuppressLint
+import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager
+import android.net.ConnectivityManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Base64
 import android.util.Log
 import android.view.View
@@ -28,7 +36,11 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.webkit.WebViewAssetLoader
 import java.io.ByteArrayInputStream
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
+import java.util.concurrent.Executors
+import org.json.JSONObject
 
 private const val TAG = "VLWeb"
 private const val APP_ASSET_DOMAIN = "appassets.androidplatform.net"
@@ -122,10 +134,17 @@ private class GameAssetHandler(private val context: Context) : WebViewAssetLoade
     }
 }
 
-/** Bridge nhan noi dung save (base64) tu hook JS roi mo popup SAF chon noi luu. */
+/** Bridge nhan noi dung save (base64) tu hook JS roi mo popup SAF chon noi luu;
+ *  dong thoi nhan snapshot save tu dong (F3) va tin hieu kiem tra phuc hoi. */
 private class SaveBridge(private val host: MainActivity) {
     @JavascriptInterface
     fun exportFile(name: String, base64: String) = host.launchSaveDocument(name, base64)
+
+    @JavascriptInterface
+    fun autoBackup(json: String) = host.handleAutoBackup(json)
+
+    @JavascriptInterface
+    fun checkRestore() = host.handleCheckRestore()
 }
 
 /**
@@ -141,10 +160,73 @@ private const val AUDIO_RESUME_JS =
     "try{if(typeof AUD!=='undefined'){AUD.ctx&&AUD.ctx.state==='suspended'&&AUD.ctx.resume();" +
     "typeof audApply==='function'&&audApply();}}catch(e){}"
 
+/** Duck khi mat audio focus thoang qua (thong bao ping): ha nhac nen xuong, giu SFX. */
+private const val AUDIO_DUCK_JS =
+    "try{if(typeof AUD!=='undefined'){AUD.music&&!AUD.music.paused&&(AUD.music.volume=0.15);}}catch(e){}"
+
+/**
+ * Tu dong sao luu save (F3): snapshot toan bo key localStorage tien to 'jxidle'
+ * (3 slot + _bak + con tro slot 'jxidle_slot' + ui 'jxidle_ui') thanh JSON
+ * {v, when, keys} -> filesDir/backup/auto_<stamp>.json, giu BACKUP_KEEP ban gan nhat.
+ * Game tu save localStorage moi ~10s (save.js) nen snapshot chi lech toi da 1 chu ky.
+ * Kich hoat: chu ky BACKUP_INTERVAL_MS khi choi + ngay khi onResume (game da save
+ * localStorage trong pagehide khi roi di) + best-effort trong onPause. KHONG dua vao
+ * onPause lam kenh chinh: pauseTimers co the nuot task JS evaluateJavascript chua chay.
+ * Phuc hoi: chi hoi khi 'jxidle_slot' === null (may trong / mat du lieu) — khong bao
+ * gio dong vao may dang co save; tu choi thi nho theo ten file, khong hoi lai voi ban do.
+ */
+private const val BACKUP_DIR = "backup"
+private const val BACKUP_KEEP = 5
+private const val BACKUP_PREFS = "vl_backup"
+private const val BACKUP_INTERVAL_MS = 60_000L
+
+private const val BACKUP_SNAPSHOT_JS = """
+(function(){
+  try {
+    var out = {};
+    for (var i = 0; i < localStorage.length; i++) {
+      var k = localStorage.key(i);
+      if (k && k.indexOf('jxidle') === 0) out[k] = localStorage.getItem(k);
+    }
+    if (window.AndroidSave && Object.keys(out).length) {
+      AndroidSave.autoBackup(JSON.stringify({v:1, when:Date.now(), keys:out}));
+    }
+  } catch(e){}
+})();
+"""
+
+private const val RESTORE_CHECK_JS =
+    "try{if(localStorage.getItem('jxidle_slot')===null&&window.AndroidSave)AndroidSave.checkRestore();}catch(e){}"
+
 class MainActivity : ComponentActivity() {
 
     private lateinit var webView: WebView
     private var gameStarted = false
+    private var restoreAsked = false
+
+    // F1: audio focus — cuộc gọi / app nhạc khác làm game tự im, nhận lại focus thì phát tiếp
+    private val audioManager by lazy { getSystemService(AudioManager::class.java) }
+    private var focusRequest: AudioFocusRequest? = null
+    private val focusListener = AudioManager.OnAudioFocusChangeListener { change ->
+        val js = when (change) {
+            AudioManager.AUDIOFOCUS_GAIN -> AUDIO_RESUME_JS
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> AUDIO_DUCK_JS
+            else -> AUDIO_PAUSE_JS
+        }
+        runOnUiThread {
+            if (gameStarted && ::webView.isInitialized) webView.evaluateJavascript(js, null)
+        }
+    }
+
+    // F3: chu kỳ snapshot save (xem giải thích ở BACKUP_SNAPSHOT_JS)
+    private val backupHandler = Handler(Looper.getMainLooper())
+    private val backupTick = object : Runnable {
+        override fun run() {
+            if (!gameStarted || isFinishing || isDestroyed) return
+            if (::webView.isInitialized) webView.evaluateJavascript(BACKUP_SNAPSHOT_JS, null)
+            backupHandler.postDelayed(this, BACKUP_INTERVAL_MS)
+        }
+    }
 
     // Luu file (SAF create document): nhan base64 tu bridge -> chon noi luu -> ghi
     private var pendingSave: Pair<String, ByteArray>? = null
@@ -202,27 +284,93 @@ class MainActivity : ComponentActivity() {
     private fun startOtaFlow() {
         gameStarted = false
         val ui = layoutInflater.inflate(R.layout.activity_download, null)
-        val bar = ui.findViewById<ProgressBar>(R.id.otaBar)
-        val status = ui.findViewById<TextView>(R.id.otaStatus)
         val retry = ui.findViewById<Button>(R.id.otaRetry)
         retry.setOnClickListener { startOtaFlow() }
+        ui.findViewById<Button>(R.id.otaCancel).setOnClickListener { OtaManager.cancelUpdate() }
+        ui.findViewById<Button>(R.id.otaReset).setOnClickListener {
+            AlertDialog.Builder(this)
+                .setTitle("Xóa dữ liệu đã tải")
+                .setMessage("Xóa toàn bộ dữ liệu game đã tải (code + tài nguyên)?\nLần chạy sau sẽ tải lại từ đầu.")
+                .setNegativeButton("Hủy", null)
+                .setPositiveButton("Xóa") { _, _ ->
+                    OtaManager.resetInstalled(this)
+                    startOtaFlow()
+                }
+                .show()
+        }
         setContentView(ui)
-        status.text = "Đang kiểm tra dữ liệu game…"
+        ui.findViewById<TextView>(R.id.otaStatus).text = "Đang kiểm tra cập nhật game…"
+        showVersions(ui, OtaManager.loadIndex(this))
+        checkApkUpdate(ui)
 
         Thread {
             val manifest = OtaManager.fetchManifest()
             val idx = OtaManager.loadIndex(this)
             runOnUiThread {
                 when {
-                    // Mất mạng nhưng đã từng cài OTA → chơi tiếp với dữ liệu sẵn có
-                    manifest == null && idx.version != null -> startGame()
+                    // Mất mạng nhưng đã từng cài đủ bộ (code + media) → chơi tiếp
+                    manifest == null && idx.codeVersion != null && idx.mediaVersion != null -> startGame()
                     manifest == null ->
                         showError(ui, "Không tải được dữ liệu game.\nCần kết nối mạng cho lần chạy đầu tiên.")
                     OtaManager.installedUpToDate(this, manifest) -> startGame()
-                    else -> runUpdate(ui, manifest)
+                    else -> if (isMetered()) confirmMeteredDownload(ui, manifest, idx) else runUpdate(ui, manifest)
                 }
             }
         }.start()
+    }
+
+    private fun isMetered(): Boolean = try {
+        getSystemService(ConnectivityManager::class.java)?.isActiveNetworkMetered ?: false
+    } catch (e: Exception) {
+        false
+    }
+
+    /** Hỏi trước khi tải bộ cập nhật qua mạng đo lượng (data di động). Wi-Fi: không hỏi. */
+    private fun confirmMeteredDownload(
+        ui: View,
+        manifest: OtaManager.Manifest,
+        idx: OtaManager.InstalledIndex,
+    ) {
+        val fresh = idx.codeVersion == null && idx.mediaVersion == null
+        val mb = (manifest.zipSize + manifest.codeBytes) / 1048576.0
+        val builder = AlertDialog.Builder(this)
+        if (fresh) {
+            builder
+                .setTitle("Tải dữ liệu game lần đầu")
+                .setMessage(
+                    String.format(
+                        Locale.US,
+                        "Lần đầu chạy cần tải ~%.0f MB dữ liệu game.\nQua mạng di động có thể mất phí dữ liệu.",
+                        mb
+                    )
+                )
+                .setNegativeButton("Thoát") { _, _ -> moveTaskToBack(true) }
+        } else {
+            builder
+                .setTitle("Có bản cập nhật game mới")
+                .setMessage(
+                    String.format(
+                        Locale.US,
+                        "Bộ cập nhật ~%.0f MB.\nTải qua mạng di động?",
+                        mb
+                    )
+                )
+                .setNegativeButton("Để sau") { _, _ -> startGame() }
+        }
+        builder.setPositiveButton("Tải ngay") { _, _ -> runUpdate(ui, manifest) }
+            .setCancelable(false)
+            .show()
+    }
+
+    /** Dòng phiên bản hiện tại trên màn hình update: App / Game (code) / Tài nguyên (media). */
+    private fun showVersions(ui: View, idx: OtaManager.InstalledIndex) {
+        val app = try {
+            packageManager.getPackageInfo(packageName, 0).versionName
+        } catch (e: Exception) {
+            "?"
+        }
+        ui.findViewById<TextView>(R.id.otaVersions).text =
+            "App v$app · Game ${idx.codeVersion?.take(8) ?: "—"} · Tài nguyên ${idx.mediaVersion?.take(8) ?: "—"}"
     }
 
     private fun runUpdate(ui: View, manifest: OtaManager.Manifest) {
@@ -232,45 +380,76 @@ class MainActivity : ComponentActivity() {
         bar.visibility = View.VISIBLE
         bar.max = 100
         OtaManager.cleanStaleTemp(this)
-        val mbZip = manifest.zipSize / 1048576.0
-        status.text = String.format(Locale.US, "Tải dữ liệu game (%.0f MB)…", mbZip)
 
         Thread {
-            val downloaded = OtaManager.downloadZip(this, manifest) { done, total ->
-                runOnUiThread {
-                    val pct = if (total > 0) (done * 100 / total).toInt() else 0
-                    bar.progress = pct
-                    status.text = String.format(
-                        Locale.US, "Đang tải dữ liệu game · %d%% (%.0f/%.0f MB)",
-                        pct, done / 1048576.0, total / 1048576.0
-                    )
-                }
-            }
-            if (!downloaded) {
-                runOnUiThread {
-                    showError(ui, "Tải dữ liệu thất bại giữa chừng.\nBấm Thử lại — sẽ tải tiếp từ chỗ dừng.")
-                }
-                return@Thread
-            }
-
-            val ok = OtaManager.install(this, manifest) { phase, done, total ->
-                val pct = if (total > 0) done * 100 / total else 0
-                runOnUiThread {
-                    if (total > 0) bar.progress = pct
-                    status.text = when (phase) {
-                        "verify_zip" -> "Kiểm tra file đã tải…"
-                        "extract" -> String.format(Locale.US, "Giải nén %d/%d…", done, total)
-                        "verify_files" -> String.format(Locale.US, "Kiểm tra dữ liệu %d/%d…", done, total)
-                        "install" -> String.format(Locale.US, "Cài đặt %d/%d…", done, total)
-                        "verify_install" -> String.format(Locale.US, "Kiểm tra sau cài %d/%d…", done, total)
-                        else -> "Đang xử lý…"
+            val ok = OtaManager.updateAll(
+                this, manifest,
+                onPhase = { phase, done, total ->
+                    val pct = if (total > 0) done * 100 / total else 0
+                    runOnUiThread {
+                        if (total > 0) bar.progress = pct
+                        status.text = when (phase) {
+                            "code" -> String.format(Locale.US, "Cập nhật game %d/%d file…", done, total)
+                            "verify_zip" -> "Kiểm tra file đã tải…"
+                            "extract" -> String.format(Locale.US, "Giải nén %d/%d…", done, total)
+                            "verify_files" -> String.format(Locale.US, "Kiểm tra tài nguyên %d/%d…", done, total)
+                            "install_media" -> String.format(Locale.US, "Cài đặt tài nguyên %d/%d…", done, total)
+                            "verify_install" -> String.format(Locale.US, "Kiểm tra sau cài %d/%d…", done, total)
+                            else -> "Đang xử lý…"
+                        }
                     }
-                }
-            }
-            if (ok) OtaManager.writeIndex(this, manifest)
+                },
+                onZipProgress = { done, total ->
+                    runOnUiThread {
+                        val pct = if (total > 0) (done * 100 / total).toInt() else 0
+                        bar.progress = pct
+                        status.text = String.format(
+                            Locale.US, "Tải tài nguyên · %d%% (%.0f/%.0f MB)",
+                            pct, done / 1048576.0, total / 1048576.0
+                        )
+                    }
+                },
+            )
             runOnUiThread {
                 if (ok) startGame()
-                else showError(ui, "Dữ liệu tải về bị lỗi.\nBấm Thử lại — sẽ tải lại từ đầu.")
+                else showError(ui, "Cập nhật game thất bại.\nBấm Thử lại — tải tiếp từ chỗ dừng.")
+            }
+        }.start()
+    }
+
+    /** So tag Release (vd v1.2.0) với versionName đã cài. */
+    private fun isNewerVersion(tag: String, current: String): Boolean {
+        fun parts(s: String) = s.removePrefix("v").split('.').map { it.trim().toIntOrNull() ?: 0 }
+        val a = parts(tag)
+        val b = parts(current)
+        for (i in 0 until maxOf(a.size, b.size)) {
+            val x = a.getOrElse(i) { 0 }
+            val y = b.getOrElse(i) { 0 }
+            if (x != y) return x > y
+        }
+        return false
+    }
+
+    /** Check APK mới trên GitHub Releases — không chặn vào game, chỉ hiện nút. */
+    private fun checkApkUpdate(ui: View) {
+        Thread {
+            val rel = OtaManager.fetchLatestRelease() ?: return@Thread
+            val current = try {
+                packageManager.getPackageInfo(packageName, 0).versionName
+            } catch (e: Exception) {
+                null
+            } ?: return@Thread
+            if (!isNewerVersion(rel.tag, current)) return@Thread
+            runOnUiThread {
+                val btn = ui.findViewById<Button>(R.id.otaApk)
+                btn.text = "Cập nhật app ${rel.tag}"
+                btn.visibility = View.VISIBLE
+                btn.setOnClickListener {
+                    try {
+                        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(rel.url)))
+                    } catch (e: Exception) {
+                    }
+                }
             }
         }.start()
     }

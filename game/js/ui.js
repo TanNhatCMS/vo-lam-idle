@@ -334,8 +334,9 @@ function refresh() {
 function updateDots() { $('#dotChar').classList.toggle('on', S.attrPts > 0); $('#dotSkill').classList.toggle('on', S.skPts > 0 && FAC[S.fac] && FAC[S.fac].skills.some(id => canLearn(SK[id]))); }
 function updateTop() {
   const P = R.P; if (!P) return;
-  { const hw = W.hero[S.fac], lb = $('.lvbox'); if (hw && lb) lb.style.setProperty('--pl', `url('${hw.img}')`); }
-  $('#lv').textContent = S.lvl; $('#gold').textContent = fmt(S.gold); $('#heroName').textContent = FAC[S.fac] ? FAC[S.fac].n : '';
+  { const hw = W.hero[S.fac], lb = $('.lvbox'); if (hw && lb) lb.style.setProperty('--pl', `url('${hw.img}')`); if (lb) lb.onclick = () => { if (S.fac) nameModal(false); }; }
+  $('#lv').textContent = S.lvl; $('#gold').textContent = fmt(S.gold);
+  { const fn = FAC[S.fac] ? FAC[S.fac].n : ''; $('#heroName').innerHTML = (S.name && S.name !== fn) ? `<small>${esc(fn)}</small>${esc(S.name)}` : esc(S.name || fn); }
   $('#stageLbl').textContent = `Ải ${S.stage} · đợt ${S.wave}/${WAVES}`;
   const need = J.exp[S.lvl - 1] || 1;
   $('#xpBar').style.width = (S.xp / need * 100) + '%'; $('#xpTxt').textContent = `${(S.xp / need * 100).toFixed(1)}%`;
@@ -395,8 +396,27 @@ function startFaction(key) {
   R.dirty = true; recalc(); R.life = R.P.life; R.mana = R.P.mana;
   loginCheck(); dotGift();                                  // ngay dau: co qua diem danh
   closeModal(true); save(); showTab('log');
-  noticeModal();
   log(`Gia nhập <b style="color:${SERIES_COL[f.series]}">${esc(f.n)}</b>. Bắt đầu hành tẩu giang hồ!`);
+  nameModal(true, () => noticeModal());
+}
+/* Dat ten (first: bat buoc khi tao nhan vat, khong the dong) / doi ten (bam chan dung goc trai).
+   Data cu chua dat ten van choi binh thuong — hien thi ten phai cho toi khi nguoi choi dat ten. */
+function nameModal(first, after) {
+  const cur = first ? '' : (S.name || '');
+  modal(`<h3>${first ? 'Đặt tên nhân vật' : 'Đổi tên nhân vật'}</h3><p class="desc">${first ? 'Đặt một cái tên cho nhân vật trước khi bắt đầu hành tẩu.' : 'Nhập tên mới cho nhân vật (2-16 ký tự).'}</p><input id="nameInp" class="nameinp" maxlength="16" placeholder="Tên nhân vật" value="${esc(cur)}"><div class="btnrow"><button class="btn" id="bNameOk">Xác nhận</button></div>`, () => {
+    const inp = $('#nameInp');
+    setTimeout(() => { try { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); } catch (e) { /* bo qua */ } }, 150);
+    const apply = () => {
+      const v = (inp.value || '').trim().replace(/\s+/g, ' ');
+      if (v.length < 2) { toast('Tên ít nhất 2 ký tự'); return; }
+      if (!first && v === S.name) { closeModal(true); return; }
+      S.name = v; save(); updateTop();
+      toast(first ? `Chào ${v}!` : `Đã đổi tên thành ${v}`);
+      closeModal(true); if (after) after();
+    };
+    $('#bNameOk').onclick = apply;
+    inp.onkeydown = e => { if (e.key === 'Enter') apply(); };
+  }, first);
 }
 function starterGear() {
   if (S.eq.weapon) return;

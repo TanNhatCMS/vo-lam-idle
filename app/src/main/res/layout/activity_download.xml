@@ -31,7 +31,24 @@
         android:gravity="center"
         android:textSize="14sp"
         android:textColor="#CCCCCC"
-        android:text="Đang kiểm tra dữ liệu game…" />
+        android:text="Đang kiểm tra cập nhật game…" />
+
+    <TextView
+        android:id="@+id/otaVersions"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:gravity="center"
+        android:textSize="12sp"
+        android:textColor="#777777" />
+
+    <Button
+        android:id="@+id/otaApk"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:visibility="gone"
+        android:text="Cập nhật app" />
 
     <Button
         android:id="@+id/otaRetry"
