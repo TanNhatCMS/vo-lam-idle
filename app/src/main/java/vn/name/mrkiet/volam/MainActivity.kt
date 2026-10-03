@@ -128,6 +128,19 @@ private class SaveBridge(private val host: MainActivity) {
     fun exportFile(name: String, base64: String) = host.launchSaveDocument(name, base64)
 }
 
+/**
+ * Dung am thanh khi app ve background: WebView.onPause/pauseTimers chi dung JS timer
+ * (het SFX) nhung AudioContext (WebAudio SFX) va phan tu Audio nhac nen van chay tiep.
+ * Game khai bao AUD (ctx + music) va audApply() o js/audio.js — suspend/pause khi an,
+ * resume + audApply() khi quay lai (phat lai nhac dung theo cau hinh am thanh cua game).
+ */
+private const val AUDIO_PAUSE_JS =
+    "try{if(typeof AUD!=='undefined'){AUD.ctx&&AUD.ctx.state==='running'&&AUD.ctx.suspend();" +
+    "AUD.music&&!AUD.music.paused&&AUD.music.pause();}}catch(e){}"
+private const val AUDIO_RESUME_JS =
+    "try{if(typeof AUD!=='undefined'){AUD.ctx&&AUD.ctx.state==='suspended'&&AUD.ctx.resume();" +
+    "typeof audApply==='function'&&audApply();}}catch(e){}"
+
 class MainActivity : ComponentActivity() {
 
     private lateinit var webView: WebView
@@ -353,6 +366,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onPause() {
         if (gameStarted) {
+            webView.evaluateJavascript(AUDIO_PAUSE_JS, null)
             webView.onPause()
             webView.pauseTimers()
         }
@@ -364,6 +378,7 @@ class MainActivity : ComponentActivity() {
         if (gameStarted) {
             webView.resumeTimers()
             webView.onResume()
+            webView.evaluateJavascript(AUDIO_RESUME_JS, null)
         }
     }
 

@@ -21,8 +21,8 @@ android {
         applicationId = "vn.name.mrkiet.volam"
         minSdk = 24
         targetSdk = 35
-        versionCode = 3
-        versionName = "1.1.1"
+        versionCode = 4
+        versionName = "1.1.2"
     }
 
     compileOptions {
