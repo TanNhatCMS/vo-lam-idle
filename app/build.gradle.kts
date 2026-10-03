@@ -21,8 +21,8 @@ android {
         applicationId = "vn.name.mrkiet.volam"
         minSdk = 24
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.1.0"
     }
 
     compileOptions {
@@ -61,14 +61,18 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     implementation("androidx.webkit:webkit:1.17.1")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 }
 
-// Dong bo file game tu thu muc game/ cua project vao assets cua APK moi lan build.
+// Dong bo phan "code" cua game tu thu muc game/ cua project vao assets cua APK
+// moi lan build. Phan media nang (img, snd, music, fx) KHONG bundle — tai qua OTA
+// tu raw.githubusercontent (xem OtaManager.kt + assets-manifest.json o goc repo).
 // Khong dong goi sw.js: service worker se bypass asset interceptor (request tu SW
 // khong di qua shouldInterceptRequest) va lam hong viec doc asset local; game dang
 // ky SW kieu fire-and-forget nen file 404 la vo hai.
 val syncGameAssets = tasks.register("syncGameAssets", Copy::class) {
     from(rootDir.resolve("game")) {
+        exclude("img", "snd", "music", "fx")
         exclude(".gitignore", ".gitattributes", ".assetsignore", "wrangler.jsonc", "README.md", "sw.js")
     }
     into(layout.projectDirectory.dir("src/main/assets/game"))

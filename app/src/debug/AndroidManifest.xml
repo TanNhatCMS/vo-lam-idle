@@ -1,0 +1,5 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Chi cho ban DEBUG: phep cleartext de test OTA qua server local (10.0.2.2).
+         Ban release khong co override nay — van HTTPS-only. -->
+    <application android:usesCleartextTraffic="true" />
+</manifest>

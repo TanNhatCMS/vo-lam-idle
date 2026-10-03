@@ -8,3 +8,6 @@ app/src/main/assets/game/
 # Ky so release - khong commit keystore va mat khau
 keystore/
 keystore.properties
+
+# OTA zip - chi dinh kem GitHub Release, khong commit
+ota-assets-*.zip

@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:background="#0E1412"
+    android:padding="32dp">
+
+    <TextView
+        android:id="@+id/otaTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Võ Lâm Idle"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:textColor="#E8D8A8" />
+
+    <ProgressBar
+        android:id="@+id/otaBar"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp" />
+
+    <TextView
+        android:id="@+id/otaStatus"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:gravity="center"
+        android:textSize="14sp"
+        android:textColor="#CCCCCC"
+        android:text="Đang kiểm tra dữ liệu game…" />
+
+    <Button
+        android:id="@+id/otaRetry"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:visibility="gone"
+        android:text="Thử lại" />
+</LinearLayout>

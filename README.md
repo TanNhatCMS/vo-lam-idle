@@ -1,6 +1,6 @@
 # Võ Lâm Idle — Android
 
-**Võ Lâm Idle** là game võ hiệp thể loại idle (tự động) chạy hoàn toàn trên thiết bị của bạn: nhân vật tự đi, tự đánh, tự nhặt đồ — cứ để game luyện công, muốn tay nghề thì cầm lái lúc nào cũng được. Tiến trình lưu tại máy, **chơi offline 100%**, không quảng cáo, không thanh toán — đúng tinh thần game tự giới thiệu: *"Phi thương mại, ưu tiên giải trí trên chính thiết bị của mình"*.
+**Võ Lâm Idle** là game võ hiệp thể loại idle (tự động) chạy hoàn toàn trên thiết bị của bạn: nhân vật tự đi, tự đánh, tự nhặt đồ — cứ để game luyện công, muốn tay nghề thì cầm lái lúc nào cũng được. Tiến trình lưu tại máy, không quảng cáo, không thanh toán — đúng tinh thần game tự giới thiệu: *"Phi thương mại, ưu tiên giải trí trên chính thiết bị của mình"*.
 
 ## Giới thiệu game
 
@@ -15,7 +15,7 @@
 
 ---
 
-App này là một cái vỏ WebView gọn: **toàn bộ game bundle sẵn trong APK**, không cần server hay mạng khi chơi.
+App là một cái vỏ WebView gọn (~11MB): phần **code game bundle trong APK**, phần **media (~115MB) tải qua OTA** từ GitHub Release lần chạy đầu, sau đó **chơi offline 100%**.
 
 ## Build
 
@@ -26,22 +26,50 @@ Yêu cầu: JDK 17, Android SDK (API 35). Gradle wrapper (8.10.2) đã kèm theo
 ./gradlew assembleDebug       # Linux/macOS
 ```
 
-APK ra tại `app/build/outputs/apk/debug/app-debug.apk` (~124MB), cài trực tiếp lên máy (cho phép "cài từ nguồn không xác định").
+APK ra tại `app/build/outputs/apk/debug/app-debug.apk`. Bản release:
 
-## Tải xuống
+```bash
+./gradlew.bat assembleRelease
+```
 
-Không muốn build? Tải APK release đã ký sẵn tại [GitHub Releases](https://github.com/TanNhatCMS/volam-idle-android/releases).
+Bản `release` được ký bằng keystore tại `keystore/` với thông số trong `keystore.properties` — cả hai **gitignored, không commit**; thiếu file này thì `assembleRelease` tự fallback sang debug signing. **Sao lưu cẩn thận keystore + mật khẩu** (bản backup tại repo private `android-keystores`): mất keystore thì các bản cập nhật sau không giữ được chữ ký cũ.
 
-Bản `release` được ký bằng keystore tại `keystore/` với thông số trong `keystore.properties` — cả hai **gitignored, không commit**; thiếu file này thì `assembleRelease` tự fallback sang debug signing. **Sao lưu cẩn thận keystore + mật khẩu**: mất keystore thì các bản cập nhật sau không giữ được chữ ký cũ.
+## Cơ chế OTA assets
 
-## Cập nhật game
+APK chỉ chứa code game (index.html, js, data.js, fonts, ui). Media (img, snd, music, fx) được tải qua OTA:
 
-Copy file game mới vào thư mục `game/` (giữ nguyên cấu trúc: `js/`, `img/`, `snd/`, `music/`, `fonts/`, `fx/`, `ui/`...) rồi build lại. Task gradle `syncGameAssets` tự đồng bộ `game/` vào assets của APK ở mỗi lần build — không phải thao tác thủ công.
+1. App đọc `assets-manifest.json` ở **gốc repo** (qua `raw.githubusercontent.com`) — file này khai báo ZIP OTA (URL kèm GitHub Release), sha256 + size của ZIP, và hash SHA-256 của từng file.
+2. Lần chạy đầu: tải ZIP về **bộ tạm** `cache/ota/ota.zip.part` — **tự resume** bằng HTTP Range nếu đứt giữa chừng (giữ `.part` qua các lần retry; server không hỗ trợ Range thì tải lại từ đầu).
+3. Verify sha256 ZIP sau khi tải → giải nén ra tạm → **verify từng file** theo manifest → move vào `files/game-assets` → **verify lại toàn bộ sau khi cài** → dọn bộ tạm.
+4. Các lần mở sau: chỉ check nhanh (so version + size file), vào game luôn. Mất mạng vẫn chơi nếu đã cài OTA từ trước.
+5. Khi lỗi: rác tạm tự dọn (extracted, ZIP hỏng); chỉ giữ `.part` để tải tiếp.
 
-Lưu ý: không đặt `sw.js` vào `game/`. Service worker sẽ chặn việc đọc asset local của app (request phát ra từ SW không đi qua `shouldInterceptRequest` của WebView), còn game đăng ký SW kiểu fire-and-forget nên file 404 là vô hại.
+Code JS **không bao giờ** đi qua OTA — luôn bundle trong APK, không có kịch bản chạy code tải từ server.
+
+### Quy trình phát hành bản cập nhật game
+
+```bash
+# 1. Copy file game mới vào game/ (giữ nguyên cấu trúc)
+# 2. Sinh ZIP + manifest mới
+python tools/make_ota_manifest.py --version 1.2.0
+# 3. Commit + push manifest (file zip gitignored)
+git add assets-manifest.json && git commit && git push
+# 4. Bump versionCode/versionName trong app/build.gradle.kts rồi:
+./gradlew.bat assembleRelease
+# 5. Đính kèm cả ZIP OTA vào release
+gh release create v1.2.0 app/build/outputs/apk/release/app-release.apk ota-assets-1.2.0.zip
+```
+
+ZIP đính kèm release phải khớp `zipUrl` trong `assets-manifest.json` đã push (đặt tên theo pattern `ota-assets-<version>.zip`, tag `v<version>`).
+
+### Test OTA local
+
+`python tools/local_ota_server.py` (port 8000, hỗ trợ Range) phục vụ repo tại chỗ; tạm trỏ `MANIFEST_URL` trong `OtaManager.kt` + `zipUrl` trong manifest về `http://10.0.2.2:8000/...`. Bản debug cho phép cleartext qua `app/src/debug/AndroidManifest.xml` (bản release vẫn HTTPS-only).
 
 ## Cấu trúc
 
-- `app/` — code Android: Kotlin, một `MainActivity` chứa WebView; game được phục vụ qua `WebViewAssetLoader` với origin giả lập `https://appassets.androidplatform.net` để fetch/localStorage/IndexedDB hoạt động như trên web thật.
-- `game/` — file game, được sync vào APK lúc build (đã gitignore thư mục copy trong `app/src/main/assets/game/`).
+- `app/` — code Android: Kotlin; `MainActivity` (màn hình tải OTA + WebView), `OtaManager` (tải/verify/cài ZIP), game được phục vụ qua `WebViewAssetLoader` với origin giả lập `https://appassets.androidplatform.net` — đọc ưu tiên `files/game-assets` (OTA) rồi fallback về asset bundle.
+- `game/` — file game: phần code sync vào APK lúc build, phần media đi qua OTA (thư mục copy `app/src/main/assets/game/` đã gitignore).
+- `assets-manifest.json` — manifest OTA (commit), `ota-assets-*.zip` — ZIP OTA đính kèm release (gitignored).
+- `tools/make_ota_manifest.py` — sinh ZIP + manifest; `tools/local_ota_server.py` — server test local.
 - `gradle/wrapper/` — Gradle 8.10.2 (pin bản 8.x vì AGP 8.7.3 không tương thích Gradle 9).
