@@ -1,0 +1,22 @@
+# Chuẩn hóa line ending: toàn bộ file text dùng LF
+* text=auto eol=lf
+
+# File nhị phân - không convert
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.mp3 binary
+*.ogg binary
+*.oga binary
+*.wav binary
+*.m4a binary
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary
+*.jar binary
+*.jks binary
+*.so binary
