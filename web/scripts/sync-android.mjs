@@ -41,6 +41,8 @@ function relinkMediaJunctions() {
 console.log('[1/4] go junction media (neu co)...');
 unlinkMediaJunctions();
 console.log('[2/4] next build...');
+// next export KHONG tu xoa out/ — xoa truoc de khong tich luy chunk cu (hash doi moi build)
+rmSync(DIST, { recursive: true, force: true });
 execSync('npx next build', { cwd: WEB, stdio: 'inherit' });
 
 const CODE_GLOBS = ['index.html', '_next', 'style.css', 'manifest.json', 'fonts', 'ui'];
@@ -60,11 +62,13 @@ if (outDir) {
 } else {
   console.log('[3/4] chep out -> game/ (Android OTA data)');
   if (clean) for (const l of LEGACY) { const p = join(GAME, l); if (existsSync(p)) { rmSync(p, { recursive: true, force: true }); console.log('   xoa code cu: ' + l); } }
+  // _next cua ban build truoc phai xoa han: chunk dat ten theo hash, giu lai se ton file chet
   for (const g of CODE_GLOBS) {
     const src = join(DIST, g);
     if (!existsSync(src)) continue;
-    if (statSync(src).isDirectory()) cpSync(src, join(GAME, g), { recursive: true });
-    else cpSync(src, join(GAME, g));
+    const dst = join(GAME, g);
+    if (statSync(src).isDirectory()) { rmSync(dst, { recursive: true, force: true }); cpSync(src, dst, { recursive: true }); }
+    else cpSync(src, dst);
   }
   console.log('[4/4] OK — chay: python tools/make_ota_manifest.py --version <x.y.z> de sinh goi OTA');
 }

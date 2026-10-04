@@ -9,7 +9,7 @@ import { restoreGround } from './loot';
 import { R, H, zoneOf, tick, recalc } from './combat';
 import { S, newSave, save, pickSlot, load, offlineGains, setS, setSlot } from './save';
 import { CV, img, isMobileUI, resizeArena, snapCamera, draw, setCanvas } from './render';
-import { AUD, sndCfg, audInit, uiSfx, playMusic, preloadZoneSounds } from './audio';
+import { AUD, sndCfg, audInit, uiSfx, playMusic, preloadZoneSounds, audioSuspendForBackground, audioResumeFromBackground } from './audio';
 import {
   curTab,
   invDirty,
@@ -141,8 +141,8 @@ export function boot() {
     loginCheck(); dotGift();
   }
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) { if (S.fac) save(); if (SV.on) svPause(); }
-    else if (S.fac && !SV.on && Date.now() - S.last > 60000) { R.dirty = true; recalc(); showOffline(offlineGains()); refresh(); }
+    if (document.hidden) { if (S.fac) save(); if (SV.on) svPause(); audioSuspendForBackground(); }
+    else { audioResumeFromBackground(); if (S.fac && !SV.on && Date.now() - S.last > 60000) { R.dirty = true; recalc(); showOffline(offlineGains()); refresh(); } }
     lastT = performance.now();
   });
   window.addEventListener('pagehide', () => { if (S.fac) save(); });
