@@ -10,6 +10,7 @@ import {
 import { SV, svIntro, svPause, svCastUlt, svUseBomb, svUseHp } from '../game/survival';
 import { shopModal } from '../game/shop';
 import { stashModal } from '../game/stash';
+import { backFromBossArena, goBossArena, wbHudState, wbUiState } from '../game/worldboss';
 import { sellUnmatched, refresh, toast } from '../game/ui';
 import { uiSfx } from '../game/audio';
 
@@ -42,6 +43,21 @@ export default function Battle() {
         </div>
         <div id="mainSk">{P ? P.main.n : ''}</div>
       </div>
+      {(() => { const h = wbHudState(); if (!h.on) return null;
+        const mmss = (v: number) => `${Math.floor(v / 60)}:${String(v % 60).padStart(2, '0')}`;
+        return (
+          <div id="wbHud">
+            {h.name ? (<>
+              <b>⚔ {h.name}</b>
+              <div className="wbHp"><i style={{ width: h.hpPct + '%' }} /></div>
+              <small>Hạ trước khi hết giờ — boss rút lui sau {mmss(h.life)}</small>
+            </>) : (<>
+              <b>Hạ Boss Thế Giới!</b>
+              <small>Rời bí cảnh sau {h.exit}s — nhặt đồ rồi về</small>
+            </>)}
+          </div>
+        );
+      })()}
       <button id="ctrlBtn" className={'chip' + (fac && manual() ? ' on' : '')}
         onClick={() => setCtrl(manual() ? 'auto' : 'manual')}>
         {fac && manual() ? '🕹 Tự điều khiển' : '⚙ Tự động'}
@@ -53,6 +69,18 @@ export default function Battle() {
         ⟳ Xoay chiêu: {fac && S.rot !== false ? 'Bật' : 'Tắt'}
       </button>
       <button id="svBtn" className="chip" onClick={() => { uiSfx('click'); svIntro(); }}>⚔ Luyện Công</button>
+      {(() => { const wb = wbUiState(); if (wb.mode === 'hidden') return null;
+        return (
+          <button id="wbBtn" className={'chip' + (wb.mode === 'ready' ? ' on pulse' : '')}
+            onClick={() => { uiSfx('click');
+              if (wb.mode === 'count') toast(`Boss Thế Giới sẽ xuất hiện sau ${wb.t}s`);
+              else if (wb.mode === 'inside') backFromBossArena();
+              else goBossArena();
+            }}>
+            {wb.label}
+          </button>
+        );
+      })()}
 
       {/* Island: survival.js tu cap nhat so tien, bom, hoi chieu */}
       <div id="svHud" className="hidden">
@@ -102,7 +130,7 @@ export default function Battle() {
           <div className="cd" style={cdStyle(potCd.mana || 0, POT_CD)} /><span>MP</span>
         </button>
         <button className="pbtn pot tp" id="bTp" title="Về thành (T)"
-          onPointerDown={e => { e.preventDefault(); e.stopPropagation(); R.town ? backFromTown() : goTown(); }}>
+          onPointerDown={e => { e.preventDefault(); e.stopPropagation(); if (R.wbArena) backFromBossArena(); else R.town ? backFromTown() : goTown(); }}>
           <div className="cd" style={cdStyle(R.tpCd || 0, TP_CD)} /><span>Về<br />thành</span>
         </button>
       </div>

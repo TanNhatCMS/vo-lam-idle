@@ -29,6 +29,7 @@ import { CAM, CV, img, snapCamera, uiScale } from './render';
 import { S, save } from './save';
 import { shopModal, stockCount, takeStock } from './shop';
 import { stashModal } from './stash';
+import { backFromBossArena } from './worldboss';
 import { SV, svPause, svUseHp } from './survival';
 import { log, refresh, sellUnmatched, toast } from './ui';
 import { uiBump } from './store';
@@ -68,7 +69,7 @@ export function gamepadPoll() {
     if (SV.on) { if (edge(9)) svPause(); if (edge(4)) svUseHp(); }
     else {
       for (let i = 0; i < 4; i++) if (edge(i)) pressSlot(i);
-      if (edge(4)) drinkNow('life'); if (edge(5)) drinkNow('mana'); if (edge(8)) R.town ? backFromTown() : goTown();
+      if (edge(4)) drinkNow('life'); if (edge(5)) drinkNow('mana'); if (edge(8)) R.wbArena ? backFromBossArena() : R.town ? backFromTown() : goTown();
     }
   }
   GP.prev = p.buttons.map(bt => !!bt.pressed);
@@ -197,7 +198,7 @@ export function bindControls() {
     if (['w', 'a', 's', 'd', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(k) && !manual()) setCtrl('manual');
     if (ev.repeat) return;
     if ('1234'.includes(k)) pressSlot(+k - 1);
-    if (k === 'q') drinkNow('life'); if (k === 'e') drinkNow('mana'); if (k === 't') R.town ? backFromTown() : goTown();
+    if (k === 'q') drinkNow('life'); if (k === 'e') drinkNow('mana'); if (k === 't') R.wbArena ? backFromBossArena() : R.town ? backFromTown() : goTown();
     if (k === 'f') setCtrl(manual() ? 'auto' : 'manual');
     if (k === 'r') toggleRot();
   });

@@ -1,5 +1,5 @@
 // @ts-nocheck — chuyen tu vanilla JS: bat lai check tung file dan dan (xem README muc TypeScript)
-import { $, W, WORLD, clamp } from './core';
+import { $, W, WORLD, clamp, clampWorld } from './core';
 import { JMO } from './jmo';
 
 /* ======================= VAT CAN BAN DO THAT (tools/export_maps.py -> mapobs.js: JMO) =======================
@@ -49,6 +49,22 @@ function obsAt(x, y) {                                    // diem co di duoc kho
 }
 const OBS_R = 9;                                           // ban kinh chan: kiem tra tam + trai / phai
 const obsWalk = (x, y) => obsAt(x, y) && obsAt(x - OBS_R, y) && obsAt(x + OBS_R, y);
+/* điểm (x,y) thoáng cho vật bán kính r: tâm + 8 hướng quanh thân đều đi được (tránh sinh chẹt vào cây/nhà) */
+export function obsOpen(x, y, r) {
+  if (!OBS.g) return true;
+  if (!obsWalk(x, y)) return false;
+  for (let a = 0; a < 8; a++) if (!obsWalk(x + Math.cos(a * Math.PI / 4) * r, y + Math.sin(a * Math.PI / 4) * r)) return false;
+  return true;
+}
+/* tìm điểm thoáng gần (x,y): xoắn ốc bước 16 tới range, không có thì obsSnap */
+export function obsOpenNear(x, y, r, range = 320) {
+  if (obsOpen(x, y, r)) return [x, y];
+  for (let d = 16; d <= range; d += 16) for (let a = 0; a < 12; a++) {
+    const [qx, qy] = clampWorld(x + Math.cos(a * Math.PI / 6) * d, y + Math.sin(a * Math.PI / 6) * d);
+    if (obsOpen(qx, qy, r)) return [qx, qy];
+  }
+  return obsSnap(x, y);
+}
 /* o di duoc gan nhat (xoan oc theo o) */
 export function obsSnap(x, y) {
   const g = OBS.g; if (!g || obsWalk(x, y)) return [x, y];

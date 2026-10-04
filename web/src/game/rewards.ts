@@ -48,6 +48,8 @@ import { enoughToActive, makeSetItem } from './sets';
 import { potStock } from './shop';
 import { addAttr, autoSpendAttrs, sexReqOk } from './stats';
 import { addItem, closeModal, log, modal, refresh, toast } from './ui';
+import { matAdd } from './recipes';
+import { WB_EVERY, WB_FIRST, WB_MIN_LV } from './worldboss';
 
 /* ======================= PHAN THUONG NGOAI GAME GOC (docs/DE_XUAT.md) =======================
    1 diem danh 7/30 ngay · 2 nhiem vu ngay · 3 thanh tuu + danh hieu · 4 trum Hoang Kim dinh ky · 5 thuong offline theo moc
@@ -61,22 +63,33 @@ const REBORN_LV = MAX_LEVEL, REBORN_MAX = 5;   // chuyen sinh o cap toi da (99)
 const FD_COST = 10;
 export function RW() { // trang thai phan thuong trong file luu (tao / bo sung truong khi nap file cu)
   const r = S.rw || (S.rw = {});
-  r.stat = Object.assign({ kills: 0, bosses: 0, goldBoss: 0, picked: 0, towerBest: 0, reborn: 0, chests: 0, tokens: 0 }, r.stat || {});
+  r.stat = Object.assign({ kills: 0, bosses: 0, goldBoss: 0, picked: 0, towerBest: 0, reborn: 0, chests: 0, tokens: 0, wboss: 0 }, r.stat || {});
   r.login = Object.assign({ last: '', streak: 0, total: 0, got: {}, claimed: true }, r.login || {});
   r.ach = r.ach || {}; r.title = r.title || ''; r.fd = r.fd || 0; if (r.gbT == null) r.gbT = GB_EVERY;
   r.pet = r.pet || null;
+  /* Boss Thế Giới + Vỏ Sò: bổ sung TRÊN TẠI object cũ (không thay bằng bản sao như stat/login ở trên)
+     vì worldboss wbVictory / spinSo giữ tham chiếu w/so qua nhiều lần gọi RW() giữa các mutation. */
+  const wbHad = !!(r.wb && typeof r.wb === 'object');
+  if (!wbHad) r.wb = {};
+  if (r.wb.t != null) { r.wb.next = Date.now() + r.wb.t * 1000; delete r.wb.t; }   // migrate save cũ (t = giây đếm ngược theo thời gian chơi)
+  if (r.wb.next == null) r.wb.next = Date.now() + (wbHad ? WB_EVERY : WB_FIRST) * 1000;   // mốc THỜI GIAN THỰC; nhân vật mới: con đầu sau WB_FIRST
+  if (!('up' in r.wb)) r.wb.up = null;
+  if (!r.so || typeof r.so !== 'object') r.so = {};
+  r.so.n = r.so.n || 0; r.so.pity = r.so.pity || 0; r.so.spins = r.so.spins || 0; r.so.day = r.so.day || '';
   return r;
 }
 
 /* ---------- phan thuong chung ---------- */
-function grant(g, why) {
+export function grant(g, why) {
   const out = [];
   if (g.gold) { const v = Math.round(g.gold * (1 + S.lvl / 10)); S.gold += v; out.push(`${fmt(v)} lượng`); }
   if (g.pot) { const st = potStock(g.pot.kind); st[g.pot.tier] = (st[g.pot.tier] || 0) + g.pot.n; out.push(`${g.pot.n} ${g.pot.kind === 'life' ? 'Kim Sáng Dược' : 'Ngưng Thần đan'}`); }
   if (g.fd) { RW().fd += g.fd; out.push(`${g.fd} Phúc Duyên`); }
-  if (g.item) { const it = (() => { const d = irnd(0, 9); return makeItem(d, sexPart(d, 0), clamp(Math.round(S.lvl / 12) + 1, 1, 10), g.item); })(); if (it) { addItem(it, true, true, true); out.push(esc(it.n)); } }
+  if (g.item) { const it = (() => { const d = irnd(0, 9); return makeItem(d, sexPart(d, 0), clamp(Math.round(S.lvl / 12) + 1, 1, 10), g.item); })(); if (it) { if (g.itemR) it.r = g.itemR; addItem(it, true, true, true); out.push(esc(it.n)); } }
   if (g.set) { const it = forceSetItem(); if (it) { addItem(it, true, true); out.push(`<b style="color:${RAR_COL[it.r]}">${esc(it.n)}</b>`); } }
   if (g.pts) { S.attrPts += g.pts; out.push(`${g.pts} điểm tiềm năng`); }
+  if (g.so) { const so = RW().so; so.n += g.so; out.push(`+${g.so} Vỏ Sò`); }
+  if (g.mat) { matAdd(g.mat.g, g.mat.k, g.mat.n); out.push(`${g.mat.n} ${g.mat.g === 'ht' ? 'Huyền Tinh cấp ' + g.mat.k : g.mat.k}`); }
   if (out.length) { log(`🎁 ${esc(why)}: ${out.join(', ')}`); if (!R.quiet) uiSfx('learn'); save(); }
   return out;
 }
@@ -199,7 +212,7 @@ export function titleAttr(A) { // goi tu calc(): chi so cua danh hieu dang deo
 }
 
 /* ---------- 4. trum Hoang Kim dinh ky ---------- */
-export function goldBossTick(dt) { if (S.fac && !R.town && !R.tower) RW().gbT -= dt; }
+export function goldBossTick(dt) { if (S.fac && !R.town && !R.tower && !R.wbArena) RW().gbT -= dt; }   // wbArena: hai boss không chạy song song
 export function goldBossDue() { return !R.tower && RW().gbT <= 0; }
 export function spawnGoldBoss() {
   // cap trum khong vuot cap nhan vat + 2 (nhip len cap cham: nhan vat thuong danh ai cao hon cap minh)
@@ -314,6 +327,107 @@ function openChest() {
   toast('Rương Phúc Duyên: ' + got.join(', ').replace(/<[^>]+>/g, '')); refreshGift();
 }
 
+/* ---------- 10b. quay Vỏ Sò (bàn quay kiểu Bách Bảo Rương — Kiếm Thế) ---------- */
+const SO_COST1 = 1, SO_COST10 = 9, PITY_MAX = 25;                  // ×10 tính 9 vỏ (tặng 1 lượt); 25 lượt không ra Tím+ thì ép
+const SO_TIER_COL = { 0: RAR_COL[0], 3: RAR_COL[3], 4: RAR_COL[4], 5: '#ff6a5a' };
+/* [trọng số, hạng (>=3 = Tím+, thuộc nhóm bảo đảm), tên hiển thị, sinh phần thưởng, icon ô quay, số sao, màu riêng (tuỳ chọn)] */
+const SO_TABLE = [
+  [25, 0, 'Ngân lượng', () => ({ gold: 500 }), '💰', 2],
+  [15, 0, 'Thuốc', () => ({ pot: { kind: pick(['life', 'mana']), tier: irnd(2, 3), n: irnd(5, 10) } }), '🧪', 2],
+  [12, 0, 'Phúc Duyên', () => ({ fd: irnd(5, 15) }), '🧧', 3],
+  [12, 0, 'Vỏ Sò', () => ({ so: irnd(2, 4) }), '🐚', 1],
+  [10, 0, 'Đồ 4 dòng', () => ({ item: 4 }), '🗡️', 4],
+  [9, 0, 'Đồ 5 dòng', () => ({ item: 5 }), '🪖', 5],
+  [6, 3, 'Đồ 6 dòng (Tím)', () => ({ item: 6, itemR: 3 }), '💎', 6],
+  [4, 3, 'Nguyên liệu rèn', () => ({ mat: { g: 'ht', k: String(clamp(Math.round(S.lvl / 12) + 1, 1, 10)), n: irnd(2, 5) } }), '💠', 4],
+  [3, 0, '5 điểm tiềm năng', () => ({ pts: 5 }), '✨', 3],
+  [2, 0, 'Vỏ Sò Vàng', () => ({ so: irnd(20, 35) }), '🐚', 5, '#ffd24a'],
+  [1.8, 4, 'Đồ Hoàng Kim', () => ({ set: 1 }), '👑', 6],
+  [0.2, 5, 'Huyền Thoại', () => ({ set: 1, fd: 50 }), '🐉', 6],
+];
+/* Loại thưởng trên từng ô theo thứ tự vòng kim đồng hồ (20 ô; 8 loại phổ biến chiếm 2 ô, 4 loại hiếm chiếm 1 ô) */
+const SO_RING_TYPES = [0, 3, 5, 1, 11, 4, 8, 2, 10, 7, 6, 2, 0, 1, 10, 3, 9, 4, 6, 5];
+let soResults = [];                                                // kết quả lần quay gần nhất (hiện ở Bảng Vận Mệnh)
+let soSpinning = false;                                            // đang chạy đèn: chặn quay tiếp, chặn re-render giữa chừng
+let soWinLast = 0;                                                 // vỏ sò rớt ra ở lần quay gần nhất (khay "Nhận Vỏ Sò")
+const SO_RING: [number, number][] = [];
+for (let c = 0; c < 8; c++) SO_RING.push([0, c]);
+for (let r = 1; r <= 3; r++) SO_RING.push([r, 7]);
+for (let c = 6; c >= 0; c--) SO_RING.push([3, c]);
+for (let r = 2; r >= 1; r--) SO_RING.push([r, 0]);
+const soCellsOf = typeIdx => SO_RING.map((_, i) => i).filter(i => SO_RING_TYPES[i] === typeIdx);
+function spinSo(nLượt) {
+  const so = RW().so, cost = nLượt >= 10 ? SO_COST10 : SO_COST1;
+  if (soSpinning) return;
+  if (so.n < cost) { toast(`Không đủ Vỏ Sò (cần ${cost}, đang có ${so.n})`); return; }
+  so.n -= cost; so.spins += nLượt; soResults = []; soWinAccum = 0;
+  soSpinning = true;
+  document.querySelectorAll('#mBody #gSo1, #mBody #gSo10').forEach(b => b.disabled = true);
+  const bal = $('#mBody #soBal'); if (bal) bal.textContent = String(so.n);
+  const seq = (k) => {
+    if (k >= nLượt) {                                              // hết lượt: nhẹ nhàng trả giao diện
+      soSpinning = false; soWinLast = soWinAccum; uiSfx('learn'); save(); refreshGift();
+      return;
+    }
+    so.pity = (so.pity || 0) + 1;
+    const pool = so.pity >= PITY_MAX ? SO_TABLE.filter(x => x[1] >= 3) : SO_TABLE;   // lượt bảo đảm: chỉ rút hạng Tím+
+    const row = wpick(pool, x => x[0]);
+    if (row[1] >= 3) so.pity = 0;
+    const land = pick(soCellsOf(SO_TABLE.indexOf(row)));           // 1 trong các ô của loại này trên bàn
+    soRingSpin(land, () => {                                       // đèn dừng mới phát thưởng (đủ hồi hộp như Kiếm Thế)
+      const g = row[3](), got = grant(g, 'Quay Sò');
+      const col = row[6] || SO_TIER_COL[row[1]];
+      const line = { label: row[2], got: (got && got[0]) || '', col };
+      soResults.push(line);
+      const logEl = $('#mBody #soLog');
+      if (logEl) {
+        logEl.insertAdjacentHTML('afterbegin', `<div>Bạn rót được <b style="color:${col}">${esc(line.label)}</b> <small class="dim">${line.got}</small></div>`);
+        while (logEl.children.length > 5) logEl.removeChild(logEl.lastChild);
+      }
+      const bal2 = $('#mBody #soBal'); if (bal2) bal2.textContent = String(so.n);
+      const prizeTray = $('#mBody #soPrizeTray'); if (prizeTray) prizeTray.textContent = row[2];
+      if (g.so) {                                                  // trúng vỏ sò: rớt vào khay "Nhận Vỏ Sò"
+        soWinAccum += g.so;
+        const shellTray = $('#mBody #soShellTray');
+        if (shellTray) { shellTray.textContent = '+' + soWinAccum + ' vỏ'; const t = shellTray.closest('.soTray'); if (t) { t.classList.remove('bump'); void t.offsetWidth; t.classList.add('bump'); } }
+      }
+      seq(k + 1);
+    }, nLượt >= 10);
+  };
+  seq(0);
+}
+let soWinAccum = 0;                                                // vỏ sò rớt trong phiên quay đang chạy
+let soRingPos = 0;                                                 // ô đèn đang đứng (giữ liên tục giữa các lượt — vòng quay chạy tròn, không nhảy về 0)
+function soRingSpin(land, done, quick) {
+  /* querySelectorAll trả ô theo thứ tự DOM (từng hàng) — xếp lại theo data-ring để đèn đi
+     đúng vòng kim đồng hồ: hàng trên trái→phải, cột phải xuống, hàng dưới phải→trái, cột trái lên. */
+  const cells = Array.from(document.querySelectorAll('#mBody .soCell'))
+    .sort((a, b) => (+a.dataset.ring) - (+b.dataset.ring));
+  if (!cells.length) { done(); return; }                           // modal đóng giữa chừng (Esc): bỏ animation, thưởng vẫn nhận (grant nằm trong done)
+  const N = 20, start = soRingPos % N, ahead = (land - start + N) % N;
+  const steps = N + ahead;                                         // luôn chạy trọn ít nhất 1 vòng rồi mới dừng vào ô trúng
+  let i = 0, pos = start;
+  cells.forEach(c => c.classList.remove('cur'));
+  cells[start].classList.add('cur');
+  const step = () => {
+    cells[pos].classList.remove('cur');
+    pos = (pos + 1) % N;                                           // sáng ô KẾ TIẾP trước rồi mới kiểm dừng -> đèn đứng đúng ô trúng
+    cells[pos].classList.add('cur');
+    i++;
+    if (i >= steps) {
+      cells[land].classList.add('land');
+      uiSfx('click');
+      soRingPos = land;
+      setTimeout(() => { const w = cells[land]; if (w) w.classList.remove('land'); done(); }, quick ? 260 : 520);
+      return;
+    }
+    const tailStart = steps - (quick ? 3 : 6);
+    const tail = i >= tailStart ? (quick ? 110 + (i - tailStart) * 50 : 150 + (i - tailStart) * 60) : (quick ? 26 : 80);
+    setTimeout(step, tail);
+  };
+  setTimeout(step, quick ? 30 : 90);
+}
+
 /* ---------- moc noi vao tro choi ---------- */
 export function rwOnKill(e) {
   if (!S.fac) return;
@@ -357,6 +471,24 @@ function giftBody(r) {
   if (giftTab === 'chest') return `<p class="desc">Điểm Phúc Duyên: <b>${r.fd}</b> (điểm danh, nhiệm vụ, thành tựu, trùm). Mỗi lần mở: ${FD_COST} điểm.</p>
       <div class="chips">${FD_TABLE.map(([w, g]) => `<span class="chip2">${giftText(g)} · ${w}%</span>`).join('')}</div>
       <div class="btnrow"><button class="btn" id="gChest" ${r.fd >= FD_COST ? '' : 'disabled'}>Mở rương Phúc Duyên</button></div>`;
+  if (giftTab === 'so') {
+    if (!unlocked(WB_MIN_LV)) return `<p class="desc">Quay Sò mở ở cấp ${WB_MIN_LV} — sau khi đủ sức hạ <b>Boss Thế Giới</b> (xuất hiện mỗi ${Math.round(WB_EVERY / 60)} phút chơi).</p>`;
+    const so = r.so, left = Math.max(0, PITY_MAX - (so.pity || 0));
+    const at = new Map(SO_RING.map(([rr, cc], i) => [rr * 8 + cc, i]));
+    let board = '';
+    for (let p = 0; p < 32; p++) {
+      const i = at.get(p);
+      if (i == null) { board += '<i class="soHole"></i>'; continue; }
+      const row = SO_TABLE[SO_RING_TYPES[i]], col = row[6] || SO_TIER_COL[row[1]];
+      board += `<div class="soCell t${row[1]}" data-ring="${i}"${row[6] ? ` style="border-color:${row[6]}"` : ''}><span>${row[4]}</span><small style="color:${col}">${'★'.repeat(row[5])}</small></div>`;
+    }
+    const last = soResults.length ? soResults[soResults.length - 1] : null;
+    return `<p class="desc">Vỏ Sò rớt từ <b style="color:#ff8a5a">Boss Thế Giới</b>. Đang có <b id="soBal">${so.n}</b> vỏ · đã quay ${so.spins} lượt · bảo đảm Tím+: ${left === 0 ? '<b>lượt kế tiếp</b>' : `còn <b>${left}</b> lượt`}.</p>
+      <div class="soBoard">${board}<div class="soCenter"><h4>◆ Bảng Vận Mệnh ◆</h4><div class="soLog" id="soLog">${soResults.slice(-5).reverse().map(x => `<div>Bạn rót được <b style="color:${x.col}">${esc(x.label)}</b> <small class="dim">${x.got}</small></div>`).join('') || '<div class="dim">Bấm quay — đèn chạy vòng và dừng vào ô phúc phần của bạn.</div>'}</div></div></div>
+      <div class="soTrays"><div class="soTray"><span>🎁</span><small>Nhận thưởng</small><b id="soPrizeTray">${last ? esc(last.label) : '—'}</b></div><div class="soTray"><span>🐚</span><small>Nhận Vỏ Sò</small><b id="soShellTray">${soWinLast ? '+' + soWinLast + ' vỏ' : '—'}</b></div></div>
+      <div class="btnrow"><button class="btn" id="gSo1" ${so.n >= SO_COST1 && !soSpinning ? '' : 'disabled'}>Quay ×1 · 1 vỏ</button><button class="btn" id="gSo10" ${so.n >= SO_COST10 && !soSpinning ? '' : 'disabled'}>Quay ×10 · 9 vỏ</button></div>
+      <div class="chips">${SO_TABLE.map(([w, , label]) => `<span class="chip2">${label} · ${w}%</span>`).join('')}</div>`;
+  }
   if (giftTab === 'event') {
     const ev = eventNow();
     return `<p class="desc">Sự kiện: <b style="color:${ev.col}">${ev.n}</b>. Quái rơi ${ev.token} (5%). Đang có: <b>${r.stat.tokens}</b>.</p>${EVENT_SHOP.map(([c, g], i) => `<div class="qrow"><span>${giftText(g)}</span><small>${c} ${ev.token}</small><button class="btn sm" data-e="${i}" ${r.stat.tokens >= c ? '' : 'disabled'}>Đổi</button></div>`).join('')}`;
@@ -377,11 +509,12 @@ function giftBody(r) {
 }
 export function giftModal() {
   if (!S.fac) return;
-  const r = RW(), tabs = [['login', 'Điểm danh'], ['lvms', 'Mốc cấp'], ['quest', 'Nhiệm vụ'], ['ach', 'Thành tựu'], ['chest', 'Phúc Duyên'], ['event', 'Sự kiện'], ['tower', 'Tháp'], ['pet', 'Đồng hành'], ['reborn', 'Chuyển sinh']];
+  const r = RW(), tabs = [['login', 'Điểm danh'], ['lvms', 'Mốc cấp'], ['quest', 'Nhiệm vụ'], ['ach', 'Thành tựu'], ['chest', 'Phúc Duyên'], ['so', 'Quay Sò'], ['event', 'Sự kiện'], ['tower', 'Tháp'], ['pet', 'Đồng hành'], ['reborn', 'Chuyển sinh']];
   modal(`<h3>Phần thưởng <small>Phúc Duyên ${r.fd}</small></h3><div class="dtabs" id="giftTabs">${tabs.map(([k, n]) => `<button data-g="${k}" class="${k === giftTab ? 'on' : ''}">${n}</button>`).join('')}</div>${giftBody(r)}`, () => {
     document.querySelectorAll('#mBody #giftTabs button').forEach(x => x.onclick = () => { giftTab = x.dataset.g; giftModal(); });
     const on = (id, fn) => { const el = $(id); if (el) el.onclick = fn; };
     on('#gLogin', () => { claimLogin(); refreshGift(); }); on('#gChest', openChest); on('#gTower', towerStart);
+    on('#gSo1', () => spinSo(1)); on('#gSo10', () => spinSo(10));
     on('#gTowerOut', () => { towerExit(false); refreshGift(); }); on('#gReborn', doReborn);
     document.querySelectorAll('#mBody [data-lv]').forEach(x => x.onclick = () => claimLvMs(+x.dataset.lv));
     document.querySelectorAll('#mBody [data-q]').forEach(x => x.onclick = () => { claimQuest(+x.dataset.q); refreshGift(); });
