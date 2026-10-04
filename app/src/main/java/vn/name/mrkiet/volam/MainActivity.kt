@@ -390,7 +390,7 @@ class MainActivity : ComponentActivity() {
         ui.findViewById<Button>(R.id.loadingRetry).setOnClickListener { startOtaFlow() }
         Thread {
             val manifest = OtaManager.fetchManifest()
-            val rel = OtaManager.fetchLatestRelease()   // check APK mới gộp chung — cần kết quả trước khi quyết dừng màn loading
+            val rel = OtaManager.fetchNewestApkRelease()   // chỉ release CÓ file APK — bản chỉ-vá-data không rao update APK
             val idx = OtaManager.loadIndex(this)
             runOnUiThread {
                 if (rel != null) {

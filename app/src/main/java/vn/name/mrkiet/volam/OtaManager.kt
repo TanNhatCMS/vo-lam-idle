@@ -32,7 +32,7 @@ object OtaManager {
     private const val MANIFEST_URL =
         "https://raw.githubusercontent.com/TanNhatCMS/volam-idle-android/main/assets-manifest.json"
     private const val RELEASES_API =
-        "https://api.github.com/repos/TanNhatCMS/volam-idle-android/releases/latest"
+        "https://api.github.com/repos/TanNhatCMS/volam-idle-android/releases?per_page=15"
 
     /**
      * Cau hinh OTA theo variant: build thuong (debug/release) deu dung GitHub
@@ -179,30 +179,41 @@ object OtaManager {
         return true
     }
 
-    /** Ban APK moi tren GitHub Releases (kem URL + dung luong file APK trong release); null neu loi. */
-    fun fetchLatestRelease(): ReleaseInfo? = try {
+    /**
+     * Release mới nhất CÓ file APK (duyet danh sach releases moi nhat truoc; bo qua
+     * ban chi vá data khong kem APK — neu khong app se bao cap nhat APK trong khi
+     * release do khong co file de tai). Kem URL + dung luong file APK; null neu
+     * khong co/loi.
+     */
+    fun fetchNewestApkRelease(): ReleaseInfo? = try {
         val req = Request.Builder().url(RELEASES_API)
             .header("Accept", "application/vnd.github+json").build()
         http.newCall(req).execute().use { resp ->
             if (!resp.isSuccessful) return null
-            val obj = JSONObject(resp.body!!.string())
-            if (obj.optBoolean("draft", false) || obj.optBoolean("prerelease", false)) return null
-            var apkUrl: String? = null
-            var apkSize = 0L
-            obj.optJSONArray("assets")?.let { arr ->
-                for (i in 0 until arr.length()) {
-                    val a = arr.getJSONObject(i)
-                    if (a.optString("name", "").endsWith(".apk")) {
-                        apkUrl = a.getString("browser_download_url")
-                        apkSize = a.optLong("size", 0L)
-                        break
+            val arr = org.json.JSONArray(resp.body!!.string())
+            for (i in 0 until arr.length()) {
+                val obj = arr.getJSONObject(i)
+                if (obj.optBoolean("draft", false) || obj.optBoolean("prerelease", false)) continue
+                var apkUrl: String? = null
+                var apkSize = 0L
+                obj.optJSONArray("assets")?.let { assets ->
+                    for (j in 0 until assets.length()) {
+                        val a = assets.getJSONObject(j)
+                        if (a.optString("name", "").endsWith(".apk")) {
+                            apkUrl = a.getString("browser_download_url")
+                            apkSize = a.optLong("size", 0L)
+                            break
+                        }
                     }
                 }
+                if (apkUrl != null) {
+                    return ReleaseInfo(obj.getString("tag_name"), obj.getString("html_url"), apkUrl, apkSize)
+                }
             }
-            ReleaseInfo(obj.getString("tag_name"), obj.getString("html_url"), apkUrl, apkSize)
+            null
         }
     } catch (e: Exception) {
-        Log.w(TAG, "fetchLatestRelease: ${e.message}")
+        Log.w(TAG, "fetchNewestApkRelease: ${e.message}")
         null
     }
 
