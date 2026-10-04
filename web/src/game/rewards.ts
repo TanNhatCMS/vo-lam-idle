@@ -55,6 +55,7 @@ import { addItem, closeModal, log, modal, refresh, toast } from './ui';
 'use strict';
 const dayKey = d => `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
 const today = () => dayKey(new Date());
+const weekKey = d => { const t = new Date(d.getFullYear(), d.getMonth(), d.getDate()); t.setDate(t.getDate() - (t.getDay() + 6) % 7); return dayKey(t); };   // Thu Hai cua tuan: doi tuan -> key doi
 export const GB_EVERY = 1800, GB_RETRY = 300;     // trum Hoang Kim: moi 30 phut choi; thua thi 5 phut sau quay lai
 const REBORN_LV = MAX_LEVEL, REBORN_MAX = 5;   // chuyen sinh o cap toi da (99)
 const FD_COST = 10;
@@ -99,7 +100,7 @@ export function loginCheck() {
   const y = new Date(); y.setDate(y.getDate() - 1);
   L.streak = L.last === dayKey(y) ? L.streak + 1 : 1;
   L.last = t; L.total++; L.claimed = false;
-  dailyQuests(true); dotGift();
+  dailyQuests(true); weeklyQuests(); dotGift();
 }
 function claimLogin() {
   const L = RW().login; if (L.claimed) return;
@@ -150,8 +151,24 @@ export function questTick(k, n = 1) {
   if (!S || !S.fac) return;
   if (k === 'picked') RW().stat.picked += n;
   for (const q of dailyQuests().list) if (q.k === k && !q.done && q.have < q.need) { q.have = Math.min(q.need, q.have + n); if (q.have >= q.need) dotGift(); }
+  for (const q of weeklyQuests().list) if (q.k === k && !q.done && q.have < q.need) { q.have = Math.min(q.need, q.have + n); if (q.have >= q.need) dotGift(); }
 }
 function claimQuest(i) { const q = dailyQuests().list[i]; if (!q || q.done || q.have < q.need) return; q.done = true; grant({ gold: 300, fd: 5 }, `Nhiệm vụ: ${q.t}`); }
+
+/* ---------- 2b. nhiem vu tuan (5 viec ngau nhien, lam moi vao Thu Hai) ---------- */
+const WQ_POOL = [
+  ['kills', 'Hạ {n} quái', lv => 1200 + lv * 15], ['bosses', 'Hạ {n} trùm', () => 12], ['picked', 'Nhặt {n} món đồ', () => 60],
+  ['stages', 'Vượt {n} ải', () => 20], ['pots', 'Dùng {n} bình thuốc', () => 60], ['tower', 'Leo {n} tầng tháp thử thách', () => 12],
+];
+const WQ_REWARD = { gold: 1500, fd: 20 };
+function weeklyQuests(reset) {
+  const r = RW(), wk = weekKey(new Date());
+  if (!reset && r.wq && r.wq.week === wk) return r.wq;
+  const pool = WQ_POOL.filter(q => q[0] !== 'tower' || unlocked(TOWER_LV)).sort(() => Math.random() - 0.5).slice(0, 5);
+  r.wq = { week: wk, list: pool.map(([k, t, f]) => ({ k, t: t.replace('{n}', f(S.lvl)), need: f(S.lvl), have: 0, done: false })) };
+  return r.wq;
+}
+function claimWeekQuest(i) { const q = weeklyQuests().list[i]; if (!q || q.done || q.have < q.need) return; q.done = true; grant(WQ_REWARD, `Nhiệm vụ tuần: ${q.t}`); }
 
 /* ---------- 3. thanh tuu + danh hieu (deo 1 danh hieu: cong chi so nho) ---------- */
 const ACH = [
@@ -310,7 +327,7 @@ export function rwOnKill(e) {
 export function giftPending() {
   if (!S || !S.fac) return false;
   const r = RW();
-  return !r.login.claimed || lvMsReady().length > 0 || dailyQuests().list.some(q => !q.done && q.have >= q.need) || r.fd >= FD_COST;
+  return !r.login.claimed || lvMsReady().length > 0 || dailyQuests().list.some(q => !q.done && q.have >= q.need) || weeklyQuests().list.some(q => !q.done && q.have >= q.need) || r.fd >= FD_COST;
 }
 export function dotGift() { const b = $('#giftBtn'); if (b) b.classList.toggle('on', giftPending()); }
 
@@ -334,7 +351,8 @@ function giftBody(r) {
     const g = r.lvGot || {};
     return `<p class="desc">Quà mốc cấp: nhận một lần (chuyển sinh không nhận lại). Chủ yếu thuốc, ngân lượng, Phúc Duyên và mở khóa tính năng.</p>${LV_MS.map(([lv, rw, note]) => `<div class="qrow${S.lvl >= lv ? '' : ' lock'}"><span><b>Cấp ${lv}</b><small>${giftText(rw)}${note ? ' · ' + note : ''}</small></span><small></small><button class="btn sm" data-lv="${lv}" ${S.lvl >= lv && !g[lv] ? '' : 'disabled'}>${g[lv] ? 'Đã nhận' : 'Nhận'}</button></div>`).join('')}`;
   }
-  if (giftTab === 'quest') return `<p class="desc">Làm mới mỗi ngày. Mỗi việc: lượng + 5 Phúc Duyên.</p>${dailyQuests().list.map((q, i) => `<div class="qrow"><span>${esc(q.t)}</span><small>${q.have}/${q.need}</small><button class="btn sm" data-q="${i}" ${q.done || q.have < q.need ? 'disabled' : ''}>${q.done ? 'Đã nhận' : 'Nhận'}</button></div>`).join('')}`;
+  if (giftTab === 'quest') return `<p class="desc"><b>Hằng ngày</b> — làm mới mỗi ngày. Mỗi việc: lượng + 5 Phúc Duyên.</p>${dailyQuests().list.map((q, i) => `<div class="qrow"><span>${esc(q.t)}</span><small>${q.have}/${q.need}</small><button class="btn sm" data-q="${i}" ${q.done || q.have < q.need ? 'disabled' : ''}>${q.done ? 'Đã nhận' : 'Nhận'}</button></div>`).join('')}
+      <p class="desc" style="margin-top:10px"><b>Hằng tuần</b> — làm mới vào thứ Hai, mục tiêu lớn hơn. Mỗi việc: ${fmt(WQ_REWARD.gold)} lượng + ${WQ_REWARD.fd} Phúc Duyên.</p>${weeklyQuests().list.map((q, i) => `<div class="qrow"><span>${esc(q.t)}</span><small>${q.have}/${q.need}</small><button class="btn sm" data-w="${i}" ${q.done || q.have < q.need ? 'disabled' : ''}>${q.done ? 'Đã nhận' : 'Nhận'}</button></div>`).join('')}`;
   if (giftTab === 'ach') return `<p class="desc">Hoàn thành để nhận thưởng; đeo 1 danh hiệu để cộng chỉ số.</p>${ACH.map(([id, n, , g, t]) => `<div class="qrow${r.ach[id] ? '' : ' lock'}"><span><b>${n}</b><small>${giftText(g)} · danh hiệu: ${escRich(attrText(t[0], [t[1], 0, 0]))}</small></span><small></small><button class="btn sm" data-t="${id}" ${r.ach[id] ? '' : 'disabled'}>${r.title === id ? 'Đang đeo' : 'Đeo'}</button></div>`).join('')}`;
   if (giftTab === 'chest') return `<p class="desc">Điểm Phúc Duyên: <b>${r.fd}</b> (điểm danh, nhiệm vụ, thành tựu, trùm). Mỗi lần mở: ${FD_COST} điểm.</p>
       <div class="chips">${FD_TABLE.map(([w, g]) => `<span class="chip2">${giftText(g)} · ${w}%</span>`).join('')}</div>
@@ -367,6 +385,7 @@ export function giftModal() {
     on('#gTowerOut', () => { towerExit(false); refreshGift(); }); on('#gReborn', doReborn);
     document.querySelectorAll('#mBody [data-lv]').forEach(x => x.onclick = () => claimLvMs(+x.dataset.lv));
     document.querySelectorAll('#mBody [data-q]').forEach(x => x.onclick = () => { claimQuest(+x.dataset.q); refreshGift(); });
+    document.querySelectorAll('#mBody [data-w]').forEach(x => x.onclick = () => { claimWeekQuest(+x.dataset.w); refreshGift(); });
     document.querySelectorAll('#mBody [data-t]').forEach(x => x.onclick = () => { r.title = r.title === x.dataset.t ? '' : x.dataset.t; R.dirty = true; save(); refreshGift(); });
     document.querySelectorAll('#mBody [data-e]').forEach(x => x.onclick = () => eventBuy(+x.dataset.e));
     document.querySelectorAll('#mBody .petpick [data-p]').forEach(x => x.onclick = () => petAdopt(+x.dataset.p));
