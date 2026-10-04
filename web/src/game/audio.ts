@@ -54,3 +54,32 @@ export function preloadZoneSounds(z) {
   for (const t of z.m.concat([z.boss])) { const e = SND.npc[MON[t] && MON[t].anim]; if (e) Object.values(e).forEach(s => s && audLoad(s)); }
   Object.values(SND.ui).forEach(s => s && audLoad(s));
 }
+
+/* Dung / hat lai am thanh khi app (hoac tab) bi an di.
+   - Android: vo app (MainActivity) tu goi AUD + audApply() qua evaluateJavascript khi
+     onPause/onResume va khi mat/duoc audio focus — nen hai ten do phai la bien toan cuc
+     y nhu ban vanilla (xem expose o cuoi file).
+   - Web: loop.ts goi hai ham nay theo su kien visibilitychange. */
+export function audioSuspendForBackground() {
+  try {
+    if (AUD.ctx && AUD.ctx.state === 'running') AUD.ctx.suspend();
+    if (AUD.music && !AUD.music.paused) AUD.music.pause();
+  } catch (e) { /* bo qua */ }
+}
+export function audioResumeFromBackground() {
+  try {
+    if (AUD.ctx && AUD.ctx.state === 'suspended') AUD.ctx.resume();
+    audApply();                                    // bat lai nhac neu cau hinh dang bat (audApply tu play)
+  } catch (e) { /* bo qua */ }
+}
+
+/* ---- Tuong thich vo Android da phat hanh ----
+   MainActivity goi thang `AUD` (ctx + music) va `audApply()` khi app vao/roi background
+   (AUDIO_PAUSE_JS / AUDIO_RESUME_JS / AUDIO_DUCK_JS) — ban vanilla khai bao chung o
+   top-level script nen la bien toan cuc; sau khi port sang ES modules phai expose lai,
+   neu khong `typeof AUD === 'undefined'` lam ca khoi lenh bi bo qua (nhac khong tat khi
+   ve home). Giu nguyen API cu de khong phai phat hanh APK moi. */
+if (typeof window !== 'undefined') {
+  (window as any).AUD = AUD;
+  (window as any).audApply = audApply;
+}
