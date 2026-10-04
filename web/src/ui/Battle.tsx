@@ -1,6 +1,6 @@
 import React from 'react';
 import { useGameTick } from './useGameTick';
-import { SK, fmt, clamp } from '../game/core';
+import { SK, W, fmt, clamp } from '../game/core';
 import { R } from '../game/combat';
 import { S, save } from '../game/save';
 import {
@@ -20,7 +20,7 @@ const switchInput = () => {
   toast(mouseMode() ? 'Điều khiển bằng chuột: bấm hoặc giữ chuột để đi' : 'Điều khiển bằng joystick: kéo ở góc trái dưới');
 };
 
-/* San dau: canvas + HUD + nut. Canvas va #svHud/#svBar/#townName la island — engine tu ghi. */
+/* San dau: canvas + HUD + nut. Canvas va #svHud/#svBar la island — engine tu ghi. Thanh pho do React ve theo R.town. */
 export default function Battle() {
   useGameTick();
   const fac = (S && S.fac) ? true : false;
@@ -74,8 +74,8 @@ export default function Battle() {
       </div>
       <div id="svBar" className="hidden" />
 
-      <div id="townBar" className="hidden">
-        <b id="townName" />
+      <div id="townBar" className={R.town ? '' : 'hidden'}>
+        <b id="townName">{R.town && W.town ? W.town.n : ''}</b>
         <button className="btn sm" id="bShop" onClick={() => shopModal()}>Cửa hàng</button>
         <button className="btn sm" id="bStashT" onClick={() => stashModal()}>Kho chung</button>
         <button className="btn sm" id="bSellTown" onClick={sellTown}>Bán đồ không khớp lọc</button>
