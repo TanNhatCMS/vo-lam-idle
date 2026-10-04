@@ -11,3 +11,9 @@ keystore.properties
 
 # OTA zip - chi dinh kem GitHub Release, khong commit
 ota-*.zip
+
+# Anh test E2E tai root (khong commit)
+e2e*.png
+pick_*.png
+inv_*.png
+fast_*.png
