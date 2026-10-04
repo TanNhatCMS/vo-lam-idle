@@ -1,0 +1,51 @@
+name: Web build
+
+# Build bản Next.js static export (web/) — artifact dùng deploy hosting tùy ý
+on:
+  push:
+    branches: [main]
+    paths: ['web/**', '.github/workflows/web.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Cài dependencies
+        run: npm ci
+        working-directory: web
+
+      - name: Kiểm tra kiểu (tsc --noEmit)
+        run: npm run typecheck
+        working-directory: web
+
+      - name: Build static export
+        run: npm run build
+        working-directory: web
+
+      - name: Kiểm tra bản đóng gói web đầy đủ (out + media)
+        run: node scripts/sync-android.mjs --out ../.gh-webtest
+        working-directory: web
+
+      - name: Tải artifact web-out
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-out
+          path: web/out
+
+      - name: Tải artifact web đầy đủ (kèm media, deploy được ngay)
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-full
+          path: .gh-webtest

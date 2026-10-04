@@ -17,7 +17,39 @@
 
 App là một cái vỏ WebView gọn (~11MB): phần **code game bundle trong APK**, phần **media (~115MB) tải qua OTA** từ GitHub Release lần chạy đầu, sau đó **chơi offline 100%**.
 
-## Build
+## Bản web Next.js (`web/`)
+
+Toàn bộ game chạy bằng **Next.js 16 (App Router, Turbopack) + React 19 + TypeScript** ở thư mục `web/` — một codebase cho cả web lẫn Android: `next build` với `output: 'export'` ra static files, ném thẳng vào cơ chế OTA của app (thay phần code `index.html` + `js/*` cũ), hoặc deploy lên hosting bất kỳ (lưu ý: asset path tuyệt đối `/_next/...` — deploy ở **domain root**, không phải sub-path).
+
+```bash
+cd web
+npm install
+npm run dev            # next dev http://localhost:3000 (Turbopack)
+npm run typecheck      # tsc --noEmit
+npm run build          # static export -> web/out/
+npm run android:sync   # build + chép out/ vào game/ để sinh gói OTA Android
+npm run android:sync -- --out ../deploy   # đóng gói bản web ĐẦY ĐỦ (out + media) deploy static
+npm run android:sync -- --clean          # sync + xóa code vanilla cũ trong game/ (js/, data.js...)
+node scripts/serve-static.mjs ../deploy 8080   # thử bản đóng gói trên máy
+```
+
+**Media trong dev**: `img/snd/music/fx` (~115MB) KHÔNG copy vào repo — `npm run dev` tự tạo **junction** `public/<media>` → `../game/<media>` (`scripts/prep-public.mjs`, gitignored); `sync-android.mjs` tự gỡ junction trước `next build` để `out/` không nhồi 115MB, rồi tạo lại. `ui/` + `fonts/` nhỏ nên copy thật trong `public/`.
+
+### Kiến trúc
+
+- **App Router** — `src/app/layout.tsx` (metadata, viewport, link style.css/fonts từ `public/`) + `src/app/page.tsx` (`'use client'`, `dynamic(..., { ssr: false })`) vì game là SPA thuần client: canvas, requestAnimationFrame, localStorage, DOM island — không thể SSR.
+- **Engine** (`web/src/game/*.ts`) — port 1:1 từ vanilla JS cũ sang ES modules: mô phỏng 60 bước/giây, combat, loot, save… giữ nguyên hành vi. `loop.ts` là vòng lặp chính + `boot()`; `store.ts` là cầu nối báo React vẽ lại HUD theo tick 10Hz.
+- **UI React** (`web/src/ui/*.tsx`) — khung app (top bar, sân đấu, pad kỹ năng, tabs, modal, toast) render theo state. Khung **island**: React tạo container rỗng (`#mBody`, `#t-log`…), các renderer của engine ghi DOM vào đó như bản gốc — hai thế giới không giẫm chân nhau.
+- **Data** (`web/src/game/jx.js` v.v.) — dữ liệu game gốc (~3.5MB) giữ nguyên dạng `.js`.
+- **TypeScript**: UI check kiểu đầy đủ; một số engine file còn `// @ts-nocheck` ở đầu file (port máy móc từ JS) — **bật lại check từng file** bằng cách xóa dòng đó rồi chạy `npm run typecheck`. Kiểu dùng chung ở `web/src/game/types.ts` (`SaveState`, `GameState`, `Hero`, `Item`…).
+
+### GitHub Actions
+
+- **Web build** (`.github/workflows/web.yml`) — `npm ci → typecheck → next build`, artifact `web-out` + `web-full` (kèm media, deploy được ngay).
+- **APK build** (`.github/workflows/apk.yml`) — `assembleRelease`, artifact APK (không có keystore trong CI thì tự fallback debug signing).
+- **OTA release** (`.github/workflows/ota.yml`) — chạy tay với input `version` (vd `1.4.4`): build web → sync vào `game/` → sinh ZIP + bản vá → commit `assets-manifest.json` → tạo GitHub Release đính kèm ZIP (tùy chọn kèm APK).
+
+## Build (Android)
 
 Yêu cầu: JDK 17, Android SDK (API 35). Gradle wrapper (8.10.2) đã kèm theo — không cần cài Gradle.
 
@@ -51,8 +83,13 @@ Màn hình cập nhật hiển thị **phiên bản hiện tại**: `App vX · T
 
 ### Quy trình phát hành bản cập nhật game
 
+Cách 1 — **tự động bằng CI** (khuyến nghị): tab **Actions → OTA release → Run workflow**, nhập `version` (vd `1.4.4`), chọn có đính kèm APK hay không. Workflow tự build web, sync vào `game/`, sinh ZIP + bản vá, commit manifest và tạo GitHub Release.
+
+Cách 2 — **thủ công**:
+
 ```bash
-# 1. Copy file game mới vào game/ (giữ nguyên cấu trúc)
+# 1. Build web React + sync vào game/ (bỏ --clean nếu còn cần giữ code vanilla cũ)
+cd web && npm run android:sync -- --clean && cd ..
 # 2. Sinh 2 ZIP (data + assets) + bản vá từng gói (tool diff với manifest bản trước ở git HEAD; deterministic)
 python tools/make_ota_manifest.py --version 1.4.0
 # 3. Commit + push manifest (file zip gitignored)
@@ -79,7 +116,9 @@ ZIP đính kèm release phải khớp `data.zipUrl` / `assets.zipUrl` (và `patc
 ## Cấu trúc
 
 - `app/` — code Android: Kotlin; `MainActivity` (màn hình tải OTA + WebView), `OtaManager` (tải/verify/cài ZIP), game được phục vụ qua `WebViewAssetLoader` với origin giả lập `https://appassets.androidplatform.net` — đọc ưu tiên `files/game-assets` (OTA) rồi fallback về asset bundle.
-- `game/` — file game: phần code sync vào APK lúc build, phần media đi qua OTA (thư mục copy `app/src/main/assets/game/` đã gitignore).
+- `web/` — **nguồn game Next.js 16 + React 19 + TypeScript** (App Router, engine ES modules, data); static export ra `out/` cho web và gói OTA Android (xem mục "Bản web Next.js").
+- `game/` — thư mục game chạy thật: `index.html` + `_next/` do `npm run android:sync` chép từ `web/out`, media (`img/snd/music/fx/ui`, `fonts`) dùng chung cho Android OTA; phần code sync vào APK lúc build (thư mục copy `app/src/main/assets/game/` đã gitignore).
 - `assets-manifest.json` — manifest OTA (commit), `ota-assets-*.zip` — ZIP OTA đính kèm release (gitignored).
 - `tools/make_ota_manifest.py` — sinh ZIP + manifest; `tools/local_ota_server.py` — server test local.
+- `.github/workflows/` — CI: `web.yml` (build web), `apk.yml` (build APK), `ota.yml` (đóng gói + phát hành OTA).
 - `gradle/wrapper/` — Gradle 8.10.2 (pin bản 8.x vì AGP 8.7.3 không tương thích Gradle 9).

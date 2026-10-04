@@ -34,7 +34,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.wfile.write(data)
 
     def log_message(self, fmt, *args):
-        pass
+        print("[ota-server]", self.address_string(), fmt % args, flush=True)
 
 
 class Server(socketserver.ThreadingTCPServer):

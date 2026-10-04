@@ -1,0 +1,12 @@
+node_modules/
+.next/
+out/
+dist/
+# media lớn: junction tới ../game tạo bởi scripts/prep-public.mjs (chỉ dùng cho next dev)
+public/img/
+public/snd/
+public/music/
+public/fx/
+
+# TypeScript build cache
+*.tsbuildinfo

@@ -55,7 +55,8 @@ android {
             // Khong co co thi debug cung dung GitHub production nhu release.
             buildConfigField(
                 "boolean", "OTA_LOCAL",
-                ((findProperty("otaLocal") as? String)?.toBoolean() ?: false).toString(),
+                // Ho tro ca "-PotaLocal" (co truan, gia tri rong) va "-PotaLocal=true|false"
+                (hasProperty("otaLocal") && findProperty("otaLocal").toString() != "false").toString(),
             )
             buildConfigField("String", "OTA_LOCAL_BASE", "\"http://10.0.2.2:8000/\"")
         }

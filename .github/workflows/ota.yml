@@ -1,0 +1,79 @@
+name: OTA release
+
+# Đóng gói tài nguyên OTA: build web -> sync vào game/ -> sinh ZIP data/assets + bản vá
+# -> commit manifest -> tạo GitHub Release đính kèm ZIP (và APK nếu chọn).
+# Quy trình chi tiết xem README.md, mục "Quy trình phát hành bản cập nhật game".
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Phiên bản OTA, vd 1.4.4'
+        required: true
+      attach_apk:
+        description: 'Build và đính kèm APK release (yes/no)'
+        required: false
+        default: 'no'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      # fetch-depth 0: tool sinh bản vá đọc manifest bản trước từ git HEAD
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Build web + sync vào game/
+        run: |
+          npm ci
+          node scripts/sync-android.mjs --clean
+        working-directory: web
+
+      - name: Sinh ZIP OTA + manifest
+        run: python tools/make_ota_manifest.py --version "${{ inputs.version }}"
+
+      - name: Commit manifest
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets-manifest.json
+          if git diff --cached --quiet; then
+            echo "Manifest không đổi, bỏ qua commit"
+          else
+            git commit -m "OTA v${{ inputs.version }}: cập nhật manifest (tự động)"
+            git push
+          fi
+
+      - name: Build APK release (tùy chọn)
+        if: inputs.attach_apk == 'yes'
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon
+
+      - name: Tạo GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="v${{ inputs.version }}"
+          FILES=(ota-data-*.zip ota-data-patch-*.zip)
+          # assets chỉ đính kèm khi có thay đổi (ZIP tồn tại)
+          ls ota-assets-*.zip >/dev/null 2>&1 && FILES+=(ota-assets-*.zip ota-assets-patch-*.zip)
+          if [ "${{ inputs.attach_apk }}" = "yes" ]; then
+            FILES+=(app/build/outputs/apk/release/*.apk)
+          fi
+          gh release create "$TAG" "${FILES[@]}" \
+            --title "Võ Lâm Idle v${{ inputs.version }}" \
+            --notes "Tài nguyên OTA v${{ inputs.version }}. App cũ tự tải bản vá khi mở game; cài mới thì tải full 2 gói."
