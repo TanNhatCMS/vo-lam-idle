@@ -53,6 +53,7 @@ import {
   towerExit,
   towerSpawn,
 } from './rewards';
+import { backFromBossArena, wbTick, wbVictory } from './worldboss';
 import { S } from './save';
 import { rollSetDrop } from './sets';
 import { takeStock } from './shop';
@@ -255,13 +256,13 @@ export function tick(dt) {
   if ((R.sweepT = (R.sweepT || 0) + dt) > 30) { R.sweepT = 0; autoEquipAll(); sweepJunk(); autoBuyWeapon(); autoForge(); checkHints(); }
   if (R.dirty) recalc();
   const P = R.P;
-  if (R.deadT > 0) { R.deadT -= dt; if (R.deadT <= 0) { R.life = P.life; R.mana = P.mana; S.wave = 1; spawnWave(); } return; }
+  if (R.deadT > 0) { R.deadT -= dt; if (R.deadT <= 0) { R.life = P.life; R.mana = P.mana; S.wave = 1; if (R.wbArena) backFromBossArena(); else spawnWave(); } return; }
   R.life = Math.min(P.life, R.life + P.regen * dt); R.mana = Math.min(P.mana, R.mana + P.manaRegen * dt);
   autoPotion(dt);
   if (R.hurtT > 0) R.hurtT -= dt;
   if (R.tpCd > 0) R.tpCd -= dt;
   if (R.potCd) { R.potCd.life = Math.max(0, R.potCd.life - dt); R.potCd.mana = Math.max(0, R.potCd.mana - dt); }
-  goldBossTick(dt); petTick(dt);                                         // phan thuong: trum Hoang Kim, dong hanh (rewards.js)
+  goldBossTick(dt); petTick(dt); wbTick(dt);                              // phan thuong: trum Hoang Kim, dong hanh, Boss The Gioi (rewards/worldboss)
   if (R.town) { townTick(dt); return; }                                // trong thanh (Tho Dia Phu)
   R.activeT = (R.activeT || 0) + dt;                                    // thoi gian danh quai thuc (khong tinh tab an, trong thanh, Luyen Cong) -> S.kps
   const looting = updateGround(dt);                       // di nhat do (cham tay, hoac het quai + khop bo loc)
@@ -269,6 +270,7 @@ export function tick(dt) {
     if (looting && R.lootWait < 8) { R.lootWait += dt; return; }   // doi nhat xong (toi da 8 giay) moi goi dot moi
     if (R.spawnT > 0) { R.spawnT -= dt; return; }
     R.lootWait = 0;
+    if (R.wbArena) return;                                 // bí cảnh boss: không sinh đợt quái thường
     if (R.tower) towerSpawn(); else { spawnWave(); if (goldBossDue()) spawnGoldBoss(); }
     return;
   }
@@ -289,6 +291,7 @@ export function tick(dt) {
    tien khong lui (ket vinh vien o ai 30/40/50). Nay: lui 1 ai va luyen cong nhu khi guc (khong mat mau), thap thi roi thap. */
 function stallOut() {
   R.stall = 0;
+  if (R.wbArena) { log('<span class="dim">Đánh mãi không hạ Boss Thế Giới — nên rèn đồ, uống thuốc rồi thử lại.</span>'); return; }
   if (R.tower) { towerExit(false); return; }
   const boss = R.enemies.some(e => !e.dead && e.cls === 'boss');
   if (boss || S.wave === WAVES) {
@@ -326,6 +329,7 @@ export function gainXp(x) {
   }
 }
 function waveCleared() {
+  if (R.wbArena) { wbVictory(); return; }                  // hạ Boss Thế Giới: thưởng Vỏ Sò, không cộng ải
   if (R.tower) { towerCleared(); return; }                 // thap thu thach: len tang, khong doi ai
   heal(R.P.life * 0.15, true); R.mana = Math.min(R.P.mana, R.mana + R.P.mana * 0.2); // dieu tuc giua cac dot
   if (S.wave < WAVES) { S.wave++; R.spawnT = 1.2; return; }
@@ -342,6 +346,7 @@ function heroDeath() {
   R.deadT = 3; R.life = 0; R.enemies = [];
   log('<span class="bad">Bạn đã trọng thương.</span>');
   if (R.tower) { towerExit(true); return; }               // gục trong thap: roi thap, khong lui ai
+  if (R.wbArena) { log('<span class="dim">Boss Thế Giới vẫn chờ ở bí cảnh — hồi sức rồi vào lại.</span>'); return; }
   if (S.stage > 1) { S.stage--; S.push = false; R.farm = 0; log(`Lùi về ải ${S.stage} để luyện công.`); }
   if (typeof onStageChange === 'function') onStageChange();
 }
