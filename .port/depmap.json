@@ -1,0 +1,4462 @@
+{
+  "data.js": {
+    "needs": {
+      "$": [
+        "js/core.js"
+      ]
+    },
+    "decls": [],
+    "winUsages": [
+      "window.JX"
+    ],
+    "docCount": 0,
+    "dollarCount": 0,
+    "provided": {}
+  },
+  "world.js": {
+    "needs": {
+      "$": [
+        "js/core.js"
+      ]
+    },
+    "decls": [],
+    "winUsages": [
+      "window.JW"
+    ],
+    "docCount": 0,
+    "dollarCount": 0,
+    "provided": {}
+  },
+  "sound.js": {
+    "needs": {
+      "$": [
+        "js/core.js"
+      ]
+    },
+    "decls": [],
+    "winUsages": [
+      "window.JS"
+    ],
+    "docCount": 0,
+    "dollarCount": 0,
+    "provided": {}
+  },
+  "fx.js": {
+    "needs": {
+      "$": [
+        "js/core.js"
+      ]
+    },
+    "decls": [],
+    "winUsages": [
+      "window.JFX"
+    ],
+    "docCount": 0,
+    "dollarCount": 0,
+    "provided": {}
+  },
+  "jmo.js": {
+    "needs": {
+      "$": [
+        "js/core.js"
+      ]
+    },
+    "decls": [],
+    "winUsages": [
+      "window.JMO"
+    ],
+    "docCount": 0,
+    "dollarCount": 0,
+    "provided": {}
+  },
+  "rdata.js": {
+    "needs": {
+      "$": [
+        "js/core.js"
+      ]
+    },
+    "decls": [],
+    "winUsages": [
+      "window.RCP"
+    ],
+    "docCount": 0,
+    "dollarCount": 0,
+    "provided": {}
+  },
+  "js/core.js": {
+    "needs": {
+      "OBS": [
+        "js/mapobs.js"
+      ],
+      "obsSnap": [
+        "js/mapobs.js"
+      ]
+    },
+    "decls": [
+      "J",
+      "W",
+      "$",
+      "rnd",
+      "irnd",
+      "pick",
+      "clamp",
+      "fmt",
+      "esc",
+      "wpick",
+      "SERIES",
+      "SERIES_COL",
+      "KHAC",
+      "counters",
+      "ELEM",
+      "ELEM_VI",
+      "ELEM_COL",
+      "ELEM_ATTR",
+      "ELEM_ADD",
+      "ELEM_RES",
+      "ELEM_ENH",
+      "MAX_RESIST",
+      "PLAYER_RES_MAX",
+      "MAX_HIT",
+      "MIN_HIT",
+      "CRIT_MULT",
+      "STR_PER_DMG",
+      "DEX_PER_DMG",
+      "ENG_PER_DMG",
+      "ENG_PER_PCT",
+      "STR_PER_PCT",
+      "DEX_PCT_RANGED",
+      "IDLE_LIFE_PER_LEVEL",
+      "PTS_PER_LEVEL",
+      "SKILL_PTS_PER_LEVEL",
+      "MAX_LEVEL",
+      "ATTR_ID",
+      "attrText",
+      "FACTIONS",
+      "FAC",
+      "SK",
+      "skVal",
+      "DMG_ATTRS",
+      "isAttack",
+      "ZONES",
+      "MON",
+      "ZONE_STAGES",
+      "WAVES",
+      "STAGES",
+      "SLOTS",
+      "SLOT_VI",
+      "DETAIL_SLOT",
+      "MELEE_KIND",
+      "RANGE_KIND",
+      "AFFIX_KEY",
+      "RAR_VI",
+      "RAR_COL",
+      "INV_MAX",
+      "ENH_MAX",
+      "ENH_STEP",
+      "PLAT_STEP",
+      "enhMul",
+      "WORLD",
+      "clampWorld",
+      "inWorld",
+      "attrName"
+    ],
+    "winUsages": [
+      "window.JX",
+      "window.JW"
+    ],
+    "docCount": 1,
+    "dollarCount": 0,
+    "provided": {
+      "J": [
+        "js/stats.js",
+        "js/loot.js",
+        "js/sets.js",
+        "js/recipes.js",
+        "js/combat.js",
+        "js/ui.js",
+        "js/shop.js",
+        "js/rewards.js",
+        "js/auto.js",
+        "js/guide.js",
+        "js/survival.js"
+      ],
+      "W": [
+        "js/mapobs.js",
+        "js/combat.js",
+        "js/render.js",
+        "js/ui.js",
+        "js/control.js",
+        "js/survival.js",
+        "js/main.js"
+      ],
+      "$": [
+        "data.js",
+        "world.js",
+        "sound.js",
+        "fx.js",
+        "jmo.js",
+        "rdata.js",
+        "js/mapobs.js",
+        "js/stats.js",
+        "js/loot.js",
+        "js/sets.js",
+        "js/recipes.js",
+        "js/combat.js",
+        "js/save.js",
+        "js/render.js",
+        "js/audio.js",
+        "js/ui.js",
+        "js/control.js",
+        "js/shop.js",
+        "js/rewards.js",
+        "js/forge.js",
+        "js/auto.js",
+        "js/guide.js",
+        "js/stash.js",
+        "js/survival.js",
+        "js/main.js"
+      ],
+      "rnd": [
+        "js/loot.js",
+        "js/combat.js",
+        "js/render.js",
+        "js/audio.js",
+        "js/rewards.js",
+        "js/survival.js"
+      ],
+      "irnd": [
+        "js/loot.js",
+        "js/sets.js",
+        "js/combat.js",
+        "js/rewards.js",
+        "js/survival.js"
+      ],
+      "pick": [
+        "js/loot.js",
+        "js/sets.js",
+        "js/recipes.js",
+        "js/combat.js",
+        "js/rewards.js",
+        "js/auto.js",
+        "js/survival.js"
+      ],
+      "clamp": [
+        "js/mapobs.js",
+        "js/stats.js",
+        "js/loot.js",
+        "js/sets.js",
+        "js/recipes.js",
+        "js/combat.js",
+        "js/save.js",
+        "js/render.js",
+        "js/ui.js",
+        "js/rewards.js",
+        "js/survival.js"
+      ],
+      "fmt": [
+        "js/combat.js",
+        "js/ui.js",
+        "js/shop.js",
+        "js/rewards.js",
+        "js/forge.js",
+        "js/survival.js"
+      ],
+      "esc": [
+        "js/ui.js",
+        "js/shop.js",
+        "js/rewards.js",
+        "js/forge.js",
+        "js/guide.js",
+        "js/survival.js"
+      ],
+      "wpick": [
+        "js/loot.js",
+        "js/combat.js",
+        "js/rewards.js",
+        "js/survival.js"
+      ],
+      "SERIES": [
+        "js/ui.js",
+        "js/shop.js",
+        "js/guide.js"
+      ],
+      "SERIES_COL": [
+        "js/combat.js",
+        "js/render.js",
+        "js/survival.js"
+      ],
+      "counters": [
+        "js/combat.js"
+      ],
+      "ELEM": [
+        "js/stats.js",
+        "js/combat.js",
+        "js/ui.js",
+        "js/guide.js"
+      ],
+      "ELEM_COL": [
+        "js/combat.js",
+        "js/render.js",
+        "js/survival.js"
+      ],
+      "ELEM_ATTR": [
+        "js/stats.js"
+      ],
+      "ELEM_ADD": [
+        "js/stats.js"
+      ],
+      "ELEM_RES": [
+        "js/stats.js"
+      ],
+      "ELEM_ENH": [
+        "js/stats.js"
+      ],
+      "MAX_RESIST": [
+        "js/combat.js"
+      ],
+      "PLAYER_RES_MAX": [
+        "js/stats.js",
+        "js/combat.js"
+      ],
+      "MAX_HIT": [
+        "js/combat.js"
+      ],
+      "MIN_HIT": [
+        "js/combat.js"
+      ],
+      "CRIT_MULT": [
+        "js/stats.js",
+        "js/combat.js",
+        "js/survival.js"
+      ],
+      "STR_PER_DMG": [
+        "js/stats.js"
+      ],
+      "DEX_PER_DMG": [
+        "js/stats.js"
+      ],
+      "ENG_PER_DMG": [
+        "js/stats.js"
+      ],
+      "ENG_PER_PCT": [
+        "js/stats.js"
+      ],
+      "STR_PER_PCT": [
+        "js/stats.js"
+      ],
+      "DEX_PCT_RANGED": [
+        "js/stats.js"
+      ],
+      "IDLE_LIFE_PER_LEVEL": [
+        "js/stats.js"
+      ],
+      "PTS_PER_LEVEL": [
+        "js/stats.js",
+        "js/combat.js",
+        "js/auto.js"
+      ],
+      "SKILL_PTS_PER_LEVEL": [
+        "js/combat.js"
+      ],
+      "MAX_LEVEL": [
+        "js/combat.js",
+        "js/save.js",
+        "js/rewards.js"
+      ],
+      "attrText": [
+        "js/loot.js",
+        "js/ui.js",
+        "js/rewards.js"
+      ],
+      "FACTIONS": [
+        "js/stats.js",
+        "js/ui.js"
+      ],
+      "FAC": [
+        "js/stats.js",
+        "js/loot.js",
+        "js/sets.js",
+        "js/recipes.js",
+        "js/save.js",
+        "js/ui.js",
+        "js/shop.js",
+        "js/rewards.js",
+        "js/auto.js",
+        "js/guide.js",
+        "js/survival.js"
+      ],
+      "SK": [
+        "js/stats.js",
+        "js/save.js",
+        "js/ui.js",
+        "js/control.js",
+        "js/guide.js",
+        "js/survival.js"
+      ],
+      "skVal": [
+        "js/stats.js",
+        "js/ui.js"
+      ],
+      "isAttack": [
+        "js/stats.js",
+        "js/ui.js",
+        "js/control.js",
+        "js/survival.js"
+      ],
+      "ZONES": [
+        "js/combat.js",
+        "js/ui.js",
+        "js/rewards.js",
+        "js/guide.js",
+        "js/survival.js"
+      ],
+      "MON": [
+        "js/combat.js",
+        "js/render.js",
+        "js/audio.js",
+        "js/rewards.js",
+        "js/guide.js",
+        "js/survival.js"
+      ],
+      "ZONE_STAGES": [
+        "js/combat.js",
+        "js/ui.js",
+        "js/guide.js",
+        "js/survival.js"
+      ],
+      "WAVES": [
+        "js/combat.js"
+      ],
+      "STAGES": [
+        "js/sets.js",
+        "js/combat.js",
+        "js/save.js",
+        "js/render.js",
+        "js/ui.js",
+        "js/control.js",
+        "js/rewards.js",
+        "js/survival.js",
+        "js/main.js"
+      ],
+      "SLOTS": [
+        "js/ui.js",
+        "js/guide.js"
+      ],
+      "DETAIL_SLOT": [
+        "js/loot.js",
+        "js/recipes.js",
+        "js/ui.js"
+      ],
+      "MELEE_KIND": [
+        "js/recipes.js"
+      ],
+      "RANGE_KIND": [
+        "js/recipes.js"
+      ],
+      "AFFIX_KEY": [
+        "js/recipes.js"
+      ],
+      "RAR_VI": [
+        "js/ui.js"
+      ],
+      "RAR_COL": [
+        "js/render.js"
+      ],
+      "INV_MAX": [
+        "js/loot.js",
+        "js/recipes.js",
+        "js/save.js",
+        "js/ui.js",
+        "js/shop.js",
+        "js/auto.js",
+        "js/guide.js",
+        "js/stash.js"
+      ],
+      "ENH_MAX": [
+        "js/forge.js"
+      ],
+      "enhMul": [
+        "js/stats.js",
+        "js/loot.js"
+      ],
+      "WORLD": [
+        "js/mapobs.js",
+        "js/loot.js",
+        "js/render.js",
+        "js/control.js",
+        "js/survival.js",
+        "js/main.js"
+      ],
+      "clampWorld": [
+        "js/control.js",
+        "js/survival.js"
+      ],
+      "inWorld": [
+        "js/loot.js",
+        "js/combat.js",
+        "js/control.js",
+        "js/rewards.js",
+        "js/survival.js",
+        "js/main.js"
+      ],
+      "attrName": [
+        "js/stats.js",
+        "js/loot.js"
+      ]
+    }
+  },
+  "js/mapobs.js": {
+    "needs": {
+      "W": [
+        "js/core.js"
+      ],
+      "$": [
+        "js/core.js"
+      ],
+      "clamp": [
+        "js/core.js"
+      ],
+      "WORLD": [
+        "js/core.js"
+      ]
+    },
+    "decls": [
+      "OBS",
+      "OBS_DEFAULT_WORLD",
+      "obsLoad",
+      "obsCell",
+      "obsAt",
+      "OBS_R",
+      "obsWalk",
+      "obsSnap",
+      "obsMove",
+      "obsLine",
+      "obsPath",
+      "FIELD",
+      "obsField",
+      "obsChase",
+      "obsBudget",
+      "obsFrame",
+      "obsSteer"
+    ],
+    "winUsages": [
+      "window.JMO",
+      "window.NO_OBS"
+    ],
+    "docCount": 0,
+    "dollarCount": 0,
+    "provided": {
+      "OBS": [
+        "js/core.js",
+        "js/render.js",
+        "js/survival.js"
+      ],
+      "obsLoad": [
+        "js/control.js",
+        "js/survival.js",
+        "js/main.js"
+      ],
+      "obsSnap": [
+        "js/core.js"
+      ],
+      "obsMove": [
+        "js/control.js",
+        "js/survival.js"
+      ],
+      "obsChase": [
+        "js/combat.js",
+        "js/survival.js"
+      ],
+      "obsFrame": [
+        "js/combat.js",
+        "js/survival.js"
+      ],
+      "obsSteer": [
+        "js/loot.js",
+        "js/combat.js"
+      ]
+    }
+  },
+  "js/stats.js": {
+    "needs": {
+      "J": [
+        "js/core.js"
+      ],
+      "$": [
+        "js/core.js"
+      ],
+      "clamp": [
+        "js/core.js"
+      ],
+      "ELEM": [
+        "js/core.js"
+      ],
+      "ELEM_ATTR": [
+        "js/core.js"
+      ],
+      "ELEM_ADD": [
+        "js/core.js"
+      ],
+      "ELEM_RES": [
+        "js/core.js"
+      ],
+      "ELEM_ENH": [
+        "js/core.js"
+      ],
+      "PLAYER_RES_MAX": [
+        "js/core.js"
+      ],
+      "CRIT_MULT": [
+        "js/core.js"
+      ],
+      "STR_PER_DMG": [
+        "js/core.js"
+      ],
+      "DEX_PER_DMG": [
+        "js/core.js"
+      ],
+      "ENG_PER_DMG": [
+        "js/core.js"
+      ],
+      "ENG_PER_PCT": [
+        "js/core.js"
+      ],
+      "STR_PER_PCT": [
+        "js/core.js"
+      ],
+      "DEX_PCT_RANGED": [
+        "js/core.js"
+      ],
+      "IDLE_LIFE_PER_LEVEL": [
+        "js/core.js"
+      ],
+      "PTS_PER_LEVEL": [
+        "js/core.js"
+      ],
+      "FACTIONS": [
+        "js/core.js"
+      ],
+      "FAC": [
+        "js/core.js"
+      ],
+      "SK": [
+        "js/core.js"
+      ],
+      "skVal": [
+        "js/core.js"
+      ],
+      "isAttack": [
+        "js/core.js"
+      ],
+      "enhMul": [
+        "js/core.js"
+      ],
+      "attrName": [
+        "js/core.js"
+      ],
+      "baseRow": [
+        "js/loot.js"
+      ],
+      "slotFor": [
+        "js/loot.js"
+      ],
+      "enoughToActive": [
+        "js/sets.js"
+      ],
+      "goldEnhance": [
+        "js/sets.js"
+      ],
+      "R": [
+        "js/combat.js"
+      ],
+      "hitPercent": [
+        "js/combat.js"
+      ],
+      "POT_TIER_LV": [
+        "js/combat.js"
+      ],
+      "S": [
+        "js/save.js"
+      ],
+      "equipGain": [
+        "js/ui.js"
+      ],
+      "equip": [
+        "js/ui.js"
+      ],
+      "titleAttr": [
+        "js/rewards.js"
+      ],
+      "rebornBonus": [
+        "js/rewards.js"
+      ]
+    },
+    "decls": [
+      "addAttr",
+      "av",
+      "ACCRUE",
+      "accrues",
+      "ACTIVATED_BY",
+      "slotOfEquipped",
+      "hiddenActive",
+      "heroStart",
+      "heroSeries",
+      "weaponCode",
+      "skillLv",
+      "passiveApplies",
+      "SKIP_PASSIVE",
+      "IGNORE_REQ",
+      "reqPass",
+      "calc",
+      "skillTargets",
+      "activeInfo",
+      "basicAttack",
+      "manaPotRate",
+      "W_TIER1",
+      "weaponDmg",
+      "weaponTierMul",
+      "sexReqOkFor",
+      "sexReqOk",
+      "sexOk",
+      "reqOk",
+      "heroAttr",
+      "POWER_DPS_W",
+      "power",
+      "autoSpendSkills",
+      "ATTR_REQ",
+      "REQ_SAVE_LEVELS",
+      "weaponTarget",
+      "REQ_VI",
+      "reqProblems",
+      "equipCompare",
+      "compareWhy",
+      "pctTxt",
+      "numTxt",
+      "reqDeficit",
+      "autoSpendAttrs",
+      "canLearn",
+      "NORM_TIERS",
+      "MELEE_UPTIME",
+      "expectedHits",
+      "masteryPct",
+      "refChar",
+      "REF_HIT",
+      "REF_HIT_RANGED",
+      "POISON_EFF",
+      "refDps",
+      "initSkillNorm",
+      "FN_LV",
+      "FAC_DMG_NORM",
+      "facNorm"
+    ],
+    "winUsages": [
+      "window.NO_FAC_NORM"
+    ],
+    "docCount": 0,
+    "dollarCount": 0,
+    "provided": {
+      "addAttr": [
+        "js/rewards.js"
+      ],
+      "slotOfEquipped": [
+        "js/sets.js"
+      ],
+      "hiddenActive": [
+        "js/loot.js",
+        "js/ui.js"
+      ],
+      "heroSeries": [
+        "js/render.js",
+        "js/survival.js"
+      ],
+      "weaponCode": [
+        "js/ui.js",
+        "js/auto.js"
+      ],
+      "calc": [
+        "js/combat.js",
+        "js/ui.js",
+        "js/guide.js"
+      ],
+      "activeInfo": [
+        "js/ui.js",
+        "js/survival.js"
+      ],
+      "weaponDmg": [
+        "js/auto.js"
+      ],
+      "sexReqOkFor": [
+        "js/save.js"
+      ],
+      "sexReqOk": [
+        "js/loot.js",
+        "js/sets.js",
+        "js/recipes.js",
+        "js/rewards.js",
+        "js/guide.js"
+      ],
+      "sexOk": [
+        "js/loot.js",
+        "js/ui.js",
+        "js/shop.js",
+        "js/auto.js"
+      ],
+      "reqOk": [
+        "js/ui.js",
+        "js/auto.js"
+      ],
+      "power": [
+        "js/combat.js",
+        "js/ui.js",
+        "js/guide.js"
+      ],
+      "autoSpendSkills": [
+        "js/ui.js",
+        "js/guide.js",
+        "js/main.js"
+      ],
+      "REQ_SAVE_LEVELS": [
+        "js/auto.js"
+      ],
+      "reqProblems": [
+        "js/ui.js"
+      ],
+      "equipCompare": [
+        "js/ui.js"
+      ],
+      "reqDeficit": [
+        "js/ui.js",
+        "js/auto.js"
+      ],
+      "autoSpendAttrs": [
+        "js/ui.js",
+        "js/rewards.js",
+        "js/auto.js",
+        "js/main.js"
+      ],
+      "canLearn": [
+        "js/ui.js",
+        "js/guide.js"
+      ]
+    }
+  },
+  "js/loot.js": {
+    "needs": {
+      "J": [
+        "js/core.js"
+      ],
+      "$": [
+        "js/core.js"
+      ],
+      "rnd": [
+        "js/core.js"
+      ],
+      "irnd": [
+        "js/core.js"
+      ],
+      "pick": [
+        "js/core.js"
+      ],
+      "clamp": [
+        "js/core.js"
+      ],
+      "wpick": [
+        "js/core.js"
+      ],
+      "attrText": [
+        "js/core.js"
+      ],
+      "FAC": [
+        "js/core.js"
+      ],
+      "DETAIL_SLOT": [
+        "js/core.js"
+      ],
+      "INV_MAX": [
+        "js/core.js"
+      ],
+      "enhMul": [
+        "js/core.js"
+      ],
+      "WORLD": [
+        "js/core.js"
+      ],
+      "inWorld": [
+        "js/core.js"
+      ],
+      "attrName": [
+        "js/core.js"
+      ],
+      "obsSteer": [
+        "js/mapobs.js"
+      ],
+      "hiddenActive": [
+        "js/stats.js"
+      ],
+      "sexReqOk": [
+        "js/stats.js"
+      ],
+      "sexOk": [
+        "js/stats.js"
+      ],
+      "setCounts": [
+        "js/sets.js"
+      ],
+      "goldEnhance": [
+        "js/sets.js"
+      ],
+      "setMembers": [
+        "js/sets.js"
+      ],
+      "R": [
+        "js/combat.js"
+      ],
+      "H": [
+        "js/combat.js"
+      ],
+      "S": [
+        "js/save.js"
+      ],
+      "uiSfx": [
+        "js/audio.js"
+      ],
+      "invDirty": [
+        "js/ui.js"
+      ],
+      "log": [
+        "js/ui.js"
+      ],
+      "addItem": [
+        "js/ui.js"
+      ],
+      "manual": [
+        "js/control.js"
+      ],
+      "questTick": [
+        "js/rewards.js"
+      ]
+    },
+    "decls": [
+      "FACTION_WEAPON_SHARE",
+      "dropFile",
+      "itemTier",
+      "baseRow",
+      "rollMagic",
+      "magicCount",
+      "magicLevels",
+      "rarityOf",
+      "randomSeries",
+      "sexPart",
+      "makeItem",
+      "rollDrops",
+      "moneyDrop",
+      "itemValue",
+      "itemPower",
+      "slotFor",
+      "itemLines",
+      "GROUND_MAX",
+      "PICK_R",
+      "LOOT_ATTR_GROUPS",
+      "lootFilter",
+      "lootMatch",
+      "dropToGround",
+      "makeRoom",
+      "pickUp",
+      "updateGround",
+      "groundAt",
+      "saveGround",
+      "restoreGround"
+    ],
+    "winUsages": [],
+    "docCount": 0,
+    "dollarCount": 0,
+    "provided": {
+      "baseRow": [
+        "js/stats.js",
+        "js/shop.js"
+      ],
+      "rollMagic": [
+        "js/forge.js"
+      ],
+      "magicLevels": [
+        "js/forge.js"
+      ],
+      "sexPart": [
+        "js/ui.js",
+        "js/rewards.js"
+      ],
+      "makeItem": [
+        "js/ui.js",
+        "js/shop.js",
+        "js/rewards.js",
+        "js/auto.js"
+      ],
+      "rollDrops": [
+        "js/combat.js",
+        "js/save.js"
+      ],
+      "moneyDrop": [
+        "js/combat.js",
+        "js/save.js",
+        "js/survival.js"
+      ],
+      "itemValue": [
+        "js/ui.js"
+      ],
+      "itemPower": [
+        "js/ui.js",
+        "js/auto.js"
+      ],
+      "slotFor": [
+        "js/stats.js",
+        "js/ui.js"
+      ],
+      "LOOT_ATTR_GROUPS": [
+        "js/ui.js"
+      ],
+      "lootFilter": [
+        "js/ui.js"
+      ],
+      "lootMatch": [
+        "js/render.js",
+        "js/ui.js",
+        "js/shop.js"
+      ],
+      "dropToGround": [
+        "js/combat.js"
+      ],
+      "makeRoom": [
+        "js/ui.js"
+      ],
+      "updateGround": [
+        "js/combat.js"
+      ],
+      "groundAt": [
+        "js/control.js"
+      ],
+      "saveGround": [
+        "js/save.js"
+      ],
+      "restoreGround": [
+        "js/main.js"
+      ]
+    }
+  },
+  "js/sets.js": {
+    "needs": {
+      "J": [
+        "js/core.js"
+      ],
+      "$": [
+        "js/core.js"
+      ],
+      "irnd": [
+        "js/core.js"
+      ],
+      "pick": [
+        "js/core.js"
+      ],
+      "clamp": [
+        "js/core.js"
+      ],
+      "FAC": [
+        "js/core.js"
+      ],
+      "STAGES": [
+        "js/core.js"
+      ],
+      "slotOfEquipped": [
+        "js/stats.js"
+      ],
+      "sexReqOk": [
+        "js/stats.js"
+      ],
+      "R": [
+        "js/combat.js"
+      ],
+      "zoneIdx": [
+        "js/combat.js"
+      ],
+      "S": [
+        "js/save.js"
+      ]
+    },
+    "decls": [
+      "GOLD_EXT",
+      "geValue",
+      "makeSetItem",
+      "rollSetDrop",
+      "setCounts",
+      "enoughToActive",
+      "goldEnhance",
+      "setMembers"
+    ],
+    "winUsages": [],
+    "docCount": 0,
+    "dollarCount": 0,
+    "provided": {
+      "makeSetItem": [
+        "js/recipes.js",
+        "js/rewards.js"
+      ],
+      "rollSetDrop": [
+        "js/combat.js"
+      ],
+      "setCounts": [
+        "js/loot.js"
+      ],
+      "enoughToActive": [
+        "js/stats.js",
+        "js/rewards.js"
+      ],
+      "goldEnhance": [
+        "js/stats.js",
+        "js/loot.js"
+      ],
+      "setMembers": [
+        "js/loot.js"
+      ]
+    }
+  },
+  "js/recipes.js": {
+    "needs": {
+      "J": [
+        "js/core.js"
+      ],
+      "$": [
+        "js/core.js"
+      ],
+      "pick": [
+        "js/core.js"
+      ],
+      "clamp": [
+        "js/core.js"
+      ],
+      "FAC": [
+        "js/core.js"
+      ],
+      "DETAIL_SLOT": [
+        "js/core.js"
+      ],
+      "MELEE_KIND": [
+        "js/core.js"
+      ],
+      "RANGE_KIND": [
+        "js/core.js"
+      ],
+      "AFFIX_KEY": [
+        "js/core.js"
+      ],
+      "INV_MAX": [
+        "js/core.js"
+      ],
+      "sexReqOk": [
+        "js/stats.js"
+      ],
+      "makeSetItem": [
+        "js/sets.js"
+      ],
+      "S": [
+        "js/save.js"
+      ],
+      "betterThanEquipped": [
+        "js/ui.js"
+      ],
+      "equip": [
+        "js/ui.js"
+      ]
+    },
+    "decls": [
+      "RCP_R",
+      "VIO_SLOTS",
+      "HT_MAX",
+      "ORE_MAX",
+      "rcRand",
+      "rcInt",
+      "rcFail",
+      "mats",
+      "oreKey",
+      "oreParse",
+      "matAdd",
+      "matHave",
+      "FUSE_SLOTS",
+      "fuseCost",
+      "ownedInv",
+      "owned",
+      "canFuse",
+      "fuse",
+      "upgradeHT",
+      "upgradeOre",
+      "itemKind",
+      "oreRows",
+      "enchaseCheck",
+      "enchase",
+      "orePool",
+      "DROP",
+      "dropP",
+      "oreDrop",
+      "SHARDS",
+      "shardRows",
+      "reqOfRow",
+      "shardDrop",
+      "combineShards",
+      "PLAT_MAKE",
+      "PLAT_UP",
+      "PLAT_COST_SCALE",
+      "VAN",
+      "PLAT_MAX",
+      "platCost",
+      "platByBase",
+      "canPlatBase",
+      "makePlatina",
+      "upgradePlatina",
+      "platDrop",
+      "allDrops"
+    ],
+    "winUsages": [
+      "window.RCP"
+    ],
+    "docCount": 0,
+    "dollarCount": 0,
+    "provided": {
+      "VIO_SLOTS": [
+        "js/forge.js",
+        "js/auto.js"
+      ],
+      "HT_MAX": [
+        "js/forge.js",
+        "js/auto.js"
+      ],
+      "ORE_MAX": [
+        "js/forge.js"
+      ],
+      "mats": [
+        "js/save.js",
+        "js/forge.js",
+        "js/auto.js",
+        "js/guide.js",
+        "js/stash.js"
+      ],
+      "oreParse": [
+        "js/forge.js",
+        "js/auto.js",
+        "js/stash.js"
+      ],
+      "matAdd": [
+        "js/stash.js"
+      ],
+      "matHave": [
+        "js/forge.js",
+        "js/auto.js",
+        "js/stash.js"
+      ],
+      "FUSE_SLOTS": [
+        "js/ui.js"
+      ],
+      "fuseCost": [
+        "js/auto.js"
+      ],
+      "owned": [
+        "js/forge.js"
+      ],
+      "canFuse": [
+        "js/forge.js",
+        "js/auto.js"
+      ],
+      "fuse": [
+        "js/forge.js",
+        "js/auto.js"
+      ],
+      "upgradeHT": [
+        "js/forge.js",
+        "js/auto.js"
+      ],
+      "upgradeOre": [
+        "js/forge.js"
+      ],
+      "oreRows": [
+        "js/forge.js",
+        "js/stash.js"
+      ],
+      "enchaseCheck": [
+        "js/auto.js"
+      ],
+      "enchase": [
+        "js/forge.js",
+        "js/auto.js"
+      ],
+      "SHARDS": [
+        "js/forge.js",
+        "js/auto.js"
+      ],
+      "reqOfRow": [
+        "js/guide.js"
+      ],
+      "combineShards": [
+        "js/forge.js",
+        "js/auto.js"
+      ],
+      "PLAT_UP": [
+        "js/forge.js"
+      ],
+      "PLAT_MAX": [
+        "js/forge.js"
+      ],
+      "platCost": [
+        "js/forge.js"
+      ],
+      "canPlatBase": [
+        "js/forge.js"
+      ],
+      "makePlatina": [
+        "js/forge.js"
+      ],
+      "upgradePlatina": [
+        "js/forge.js"
+      ],
+      "allDrops": [
+        "js/combat.js"
+      ]
+    }
+  },
+  "js/combat.js": {
+    "needs": {
+      "J": [
+        "js/core.js"
+      ],
+      "W": [
+        "js/core.js"
+      ],
+      "$": [
+        "js/core.js"
+      ],
+      "rnd": [
+        "js/core.js"
+      ],
+      "irnd": [
+        "js/core.js"
+      ],
+      "pick": [
+        "js/core.js"
+      ],
+      "clamp": [
+        "js/core.js"
+      ],
+      "fmt": [
+        "js/core.js"
+      ],
+      "wpick": [
+        "js/core.js"
+      ],
+      "SERIES_COL": [
+        "js/core.js"
+      ],
+      "counters": [
+        "js/core.js"
+      ],
+      "ELEM": [
+        "js/core.js"
+      ],
+      "ELEM_COL": [
+        "js/core.js"
+      ],
+      "MAX_RESIST": [
+        "js/core.js"
+      ],
+      "PLAYER_RES_MAX": [
+        "js/core.js"
+      ],
+      "MAX_HIT": [
+        "js/core.js"
+      ],
+      "MIN_HIT": [
+        "js/core.js"
+      ],
+      "CRIT_MULT": [
+        "js/core.js"
+      ],
+      "PTS_PER_LEVEL": [
+        "js/core.js"
+      ],
+      "SKILL_PTS_PER_LEVEL": [
+        "js/core.js"
+      ],
+      "MAX_LEVEL": [
+        "js/core.js"
+      ],
+      "ZONES": [
+        "js/core.js"
+      ],
+      "MON": [
+        "js/core.js"
+      ],
+      "ZONE_STAGES": [
+        "js/core.js"
+      ],
+      "WAVES": [
+        "js/core.js"
+      ],
+      "STAGES": [
+        "js/core.js"
+      ],
+      "inWorld": [
+        "js/core.js"
+      ],
+      "obsChase": [
+        "js/mapobs.js"
+      ],
+      "obsFrame": [
+        "js/mapobs.js"
+      ],
+      "obsSteer": [
+        "js/mapobs.js"
+      ],
+      "calc": [
+        "js/stats.js"
+      ],
+      "power": [
+        "js/stats.js"
+      ],
+      "rollDrops": [
+        "js/loot.js"
+      ],
+      "moneyDrop": [
+        "js/loot.js"
+      ],
+      "dropToGround": [
+        "js/loot.js"
+      ],
+      "updateGround": [
+        "js/loot.js"
+      ],
+      "rollSetDrop": [
+        "js/sets.js"
+      ],
+      "allDrops": [
+        "js/recipes.js"
+      ],
+      "S": [
+        "js/save.js"
+      ],
+      "img": [
+        "js/render.js"
+      ],
+      "addText": [
+        "js/render.js"
+      ],
+      "burst": [
+        "js/render.js"
+      ],
+      "fxLine": [
+        "js/render.js"
+      ],
+      "skillFx": [
+        "js/render.js"
+      ],
+      "dirOf": [
+        "js/render.js"
+      ],
+      "npcSfx": [
+        "js/audio.js"
+      ],
+      "skillSfx": [
+        "js/audio.js"
+      ],
+      "uiSfx": [
+        "js/audio.js"
+      ],
+      "log": [
+        "js/ui.js"
+      ],
+      "sweepJunk": [
+        "js/ui.js"
+      ],
+      "autoEquipAll": [
+        "js/ui.js"
+      ],
+      "manual": [
+        "js/control.js"
+      ],
+      "moveManual": [
+        "js/control.js"
+      ],
+      "townTick": [
+        "js/control.js"
+      ],
+      "takeStock": [
+        "js/shop.js"
+      ],
+      "GB_RETRY": [
+        "js/rewards.js"
+      ],
+      "RW": [
+        "js/rewards.js"
+      ],
+      "questTick": [
+        "js/rewards.js"
+      ],
+      "goldBossTick": [
+        "js/rewards.js"
+      ],
+      "goldBossDue": [
+        "js/rewards.js"
+      ],
+      "spawnGoldBoss": [
+        "js/rewards.js"
+      ],
+      "towerSpawn": [
+        "js/rewards.js"
+      ],
+      "towerCleared": [
+        "js/rewards.js"
+      ],
+      "towerExit": [
+        "js/rewards.js"
+      ],
+      "rebornBonus": [
+        "js/rewards.js"
+      ],
+      "petTick": [
+        "js/rewards.js"
+      ],
+      "rwOnKill": [
+        "js/rewards.js"
+      ],
+      "autoForge": [
+        "js/auto.js"
+      ],
+      "autoBuyWeapon": [
+        "js/auto.js"
+      ],
+      "checkHints": [
+        "js/guide.js"
+      ],
+      "onZoneChange": [
+        "js/main.js"
+      ],
+      "onStageChange": [
+        "js/main.js"
+      ],
+      "onLevelUp": [
+        "js/main.js"
+      ]
+    },
+    "decls": [
+      "R",
+      "AR",
+      "H",
+      "zoneIdx",
+      "zoneOf",
+      "inZone",
+      "stageLevel",
+      "isBossStage",
+      "POISON_TIME",
+      "CLS",
+      "DIFFS",
+      "diffOf",
+      "enemyStats",
+      "XP_SLOW_FROM",
+      "XP_SLOW_K",
+      "XP_SLOW_P",
+      "xpSlow",
+      "expFor",
+      "makeEnemy",
+      "spawnWave",
+      "hitPercent",
+      "applyPart",
+      "heroHit",
+      "enemyHit",
+      "heal",
+      "POT_TIER_LV",
+      "bestPotion",
+      "potPrice",
+      "autoPotion",
+      "usePotion",
+      "alive",
+      "nearest",
+      "rotPool",
+      "pickAttack",
+      "heroAttack",
+      "enemyAI",
+      "tick",
+      "stallOut",
+      "killCheck",
+      "onKill",
+      "gainXp",
+      "waveCleared",
+      "heroDeath",
+      "recalc",
+      "simulate"
+    ],
+    "winUsages": [
+      "window.NO_ROT"
+    ],
+    "docCount": 0,
+    "dollarCount": 0,
+    "provided": {
+      "R": [
+        "js/stats.js",
+        "js/loot.js",
+        "js/sets.js",
+        "js/save.js",
+        "js/render.js",
+        "js/audio.js",
+        "js/ui.js",
+        "js/control.js",
+        "js/shop.js",
+        "js/rewards.js",
+        "js/forge.js",
+        "js/auto.js",
+        "js/guide.js",
+        "js/stash.js",
+        "js/survival.js",
+        "js/main.js"
+      ],
+      "AR": [
+        "js/render.js",
+        "js/control.js",
+        "js/survival.js"
+      ],
+      "H": [
+        "js/loot.js",
+        "js/render.js",
+        "js/control.js",
+        "js/shop.js",
+        "js/rewards.js",
+        "js/survival.js",
+        "js/main.js"
+      ],
+      "zoneIdx": [
+        "js/sets.js",
+        "js/ui.js",
+        "js/rewards.js"
+      ],
+      "zoneOf": [
+        "js/render.js",
+        "js/ui.js",
+        "js/control.js",
+        "js/rewards.js",
+        "js/survival.js",
+        "js/main.js"
+      ],
+      "stageLevel": [
+        "js/save.js",
+        "js/rewards.js"
+      ],
+      "CLS": [
+        "js/survival.js"
+      ],
+      "diffOf": [
+        "js/ui.js"
+      ],
+      "expFor": [
+        "js/save.js",
+        "js/survival.js"
+      ],
+      "makeEnemy": [
+        "js/rewards.js"
+      ],
+      "hitPercent": [
+        "js/stats.js",
+        "js/guide.js"
+      ],
+      "heal": [
+        "js/rewards.js"
+      ],
+      "POT_TIER_LV": [
+        "js/stats.js"
+      ],
+      "bestPotion": [
+        "js/control.js"
+      ],
+      "usePotion": [
+        "js/control.js"
+      ],
+      "alive": [
+        "js/rewards.js",
+        "js/survival.js"
+      ],
+      "tick": [
+        "js/main.js"
+      ],
+      "gainXp": [
+        "js/save.js",
+        "js/survival.js"
+      ],
+      "recalc": [
+        "js/ui.js",
+        "js/control.js",
+        "js/guide.js",
+        "js/survival.js",
+        "js/main.js"
+      ]
+    }
+  },
+  "js/save.js": {
+    "needs": {
+      "$": [
+        "js/core.js"
+      ],
+      "clamp": [
+        "js/core.js"
+      ],
+      "MAX_LEVEL": [
+        "js/core.js"
+      ],
+      "FAC": [
+        "js/core.js"
+      ],
+      "SK": [
+        "js/core.js"
+      ],
+      "STAGES": [
+        "js/core.js"
+      ],
+      "INV_MAX": [
+        "js/core.js"
+      ],
+      "sexReqOkFor": [
+        "js/stats.js"
+      ],
+      "rollDrops": [
+        "js/loot.js"
+      ],
+      "moneyDrop": [
+        "js/loot.js"
+      ],
+      "saveGround": [
+        "js/loot.js"
+      ],
+      "mats": [
+        "js/recipes.js"
+      ],
+      "R": [
+        "js/combat.js"
+      ],
+      "stageLevel": [
+        "js/combat.js"
+      ],
+      "expFor": [
+        "js/combat.js"
+      ],
+      "gainXp": [
+        "js/combat.js"
+      ],
+      "sweepJunk": [
+        "js/ui.js"
+      ],
+      "addItem": [
+        "js/ui.js"
+      ],
+      "autoEquipAll": [
+        "js/ui.js"
+      ],
+      "potStock": [
+        "js/shop.js"
+      ],
+      "offlineChests": [
+        "js/rewards.js"
+      ],
+      "autoForge": [
+        "js/auto.js"
+      ],
+      "autoBuyWeapon": [
+        "js/auto.js"
+      ]
+    },
+    "decls": [
+      "SAVE_V",
+      "OFFLINE_MAX",
+      "SLOT_N",
+      "SLOT_PTR",
+      "SLOT",
+      "SAVE_LOCK",
+      "slotKey",
+      "saveKey",
+      "S",
+      "FEMALE_FAC",
+      "newSave",
+      "SAVE_SALT",
+      "sigOf",
+      "pack",
+      "unpack",
+      "save",
+      "migrate",
+      "slotInfo",
+      "pickSlot",
+      "deleteSlot",
+      "switchCharacter",
+      "load",
+      "saveFileText",
+      "saveFileName",
+      "downloadSaveFile",
+      "parseSaveText",
+      "writeSlot",
+      "exportSave",
+      "importSave",
+      "OFFLINE_FULL",
+      "OFFLINE_TAIL",
+      "OFFLINE_RATE",
+      "OFFLINE_DAY_MAX",
+      "offlineGains"
+    ],
+    "winUsages": [
+      "window.__tampered"
+    ],
+    "docCount": 2,
+    "dollarCount": 0,
+    "provided": {
+      "SLOT_N": [
+        "js/ui.js"
+      ],
+      "SLOT_PTR": [
+        "js/ui.js"
+      ],
+      "SLOT": [
+        "js/ui.js",
+        "js/main.js"
+      ],
+      "SAVE_LOCK": [
+        "js/ui.js"
+      ],
+      "S": [
+        "js/stats.js",
+        "js/loot.js",
+        "js/sets.js",
+        "js/recipes.js",
+        "js/combat.js",
+        "js/render.js",
+        "js/audio.js",
+        "js/ui.js",
+        "js/control.js",
+        "js/shop.js",
+        "js/rewards.js",
+        "js/forge.js",
+        "js/auto.js",
+        "js/guide.js",
+        "js/stash.js",
+        "js/survival.js",
+        "js/main.js"
+      ],
+      "newSave": [
+        "js/main.js"
+      ],
+      "pack": [
+        "js/stash.js"
+      ],
+      "unpack": [
+        "js/stash.js"
+      ],
+      "save": [
+        "js/ui.js",
+        "js/control.js",
+        "js/shop.js",
+        "js/rewards.js",
+        "js/forge.js",
+        "js/guide.js",
+        "js/stash.js",
+        "js/survival.js",
+        "js/main.js"
+      ],
+      "slotInfo": [
+        "js/ui.js"
+      ],
+      "pickSlot": [
+        "js/main.js"
+      ],
+      "deleteSlot": [
+        "js/ui.js"
+      ],
+      "switchCharacter": [
+        "js/ui.js"
+      ],
+      "load": [
+        "js/main.js"
+      ],
+      "saveFileName": [
+        "js/ui.js"
+      ],
+      "downloadSaveFile": [
+        "js/ui.js"
+      ],
+      "parseSaveText": [
+        "js/ui.js"
+      ],
+      "writeSlot": [
+        "js/ui.js"
+      ],
+      "exportSave": [
+        "js/ui.js"
+      ],
+      "offlineGains": [
+        "js/main.js"
+      ]
+    }
+  },
+  "js/render.js": {
+    "needs": {
+      "W": [
+        "js/core.js"
+      ],
+      "$": [
+        "js/core.js"
+      ],
+      "rnd": [
+        "js/core.js"
+      ],
+      "clamp": [
+        "js/core.js"
+      ],
+      "SERIES_COL": [
+        "js/core.js"
+      ],
+      "ELEM_COL": [
+        "js/core.js"
+      ],
+      "MON": [
+        "js/core.js"
+      ],
+      "STAGES": [
+        "js/core.js"
+      ],
+      "RAR_COL": [
+        "js/core.js"
+      ],
+      "WORLD": [
+        "js/core.js"
+      ],
+      "OBS": [
+        "js/mapobs.js"
+      ],
+      "heroSeries": [
+        "js/stats.js"
+      ],
+      "lootMatch": [
+        "js/loot.js"
+      ],
+      "R": [
+        "js/combat.js"
+      ],
+      "AR": [
+        "js/combat.js"
+      ],
+      "H": [
+        "js/combat.js"
+      ],
+      "zoneOf": [
+        "js/combat.js"
+      ],
+      "S": [
+        "js/save.js"
+      ],
+      "isDesktopLandscape": [
+        "js/control.js"
+      ],
+      "drawJoystick": [
+        "js/control.js"
+      ],
+      "drawPet": [
+        "js/rewards.js"
+      ]
+    },
+    "decls": [
+      "CV",
+      "CX",
+      "DPR",
+      "MON_SCALE",
+      "HERO_SCALE",
+      "IMG",
+      "img",
+      "addText",
+      "burst",
+      "fxLine",
+      "JFX",
+      "FX_SCALE",
+      "FX_MAX",
+      "dir16",
+      "castFx",
+      "skillFx",
+      "animDur",
+      "drawFxSprite",
+      "stepFx",
+      "drawFx",
+      "UI_SCALE_MOBILE",
+      "isMobileUI",
+      "uiScale",
+      "resizeArena",
+      "CAM",
+      "camTarget",
+      "snapCamera",
+      "updateCamera",
+      "BG_TILE",
+      "drawTiledBg",
+      "MINI",
+      "drawMinimap",
+      "onScreen",
+      "drawSprite",
+      "dirOf",
+      "ONCE",
+      "animLen",
+      "drawAnim",
+      "setAct",
+      "stepAct",
+      "NAME_COL",
+      "LABELS",
+      "label",
+      "flushLabels",
+      "nameTag",
+      "enemyName",
+      "bar",
+      "draw"
+    ],
+    "winUsages": [
+      "window.JFX",
+      "window.matchMedia",
+      "window.innerWidth",
+      "window.devicePixelRatio"
+    ],
+    "docCount": 1,
+    "dollarCount": 1,
+    "provided": {
+      "CV": [
+        "js/control.js",
+        "js/main.js"
+      ],
+      "CX": [
+        "js/survival.js",
+        "js/main.js"
+      ],
+      "DPR": [
+        "js/survival.js"
+      ],
+      "MON_SCALE": [
+        "js/rewards.js",
+        "js/survival.js"
+      ],
+      "HERO_SCALE": [
+        "js/survival.js"
+      ],
+      "img": [
+        "js/combat.js",
+        "js/ui.js",
+        "js/control.js",
+        "js/shop.js",
+        "js/stash.js",
+        "js/survival.js",
+        "js/main.js"
+      ],
+      "addText": [
+        "js/combat.js",
+        "js/rewards.js",
+        "js/survival.js"
+      ],
+      "burst": [
+        "js/combat.js",
+        "js/survival.js"
+      ],
+      "fxLine": [
+        "js/combat.js"
+      ],
+      "JFX": [
+        "js/survival.js"
+      ],
+      "FX_MAX": [
+        "js/survival.js"
+      ],
+      "dir16": [
+        "js/survival.js"
+      ],
+      "castFx": [
+        "js/survival.js"
+      ],
+      "skillFx": [
+        "js/combat.js",
+        "js/survival.js"
+      ],
+      "animDur": [
+        "js/survival.js"
+      ],
+      "drawFxSprite": [
+        "js/survival.js"
+      ],
+      "stepFx": [
+        "js/survival.js"
+      ],
+      "drawFx": [
+        "js/survival.js"
+      ],
+      "isMobileUI": [
+        "js/main.js"
+      ],
+      "uiScale": [
+        "js/control.js"
+      ],
+      "resizeArena": [
+        "js/survival.js",
+        "js/main.js"
+      ],
+      "CAM": [
+        "js/control.js",
+        "js/survival.js"
+      ],
+      "snapCamera": [
+        "js/control.js",
+        "js/survival.js",
+        "js/main.js"
+      ],
+      "drawTiledBg": [
+        "js/survival.js"
+      ],
+      "onScreen": [
+        "js/survival.js"
+      ],
+      "dirOf": [
+        "js/combat.js",
+        "js/rewards.js",
+        "js/survival.js"
+      ],
+      "drawAnim": [
+        "js/rewards.js",
+        "js/survival.js"
+      ],
+      "setAct": [
+        "js/rewards.js",
+        "js/survival.js"
+      ],
+      "stepAct": [
+        "js/rewards.js",
+        "js/survival.js"
+      ],
+      "NAME_COL": [
+        "js/rewards.js",
+        "js/survival.js"
+      ],
+      "label": [
+        "js/rewards.js",
+        "js/survival.js"
+      ],
+      "flushLabels": [
+        "js/survival.js"
+      ],
+      "enemyName": [
+        "js/survival.js"
+      ],
+      "bar": [
+        "js/survival.js"
+      ],
+      "draw": [
+        "js/main.js"
+      ]
+    }
+  },
+  "js/audio.js": {
+    "needs": {
+      "$": [
+        "js/core.js"
+      ],
+      "rnd": [
+        "js/core.js"
+      ],
+      "MON": [
+        "js/core.js"
+      ],
+      "R": [
+        "js/combat.js"
+      ],
+      "S": [
+        "js/save.js"
+      ]
+    },
+    "decls": [
+      "SND",
+      "AUD",
+      "SFX_GAP",
+      "MAX_VOICES",
+      "sndCfg",
+      "audInit",
+      "audApply",
+      "audLoad",
+      "sfx",
+      "npcSfx",
+      "skillSfx",
+      "uiSfx",
+      "playMusic",
+      "preloadZoneSounds"
+    ],
+    "winUsages": [
+      "window.JS",
+      "window.AudioContext",
+      "window.webkitAudioContext"
+    ],
+    "docCount": 0,
+    "dollarCount": 0,
+    "provided": {
+      "AUD": [
+        "js/main.js"
+      ],
+      "sndCfg": [
+        "js/ui.js",
+        "js/main.js"
+      ],
+      "audInit": [
+        "js/ui.js",
+        "js/main.js"
+      ],
+      "audApply": [
+        "js/ui.js"
+      ],
+      "npcSfx": [
+        "js/combat.js"
+      ],
+      "skillSfx": [
+        "js/combat.js"
+      ],
+      "uiSfx": [
+        "js/loot.js",
+        "js/combat.js",
+        "js/ui.js",
+        "js/control.js",
+        "js/shop.js",
+        "js/rewards.js",
+        "js/forge.js",
+        "js/stash.js",
+        "js/survival.js",
+        "js/main.js"
+      ],
+      "playMusic": [
+        "js/ui.js",
+        "js/control.js",
+        "js/survival.js",
+        "js/main.js"
+      ],
+      "preloadZoneSounds": [
+        "js/survival.js",
+        "js/main.js"
+      ]
+    }
+  },
+  "js/ui.js": {
+    "needs": {
+      "J": [
+        "js/core.js"
+      ],
+      "W": [
+        "js/core.js"
+      ],
+      "$": [
+        "js/core.js"
+      ],
+      "clamp": [
+        "js/core.js"
+      ],
+      "fmt": [
+        "js/core.js"
+      ],
+      "esc": [
+        "js/core.js"
+      ],
+      "SERIES": [
+        "js/core.js"
+      ],
+      "ELEM": [
+        "js/core.js"
+      ],
+      "attrText": [
+        "js/core.js"
+      ],
+      "FACTIONS": [
+        "js/core.js"
+      ],
+      "FAC": [
+        "js/core.js"
+      ],
+      "SK": [
+        "js/core.js"
+      ],
+      "skVal": [
+        "js/core.js"
+      ],
+      "isAttack": [
+        "js/core.js"
+      ],
+      "ZONES": [
+        "js/core.js"
+      ],
+      "ZONE_STAGES": [
+        "js/core.js"
+      ],
+      "STAGES": [
+        "js/core.js"
+      ],
+      "SLOTS": [
+        "js/core.js"
+      ],
+      "DETAIL_SLOT": [
+        "js/core.js"
+      ],
+      "RAR_VI": [
+        "js/core.js"
+      ],
+      "INV_MAX": [
+        "js/core.js"
+      ],
+      "hiddenActive": [
+        "js/stats.js"
+      ],
+      "weaponCode": [
+        "js/stats.js"
+      ],
+      "calc": [
+        "js/stats.js"
+      ],
+      "activeInfo": [
+        "js/stats.js"
+      ],
+      "sexOk": [
+        "js/stats.js"
+      ],
+      "reqOk": [
+        "js/stats.js"
+      ],
+      "power": [
+        "js/stats.js"
+      ],
+      "autoSpendSkills": [
+        "js/stats.js"
+      ],
+      "reqProblems": [
+        "js/stats.js"
+      ],
+      "equipCompare": [
+        "js/stats.js"
+      ],
+      "reqDeficit": [
+        "js/stats.js"
+      ],
+      "autoSpendAttrs": [
+        "js/stats.js"
+      ],
+      "canLearn": [
+        "js/stats.js"
+      ],
+      "sexPart": [
+        "js/loot.js"
+      ],
+      "makeItem": [
+        "js/loot.js"
+      ],
+      "itemValue": [
+        "js/loot.js"
+      ],
+      "itemPower": [
+        "js/loot.js"
+      ],
+      "slotFor": [
+        "js/loot.js"
+      ],
+      "LOOT_ATTR_GROUPS": [
+        "js/loot.js"
+      ],
+      "lootFilter": [
+        "js/loot.js"
+      ],
+      "lootMatch": [
+        "js/loot.js"
+      ],
+      "makeRoom": [
+        "js/loot.js"
+      ],
+      "FUSE_SLOTS": [
+        "js/recipes.js"
+      ],
+      "R": [
+        "js/combat.js"
+      ],
+      "zoneIdx": [
+        "js/combat.js"
+      ],
+      "zoneOf": [
+        "js/combat.js"
+      ],
+      "diffOf": [
+        "js/combat.js"
+      ],
+      "recalc": [
+        "js/combat.js"
+      ],
+      "SLOT_N": [
+        "js/save.js"
+      ],
+      "SLOT_PTR": [
+        "js/save.js"
+      ],
+      "SLOT": [
+        "js/save.js"
+      ],
+      "SAVE_LOCK": [
+        "js/save.js"
+      ],
+      "S": [
+        "js/save.js"
+      ],
+      "save": [
+        "js/save.js"
+      ],
+      "slotInfo": [
+        "js/save.js"
+      ],
+      "deleteSlot": [
+        "js/save.js"
+      ],
+      "switchCharacter": [
+        "js/save.js"
+      ],
+      "saveFileName": [
+        "js/save.js"
+      ],
+      "downloadSaveFile": [
+        "js/save.js"
+      ],
+      "parseSaveText": [
+        "js/save.js"
+      ],
+      "writeSlot": [
+        "js/save.js"
+      ],
+      "exportSave": [
+        "js/save.js"
+      ],
+      "img": [
+        "js/render.js"
+      ],
+      "sndCfg": [
+        "js/audio.js"
+      ],
+      "audInit": [
+        "js/audio.js"
+      ],
+      "audApply": [
+        "js/audio.js"
+      ],
+      "uiSfx": [
+        "js/audio.js"
+      ],
+      "playMusic": [
+        "js/audio.js"
+      ],
+      "toggleRot": [
+        "js/control.js"
+      ],
+      "fillSlots": [
+        "js/control.js"
+      ],
+      "assignSlot": [
+        "js/control.js"
+      ],
+      "renderPad": [
+        "js/control.js"
+      ],
+      "loginCheck": [
+        "js/rewards.js"
+      ],
+      "dotGift": [
+        "js/rewards.js"
+      ],
+      "forgeModal": [
+        "js/forge.js"
+      ],
+      "autoForge": [
+        "js/auto.js"
+      ],
+      "tutorialModal": [
+        "js/guide.js"
+      ],
+      "bindTodo": [
+        "js/guide.js"
+      ],
+      "powerModal": [
+        "js/guide.js"
+      ],
+      "suggestModal": [
+        "js/guide.js"
+      ],
+      "codexModal": [
+        "js/guide.js"
+      ],
+      "stashDeposit": [
+        "js/stash.js"
+      ],
+      "stashModal": [
+        "js/stash.js"
+      ],
+      "UI_FS_NAME": [
+        "js/main.js"
+      ],
+      "uiPrefs": [
+        "js/main.js"
+      ],
+      "setUiPref": [
+        "js/main.js"
+      ],
+      "guard": [
+        "js/main.js"
+      ]
+    },
+    "decls": [
+      "curTab",
+      "invDirty",
+      "log",
+      "toastT",
+      "modal",
+      "closeModal",
+      "FUSE_KEEP",
+      "isJunk",
+      "sweepJunk",
+      "addItem",
+      "equipGain",
+      "betterThanEquipped",
+      "equip",
+      "unequip",
+      "sellProtected",
+      "sellUnmatched",
+      "sell",
+      "findItem",
+      "itemCell",
+      "itemHTML",
+      "fixReqPoints",
+      "cmpLines",
+      "autoEquipAll",
+      "itemModal",
+      "renderLog",
+      "renderLogOnly",
+      "gotoStage",
+      "ATTR_VI",
+      "renderChar",
+      "unlearnSkill",
+      "unspendAttr",
+      "SK_HIDE",
+      "skillEffectLines",
+      "skillModal",
+      "renderSkill",
+      "renderInv",
+      "renderMore",
+      "showTab",
+      "refresh",
+      "updateDots",
+      "updateTop",
+      "pickSaveFile",
+      "importFlow",
+      "slotMenu",
+      "pickFaction",
+      "NOTICE_TXT",
+      "noticeModal",
+      "startFaction",
+      "nameModal",
+      "starterGear"
+    ],
+    "winUsages": [],
+    "docCount": 22,
+    "dollarCount": 87,
+    "provided": {
+      "curTab": [
+        "js/guide.js",
+        "js/main.js"
+      ],
+      "invDirty": [
+        "js/loot.js",
+        "js/forge.js",
+        "js/auto.js",
+        "js/stash.js",
+        "js/main.js"
+      ],
+      "log": [
+        "js/loot.js",
+        "js/combat.js",
+        "js/control.js",
+        "js/rewards.js",
+        "js/forge.js",
+        "js/auto.js",
+        "js/guide.js",
+        "js/survival.js",
+        "js/main.js"
+      ],
+      "modal": [
+        "js/shop.js",
+        "js/rewards.js",
+        "js/forge.js",
+        "js/guide.js",
+        "js/stash.js",
+        "js/survival.js",
+        "js/main.js"
+      ],
+      "closeModal": [
+        "js/rewards.js",
+        "js/forge.js",
+        "js/guide.js",
+        "js/survival.js",
+        "js/main.js"
+      ],
+      "sweepJunk": [
+        "js/combat.js",
+        "js/save.js"
+      ],
+      "addItem": [
+        "js/loot.js",
+        "js/save.js",
+        "js/shop.js",
+        "js/rewards.js",
+        "js/auto.js",
+        "js/survival.js"
+      ],
+      "equipGain": [
+        "js/stats.js"
+      ],
+      "betterThanEquipped": [
+        "js/recipes.js",
+        "js/auto.js",
+        "js/guide.js"
+      ],
+      "equip": [
+        "js/stats.js",
+        "js/recipes.js"
+      ],
+      "sellProtected": [
+        "js/shop.js"
+      ],
+      "sellUnmatched": [
+        "js/control.js",
+        "js/shop.js"
+      ],
+      "sell": [
+        "js/shop.js"
+      ],
+      "findItem": [
+        "js/shop.js"
+      ],
+      "autoEquipAll": [
+        "js/combat.js",
+        "js/save.js",
+        "js/auto.js",
+        "js/main.js"
+      ],
+      "renderLogOnly": [
+        "js/main.js"
+      ],
+      "ATTR_VI": [
+        "js/guide.js"
+      ],
+      "renderInv": [
+        "js/main.js"
+      ],
+      "showTab": [
+        "js/guide.js",
+        "js/main.js"
+      ],
+      "refresh": [
+        "js/control.js",
+        "js/rewards.js",
+        "js/guide.js",
+        "js/stash.js",
+        "js/survival.js",
+        "js/main.js"
+      ],
+      "updateDots": [
+        "js/main.js"
+      ],
+      "updateTop": [
+        "js/main.js"
+      ],
+      "slotMenu": [
+        "js/main.js"
+      ],
+      "pickFaction": [
+        "js/main.js"
+      ]
+    }
+  },
+  "js/control.js": {
+    "needs": {
+      "W": [
+        "js/core.js"
+      ],
+      "$": [
+        "js/core.js"
+      ],
+      "SK": [
+        "js/core.js"
+      ],
+      "isAttack": [
+        "js/core.js"
+      ],
+      "STAGES": [
+        "js/core.js"
+      ],
+      "WORLD": [
+        "js/core.js"
+      ],
+      "clampWorld": [
+        "js/core.js"
+      ],
+      "inWorld": [
+        "js/core.js"
+      ],
+      "obsLoad": [
+        "js/mapobs.js"
+      ],
+      "obsMove": [
+        "js/mapobs.js"
+      ],
+      "groundAt": [
+        "js/loot.js"
+      ],
+      "R": [
+        "js/combat.js"
+      ],
+      "AR": [
+        "js/combat.js"
+      ],
+      "H": [
+        "js/combat.js"
+      ],
+      "zoneOf": [
+        "js/combat.js"
+      ],
+      "bestPotion": [
+        "js/combat.js"
+      ],
+      "usePotion": [
+        "js/combat.js"
+      ],
+      "recalc": [
+        "js/combat.js"
+      ],
+      "S": [
+        "js/save.js"
+      ],
+      "save": [
+        "js/save.js"
+      ],
+      "CV": [
+        "js/render.js"
+      ],
+      "img": [
+        "js/render.js"
+      ],
+      "uiScale": [
+        "js/render.js"
+      ],
+      "CAM": [
+        "js/render.js"
+      ],
+      "snapCamera": [
+        "js/render.js"
+      ],
+      "uiSfx": [
+        "js/audio.js"
+      ],
+      "playMusic": [
+        "js/audio.js"
+      ],
+      "log": [
+        "js/ui.js"
+      ],
+      "sellUnmatched": [
+        "js/ui.js"
+      ],
+      "refresh": [
+        "js/ui.js"
+      ],
+      "takeStock": [
+        "js/shop.js"
+      ],
+      "shopModal": [
+        "js/shop.js"
+      ],
+      "stashModal": [
+        "js/stash.js"
+      ],
+      "SV": [
+        "js/survival.js"
+      ],
+      "svUseHp": [
+        "js/survival.js"
+      ],
+      "svPause": [
+        "js/survival.js"
+      ],
+      "onZoneChange": [
+        "js/main.js"
+      ]
+    },
+    "decls": [
+      "INPUT",
+      "JOY_R",
+      "TAP_MOVE",
+      "TP_CD",
+      "POT_CD",
+      "manual",
+      "joyFixed",
+      "isDesktopLandscape",
+      "inputMode",
+      "mouseMode",
+      "refreshRotBtn",
+      "toggleRot",
+      "refreshInputBtn",
+      "joyAnchor",
+      "GP",
+      "gamepadPoll",
+      "inputVec",
+      "moveManual",
+      "setCtrl",
+      "learnedAttacks",
+      "fillSlots",
+      "assignSlot",
+      "pressSlot",
+      "drinkNow",
+      "goTown",
+      "backFromTown",
+      "townTick",
+      "renderPad",
+      "updatePadCd",
+      "bindControls",
+      "drawJoystick"
+    ],
+    "winUsages": [
+      "window.matchMedia",
+      "window.addEventListener"
+    ],
+    "docCount": 3,
+    "dollarCount": 19,
+    "provided": {
+      "INPUT": [
+        "js/survival.js"
+      ],
+      "manual": [
+        "js/loot.js",
+        "js/combat.js"
+      ],
+      "isDesktopLandscape": [
+        "js/render.js"
+      ],
+      "toggleRot": [
+        "js/ui.js"
+      ],
+      "gamepadPoll": [
+        "js/main.js"
+      ],
+      "inputVec": [
+        "js/survival.js"
+      ],
+      "moveManual": [
+        "js/combat.js"
+      ],
+      "fillSlots": [
+        "js/ui.js"
+      ],
+      "assignSlot": [
+        "js/ui.js"
+      ],
+      "backFromTown": [
+        "js/rewards.js",
+        "js/survival.js"
+      ],
+      "townTick": [
+        "js/combat.js"
+      ],
+      "renderPad": [
+        "js/ui.js",
+        "js/main.js"
+      ],
+      "updatePadCd": [
+        "js/main.js"
+      ],
+      "bindControls": [
+        "js/main.js"
+      ],
+      "drawJoystick": [
+        "js/render.js",
+        "js/survival.js"
+      ]
+    }
+  },
+  "js/shop.js": {
+    "needs": {
+      "J": [
+        "js/core.js"
+      ],
+      "$": [
+        "js/core.js"
+      ],
+      "fmt": [
+        "js/core.js"
+      ],
+      "esc": [
+        "js/core.js"
+      ],
+      "SERIES": [
+        "js/core.js"
+      ],
+      "FAC": [
+        "js/core.js"
+      ],
+      "INV_MAX": [
+        "js/core.js"
+      ],
+      "sexOk": [
+        "js/stats.js"
+      ],
+      "baseRow": [
+        "js/loot.js"
+      ],
+      "makeItem": [
+        "js/loot.js"
+      ],
+      "lootMatch": [
+        "js/loot.js"
+      ],
+      "R": [
+        "js/combat.js"
+      ],
+      "H": [
+        "js/combat.js"
+      ],
+      "S": [
+        "js/save.js"
+      ],
+      "save": [
+        "js/save.js"
+      ],
+      "img": [
+        "js/render.js"
+      ],
+      "uiSfx": [
+        "js/audio.js"
+      ],
+      "modal": [
+        "js/ui.js"
+      ],
+      "addItem": [
+        "js/ui.js"
+      ],
+      "sellProtected": [
+        "js/ui.js"
+      ],
+      "sellUnmatched": [
+        "js/ui.js"
+      ],
+      "sell": [
+        "js/ui.js"
+      ],
+      "findItem": [
+        "js/ui.js"
+      ]
+    },
+    "decls": [
+      "SHOP_TABS",
+      "POT_STACK",
+      "shopTab",
+      "shopPrice",
+      "potionOf",
+      "shopSeries",
+      "goodsItem",
+      "potStock",
+      "stockCount",
+      "takeStock",
+      "buyGoods",
+      "shopModal"
+    ],
+    "winUsages": [],
+    "docCount": 3,
+    "dollarCount": 1,
+    "provided": {
+      "shopPrice": [
+        "js/auto.js"
+      ],
+      "shopSeries": [
+        "js/auto.js"
+      ],
+      "goodsItem": [
+        "js/auto.js"
+      ],
+      "potStock": [
+        "js/save.js",
+        "js/rewards.js"
+      ],
+      "takeStock": [
+        "js/combat.js",
+        "js/control.js"
+      ],
+      "shopModal": [
+        "js/control.js"
+      ]
+    }
+  },
+  "js/rewards.js": {
+    "needs": {
+      "J": [
+        "js/core.js"
+      ],
+      "$": [
+        "js/core.js"
+      ],
+      "rnd": [
+        "js/core.js"
+      ],
+      "irnd": [
+        "js/core.js"
+      ],
+      "pick": [
+        "js/core.js"
+      ],
+      "clamp": [
+        "js/core.js"
+      ],
+      "fmt": [
+        "js/core.js"
+      ],
+      "esc": [
+        "js/core.js"
+      ],
+      "wpick": [
+        "js/core.js"
+      ],
+      "MAX_LEVEL": [
+        "js/core.js"
+      ],
+      "attrText": [
+        "js/core.js"
+      ],
+      "FAC": [
+        "js/core.js"
+      ],
+      "ZONES": [
+        "js/core.js"
+      ],
+      "MON": [
+        "js/core.js"
+      ],
+      "STAGES": [
+        "js/core.js"
+      ],
+      "inWorld": [
+        "js/core.js"
+      ],
+      "addAttr": [
+        "js/stats.js"
+      ],
+      "sexReqOk": [
+        "js/stats.js"
+      ],
+      "autoSpendAttrs": [
+        "js/stats.js"
+      ],
+      "sexPart": [
+        "js/loot.js"
+      ],
+      "makeItem": [
+        "js/loot.js"
+      ],
+      "makeSetItem": [
+        "js/sets.js"
+      ],
+      "enoughToActive": [
+        "js/sets.js"
+      ],
+      "R": [
+        "js/combat.js"
+      ],
+      "H": [
+        "js/combat.js"
+      ],
+      "zoneIdx": [
+        "js/combat.js"
+      ],
+      "zoneOf": [
+        "js/combat.js"
+      ],
+      "stageLevel": [
+        "js/combat.js"
+      ],
+      "makeEnemy": [
+        "js/combat.js"
+      ],
+      "heal": [
+        "js/combat.js"
+      ],
+      "alive": [
+        "js/combat.js"
+      ],
+      "S": [
+        "js/save.js"
+      ],
+      "save": [
+        "js/save.js"
+      ],
+      "MON_SCALE": [
+        "js/render.js"
+      ],
+      "addText": [
+        "js/render.js"
+      ],
+      "dirOf": [
+        "js/render.js"
+      ],
+      "drawAnim": [
+        "js/render.js"
+      ],
+      "setAct": [
+        "js/render.js"
+      ],
+      "stepAct": [
+        "js/render.js"
+      ],
+      "NAME_COL": [
+        "js/render.js"
+      ],
+      "label": [
+        "js/render.js"
+      ],
+      "uiSfx": [
+        "js/audio.js"
+      ],
+      "log": [
+        "js/ui.js"
+      ],
+      "modal": [
+        "js/ui.js"
+      ],
+      "closeModal": [
+        "js/ui.js"
+      ],
+      "addItem": [
+        "js/ui.js"
+      ],
+      "refresh": [
+        "js/ui.js"
+      ],
+      "backFromTown": [
+        "js/control.js"
+      ],
+      "potStock": [
+        "js/shop.js"
+      ]
+    },
+    "decls": [
+      "dayKey",
+      "today",
+      "GB_EVERY",
+      "GB_RETRY",
+      "REBORN_LV",
+      "REBORN_MAX",
+      "FD_COST",
+      "RW",
+      "grant",
+      "forceSetItem",
+      "LOGIN7",
+      "LOGIN30",
+      "loginCheck",
+      "claimLogin",
+      "LV_MS",
+      "TOWER_LV",
+      "PET_LV",
+      "unlocked",
+      "lvMsReady",
+      "claimLvMs",
+      "DQ_POOL",
+      "dailyQuests",
+      "questTick",
+      "claimQuest",
+      "ACH",
+      "achCheck",
+      "titleAttr",
+      "goldBossTick",
+      "goldBossDue",
+      "spawnGoldBoss",
+      "offlineChests",
+      "towerStart",
+      "towerLevel",
+      "towerSpawn",
+      "towerCleared",
+      "towerExit",
+      "rebornBonus",
+      "doReborn",
+      "petChoices",
+      "petAdopt",
+      "petDmg",
+      "petTick",
+      "petGainXp",
+      "drawPet",
+      "eventNow",
+      "EVENT_SHOP",
+      "eventBuy",
+      "FD_TABLE",
+      "openChest",
+      "rwOnKill",
+      "giftPending",
+      "dotGift",
+      "giftTab",
+      "refreshGift",
+      "giftText",
+      "giftBody",
+      "giftModal"
+    ],
+    "winUsages": [],
+    "docCount": 6,
+    "dollarCount": 4,
+    "provided": {
+      "GB_RETRY": [
+        "js/combat.js"
+      ],
+      "RW": [
+        "js/combat.js",
+        "js/survival.js"
+      ],
+      "loginCheck": [
+        "js/ui.js",
+        "js/main.js"
+      ],
+      "LV_MS": [
+        "js/main.js"
+      ],
+      "questTick": [
+        "js/loot.js",
+        "js/combat.js",
+        "js/survival.js"
+      ],
+      "achCheck": [
+        "js/survival.js",
+        "js/main.js"
+      ],
+      "titleAttr": [
+        "js/stats.js"
+      ],
+      "goldBossTick": [
+        "js/combat.js"
+      ],
+      "goldBossDue": [
+        "js/combat.js"
+      ],
+      "spawnGoldBoss": [
+        "js/combat.js"
+      ],
+      "offlineChests": [
+        "js/save.js"
+      ],
+      "towerSpawn": [
+        "js/combat.js"
+      ],
+      "towerCleared": [
+        "js/combat.js"
+      ],
+      "towerExit": [
+        "js/combat.js",
+        "js/survival.js"
+      ],
+      "rebornBonus": [
+        "js/stats.js",
+        "js/combat.js"
+      ],
+      "petTick": [
+        "js/combat.js"
+      ],
+      "drawPet": [
+        "js/render.js"
+      ],
+      "rwOnKill": [
+        "js/combat.js"
+      ],
+      "giftPending": [
+        "js/guide.js"
+      ],
+      "dotGift": [
+        "js/ui.js",
+        "js/main.js"
+      ],
+      "giftModal": [
+        "js/guide.js",
+        "js/main.js"
+      ]
+    }
+  },
+  "js/forge.js": {
+    "needs": {
+      "$": [
+        "js/core.js"
+      ],
+      "fmt": [
+        "js/core.js"
+      ],
+      "esc": [
+        "js/core.js"
+      ],
+      "ENH_MAX": [
+        "js/core.js"
+      ],
+      "rollMagic": [
+        "js/loot.js"
+      ],
+      "magicLevels": [
+        "js/loot.js"
+      ],
+      "VIO_SLOTS": [
+        "js/recipes.js"
+      ],
+      "HT_MAX": [
+        "js/recipes.js"
+      ],
+      "ORE_MAX": [
+        "js/recipes.js"
+      ],
+      "mats": [
+        "js/recipes.js"
+      ],
+      "oreParse": [
+        "js/recipes.js"
+      ],
+      "matHave": [
+        "js/recipes.js"
+      ],
+      "owned": [
+        "js/recipes.js"
+      ],
+      "canFuse": [
+        "js/recipes.js"
+      ],
+      "fuse": [
+        "js/recipes.js"
+      ],
+      "upgradeHT": [
+        "js/recipes.js"
+      ],
+      "upgradeOre": [
+        "js/recipes.js"
+      ],
+      "oreRows": [
+        "js/recipes.js"
+      ],
+      "enchase": [
+        "js/recipes.js"
+      ],
+      "SHARDS": [
+        "js/recipes.js"
+      ],
+      "combineShards": [
+        "js/recipes.js"
+      ],
+      "PLAT_UP": [
+        "js/recipes.js"
+      ],
+      "PLAT_MAX": [
+        "js/recipes.js"
+      ],
+      "platCost": [
+        "js/recipes.js"
+      ],
+      "canPlatBase": [
+        "js/recipes.js"
+      ],
+      "makePlatina": [
+        "js/recipes.js"
+      ],
+      "upgradePlatina": [
+        "js/recipes.js"
+      ],
+      "R": [
+        "js/combat.js"
+      ],
+      "S": [
+        "js/save.js"
+      ],
+      "save": [
+        "js/save.js"
+      ],
+      "uiSfx": [
+        "js/audio.js"
+      ],
+      "invDirty": [
+        "js/ui.js"
+      ],
+      "log": [
+        "js/ui.js"
+      ],
+      "modal": [
+        "js/ui.js"
+      ],
+      "closeModal": [
+        "js/ui.js"
+      ]
+    },
+    "decls": [
+      "enhCost",
+      "enhChance",
+      "rerollCost",
+      "canReroll",
+      "payGold",
+      "enhance",
+      "reroll",
+      "oreLabel",
+      "afterRc",
+      "enchaseCard",
+      "platCard",
+      "forgeModal",
+      "htSel",
+      "pkSel",
+      "htModal"
+    ],
+    "winUsages": [],
+    "docCount": 5,
+    "dollarCount": 9,
+    "provided": {
+      "canReroll": [
+        "js/survival.js"
+      ],
+      "forgeModal": [
+        "js/ui.js"
+      ],
+      "htModal": [
+        "js/guide.js"
+      ]
+    }
+  },
+  "js/auto.js": {
+    "needs": {
+      "J": [
+        "js/core.js"
+      ],
+      "$": [
+        "js/core.js"
+      ],
+      "pick": [
+        "js/core.js"
+      ],
+      "PTS_PER_LEVEL": [
+        "js/core.js"
+      ],
+      "FAC": [
+        "js/core.js"
+      ],
+      "INV_MAX": [
+        "js/core.js"
+      ],
+      "weaponCode": [
+        "js/stats.js"
+      ],
+      "weaponDmg": [
+        "js/stats.js"
+      ],
+      "sexOk": [
+        "js/stats.js"
+      ],
+      "reqOk": [
+        "js/stats.js"
+      ],
+      "REQ_SAVE_LEVELS": [
+        "js/stats.js"
+      ],
+      "reqDeficit": [
+        "js/stats.js"
+      ],
+      "autoSpendAttrs": [
+        "js/stats.js"
+      ],
+      "makeItem": [
+        "js/loot.js"
+      ],
+      "itemPower": [
+        "js/loot.js"
+      ],
+      "VIO_SLOTS": [
+        "js/recipes.js"
+      ],
+      "HT_MAX": [
+        "js/recipes.js"
+      ],
+      "mats": [
+        "js/recipes.js"
+      ],
+      "oreParse": [
+        "js/recipes.js"
+      ],
+      "matHave": [
+        "js/recipes.js"
+      ],
+      "fuseCost": [
+        "js/recipes.js"
+      ],
+      "canFuse": [
+        "js/recipes.js"
+      ],
+      "fuse": [
+        "js/recipes.js"
+      ],
+      "upgradeHT": [
+        "js/recipes.js"
+      ],
+      "enchaseCheck": [
+        "js/recipes.js"
+      ],
+      "enchase": [
+        "js/recipes.js"
+      ],
+      "SHARDS": [
+        "js/recipes.js"
+      ],
+      "combineShards": [
+        "js/recipes.js"
+      ],
+      "R": [
+        "js/combat.js"
+      ],
+      "S": [
+        "js/save.js"
+      ],
+      "invDirty": [
+        "js/ui.js"
+      ],
+      "log": [
+        "js/ui.js"
+      ],
+      "addItem": [
+        "js/ui.js"
+      ],
+      "betterThanEquipped": [
+        "js/ui.js"
+      ],
+      "autoEquipAll": [
+        "js/ui.js"
+      ],
+      "shopPrice": [
+        "js/shop.js"
+      ],
+      "shopSeries": [
+        "js/shop.js"
+      ],
+      "goodsItem": [
+        "js/shop.js"
+      ]
+    },
+    "decls": [
+      "AUTO_FORGE_MAX",
+      "enchaseTargets",
+      "findEnchase",
+      "forgeReadyCounts",
+      "fusePool",
+      "autoForge",
+      "AUTO_BUY_GAIN",
+      "AUTO_BUY_BUDGET",
+      "bestOwnedWeaponDmg",
+      "autoBuyWeapon"
+    ],
+    "winUsages": [],
+    "docCount": 0,
+    "dollarCount": 0,
+    "provided": {
+      "forgeReadyCounts": [
+        "js/guide.js"
+      ],
+      "autoForge": [
+        "js/combat.js",
+        "js/save.js",
+        "js/ui.js"
+      ],
+      "autoBuyWeapon": [
+        "js/combat.js",
+        "js/save.js"
+      ]
+    }
+  },
+  "js/guide.js": {
+    "needs": {
+      "J": [
+        "js/core.js"
+      ],
+      "$": [
+        "js/core.js"
+      ],
+      "esc": [
+        "js/core.js"
+      ],
+      "SERIES": [
+        "js/core.js"
+      ],
+      "ELEM": [
+        "js/core.js"
+      ],
+      "FAC": [
+        "js/core.js"
+      ],
+      "SK": [
+        "js/core.js"
+      ],
+      "ZONES": [
+        "js/core.js"
+      ],
+      "MON": [
+        "js/core.js"
+      ],
+      "ZONE_STAGES": [
+        "js/core.js"
+      ],
+      "SLOTS": [
+        "js/core.js"
+      ],
+      "INV_MAX": [
+        "js/core.js"
+      ],
+      "calc": [
+        "js/stats.js"
+      ],
+      "sexReqOk": [
+        "js/stats.js"
+      ],
+      "power": [
+        "js/stats.js"
+      ],
+      "autoSpendSkills": [
+        "js/stats.js"
+      ],
+      "canLearn": [
+        "js/stats.js"
+      ],
+      "mats": [
+        "js/recipes.js"
+      ],
+      "reqOfRow": [
+        "js/recipes.js"
+      ],
+      "R": [
+        "js/combat.js"
+      ],
+      "hitPercent": [
+        "js/combat.js"
+      ],
+      "recalc": [
+        "js/combat.js"
+      ],
+      "S": [
+        "js/save.js"
+      ],
+      "save": [
+        "js/save.js"
+      ],
+      "curTab": [
+        "js/ui.js"
+      ],
+      "log": [
+        "js/ui.js"
+      ],
+      "modal": [
+        "js/ui.js"
+      ],
+      "closeModal": [
+        "js/ui.js"
+      ],
+      "betterThanEquipped": [
+        "js/ui.js"
+      ],
+      "ATTR_VI": [
+        "js/ui.js"
+      ],
+      "showTab": [
+        "js/ui.js"
+      ],
+      "refresh": [
+        "js/ui.js"
+      ],
+      "giftPending": [
+        "js/rewards.js"
+      ],
+      "giftModal": [
+        "js/rewards.js"
+      ],
+      "htModal": [
+        "js/forge.js"
+      ],
+      "forgeReadyCounts": [
+        "js/auto.js"
+      ]
+    },
+    "decls": [
+      "TUT",
+      "tutorialModal",
+      "HINTS",
+      "hint",
+      "checkHints",
+      "todoList",
+      "todoHTML",
+      "bindTodo",
+      "powerBreakdown",
+      "powerModal",
+      "snapPts",
+      "restorePts",
+      "spendAttrsGreedy",
+      "suggestPlan",
+      "suggestModal",
+      "codexTab",
+      "codexModal"
+    ],
+    "winUsages": [],
+    "docCount": 2,
+    "dollarCount": 5,
+    "provided": {
+      "tutorialModal": [
+        "js/ui.js"
+      ],
+      "checkHints": [
+        "js/combat.js",
+        "js/main.js"
+      ],
+      "bindTodo": [
+        "js/ui.js"
+      ],
+      "powerModal": [
+        "js/ui.js"
+      ],
+      "suggestModal": [
+        "js/ui.js"
+      ],
+      "codexModal": [
+        "js/ui.js"
+      ]
+    }
+  },
+  "js/stash.js": {
+    "needs": {
+      "$": [
+        "js/core.js"
+      ],
+      "INV_MAX": [
+        "js/core.js"
+      ],
+      "mats": [
+        "js/recipes.js"
+      ],
+      "oreParse": [
+        "js/recipes.js"
+      ],
+      "matAdd": [
+        "js/recipes.js"
+      ],
+      "matHave": [
+        "js/recipes.js"
+      ],
+      "oreRows": [
+        "js/recipes.js"
+      ],
+      "R": [
+        "js/combat.js"
+      ],
+      "S": [
+        "js/save.js"
+      ],
+      "pack": [
+        "js/save.js"
+      ],
+      "unpack": [
+        "js/save.js"
+      ],
+      "save": [
+        "js/save.js"
+      ],
+      "img": [
+        "js/render.js"
+      ],
+      "uiSfx": [
+        "js/audio.js"
+      ],
+      "invDirty": [
+        "js/ui.js"
+      ],
+      "modal": [
+        "js/ui.js"
+      ],
+      "refresh": [
+        "js/ui.js"
+      ]
+    },
+    "decls": [
+      "STASH_KEY",
+      "STASH_MAX",
+      "STASH_V",
+      "stashNew",
+      "stashClean",
+      "stashRead",
+      "stashWrite",
+      "stashTx",
+      "stashCount",
+      "clone",
+      "stashDeposit",
+      "stashWithdraw",
+      "stashGold",
+      "stashMat",
+      "matName",
+      "stashFileText",
+      "parseStashText",
+      "stashImport",
+      "stashTab",
+      "stashCell",
+      "stashDone",
+      "stashModal",
+      "stashItemModal",
+      "stashImportFlow"
+    ],
+    "winUsages": [],
+    "docCount": 5,
+    "dollarCount": 6,
+    "provided": {
+      "stashDeposit": [
+        "js/ui.js"
+      ],
+      "stashModal": [
+        "js/ui.js",
+        "js/control.js"
+      ]
+    }
+  },
+  "js/survival.js": {
+    "needs": {
+      "J": [
+        "js/core.js"
+      ],
+      "W": [
+        "js/core.js"
+      ],
+      "$": [
+        "js/core.js"
+      ],
+      "rnd": [
+        "js/core.js"
+      ],
+      "irnd": [
+        "js/core.js"
+      ],
+      "pick": [
+        "js/core.js"
+      ],
+      "clamp": [
+        "js/core.js"
+      ],
+      "fmt": [
+        "js/core.js"
+      ],
+      "esc": [
+        "js/core.js"
+      ],
+      "wpick": [
+        "js/core.js"
+      ],
+      "SERIES_COL": [
+        "js/core.js"
+      ],
+      "ELEM_COL": [
+        "js/core.js"
+      ],
+      "CRIT_MULT": [
+        "js/core.js"
+      ],
+      "FAC": [
+        "js/core.js"
+      ],
+      "SK": [
+        "js/core.js"
+      ],
+      "isAttack": [
+        "js/core.js"
+      ],
+      "ZONES": [
+        "js/core.js"
+      ],
+      "MON": [
+        "js/core.js"
+      ],
+      "ZONE_STAGES": [
+        "js/core.js"
+      ],
+      "STAGES": [
+        "js/core.js"
+      ],
+      "WORLD": [
+        "js/core.js"
+      ],
+      "clampWorld": [
+        "js/core.js"
+      ],
+      "inWorld": [
+        "js/core.js"
+      ],
+      "OBS": [
+        "js/mapobs.js"
+      ],
+      "obsLoad": [
+        "js/mapobs.js"
+      ],
+      "obsMove": [
+        "js/mapobs.js"
+      ],
+      "obsChase": [
+        "js/mapobs.js"
+      ],
+      "obsFrame": [
+        "js/mapobs.js"
+      ],
+      "heroSeries": [
+        "js/stats.js"
+      ],
+      "activeInfo": [
+        "js/stats.js"
+      ],
+      "moneyDrop": [
+        "js/loot.js"
+      ],
+      "R": [
+        "js/combat.js"
+      ],
+      "AR": [
+        "js/combat.js"
+      ],
+      "H": [
+        "js/combat.js"
+      ],
+      "zoneOf": [
+        "js/combat.js"
+      ],
+      "CLS": [
+        "js/combat.js"
+      ],
+      "expFor": [
+        "js/combat.js"
+      ],
+      "alive": [
+        "js/combat.js"
+      ],
+      "gainXp": [
+        "js/combat.js"
+      ],
+      "recalc": [
+        "js/combat.js"
+      ],
+      "S": [
+        "js/save.js"
+      ],
+      "save": [
+        "js/save.js"
+      ],
+      "CX": [
+        "js/render.js"
+      ],
+      "DPR": [
+        "js/render.js"
+      ],
+      "MON_SCALE": [
+        "js/render.js"
+      ],
+      "HERO_SCALE": [
+        "js/render.js"
+      ],
+      "img": [
+        "js/render.js"
+      ],
+      "addText": [
+        "js/render.js"
+      ],
+      "burst": [
+        "js/render.js"
+      ],
+      "JFX": [
+        "js/render.js"
+      ],
+      "FX_MAX": [
+        "js/render.js"
+      ],
+      "dir16": [
+        "js/render.js"
+      ],
+      "castFx": [
+        "js/render.js"
+      ],
+      "skillFx": [
+        "js/render.js"
+      ],
+      "animDur": [
+        "js/render.js"
+      ],
+      "drawFxSprite": [
+        "js/render.js"
+      ],
+      "stepFx": [
+        "js/render.js"
+      ],
+      "drawFx": [
+        "js/render.js"
+      ],
+      "resizeArena": [
+        "js/render.js"
+      ],
+      "CAM": [
+        "js/render.js"
+      ],
+      "snapCamera": [
+        "js/render.js"
+      ],
+      "drawTiledBg": [
+        "js/render.js"
+      ],
+      "onScreen": [
+        "js/render.js"
+      ],
+      "dirOf": [
+        "js/render.js"
+      ],
+      "drawAnim": [
+        "js/render.js"
+      ],
+      "setAct": [
+        "js/render.js"
+      ],
+      "stepAct": [
+        "js/render.js"
+      ],
+      "NAME_COL": [
+        "js/render.js"
+      ],
+      "label": [
+        "js/render.js"
+      ],
+      "flushLabels": [
+        "js/render.js"
+      ],
+      "enemyName": [
+        "js/render.js"
+      ],
+      "bar": [
+        "js/render.js"
+      ],
+      "uiSfx": [
+        "js/audio.js"
+      ],
+      "playMusic": [
+        "js/audio.js"
+      ],
+      "preloadZoneSounds": [
+        "js/audio.js"
+      ],
+      "log": [
+        "js/ui.js"
+      ],
+      "modal": [
+        "js/ui.js"
+      ],
+      "closeModal": [
+        "js/ui.js"
+      ],
+      "addItem": [
+        "js/ui.js"
+      ],
+      "refresh": [
+        "js/ui.js"
+      ],
+      "INPUT": [
+        "js/control.js"
+      ],
+      "inputVec": [
+        "js/control.js"
+      ],
+      "backFromTown": [
+        "js/control.js"
+      ],
+      "drawJoystick": [
+        "js/control.js"
+      ],
+      "RW": [
+        "js/rewards.js"
+      ],
+      "questTick": [
+        "js/rewards.js"
+      ],
+      "achCheck": [
+        "js/rewards.js"
+      ],
+      "towerExit": [
+        "js/rewards.js"
+      ],
+      "canReroll": [
+        "js/forge.js"
+      ]
+    },
+    "decls": [
+      "SV_DUR",
+      "SV_BOSS_T",
+      "SV_MAX_EN",
+      "SV_CELL",
+      "SV_STAR_MAX",
+      "SV_GEM_MAX",
+      "SV_MAX_TRAPS",
+      "SV_REWARD_MIN",
+      "SV_REWARD_MAX",
+      "SV_WIN_BONUS",
+      "SV",
+      "svNeed",
+      "SV_REGEN",
+      "SV_UPS",
+      "PAS_KIND",
+      "ELEM_TRAPS",
+      "svActives",
+      "svPassives",
+      "pasKind",
+      "svSkillLv",
+      "svInfo",
+      "svBonus",
+      "svOptions",
+      "svApply",
+      "svBarUpdate",
+      "svBarCd",
+      "svSlotInfo",
+      "svStart",
+      "svExit",
+      "svRewards",
+      "svEnd",
+      "SV_HP",
+      "SV_DMG",
+      "svFree",
+      "svSpawn",
+      "svGrid",
+      "svNear",
+      "svNearest",
+      "svMoveEnemies",
+      "SK_FAC",
+      "svStar",
+      "isTrap",
+      "svSkillSeries",
+      "svDamage",
+      "svHit",
+      "svCast",
+      "svShots",
+      "svTraps",
+      "svSkills",
+      "svUltSkill",
+      "svCastUlt",
+      "svUseBomb",
+      "svUseHp",
+      "svSpawnChest",
+      "svChests",
+      "svOpenChest",
+      "svKill",
+      "svGems",
+      "svStarInfo",
+      "svCard",
+      "svChoose",
+      "svTick",
+      "svPause",
+      "svStatsHTML",
+      "svZone",
+      "svIntro",
+      "svUpdateHud",
+      "svDraw",
+      "svDrawHero",
+      "svHud"
+    ],
+    "winUsages": [],
+    "docCount": 3,
+    "dollarCount": 17,
+    "provided": {
+      "SV": [
+        "js/control.js",
+        "js/main.js"
+      ],
+      "svExit": [
+        "js/main.js"
+      ],
+      "svCastUlt": [
+        "js/main.js"
+      ],
+      "svUseBomb": [
+        "js/main.js"
+      ],
+      "svUseHp": [
+        "js/control.js",
+        "js/main.js"
+      ],
+      "svTick": [
+        "js/main.js"
+      ],
+      "svPause": [
+        "js/control.js",
+        "js/main.js"
+      ],
+      "svIntro": [
+        "js/main.js"
+      ],
+      "svDraw": [
+        "js/main.js"
+      ]
+    }
+  },
+  "js/main.js": {
+    "needs": {
+      "W": [
+        "js/core.js"
+      ],
+      "$": [
+        "js/core.js"
+      ],
+      "STAGES": [
+        "js/core.js"
+      ],
+      "WORLD": [
+        "js/core.js"
+      ],
+      "inWorld": [
+        "js/core.js"
+      ],
+      "obsLoad": [
+        "js/mapobs.js"
+      ],
+      "autoSpendSkills": [
+        "js/stats.js"
+      ],
+      "autoSpendAttrs": [
+        "js/stats.js"
+      ],
+      "restoreGround": [
+        "js/loot.js"
+      ],
+      "R": [
+        "js/combat.js"
+      ],
+      "H": [
+        "js/combat.js"
+      ],
+      "zoneOf": [
+        "js/combat.js"
+      ],
+      "tick": [
+        "js/combat.js"
+      ],
+      "recalc": [
+        "js/combat.js"
+      ],
+      "SLOT": [
+        "js/save.js"
+      ],
+      "S": [
+        "js/save.js"
+      ],
+      "newSave": [
+        "js/save.js"
+      ],
+      "save": [
+        "js/save.js"
+      ],
+      "pickSlot": [
+        "js/save.js"
+      ],
+      "load": [
+        "js/save.js"
+      ],
+      "offlineGains": [
+        "js/save.js"
+      ],
+      "CV": [
+        "js/render.js"
+      ],
+      "CX": [
+        "js/render.js"
+      ],
+      "img": [
+        "js/render.js"
+      ],
+      "isMobileUI": [
+        "js/render.js"
+      ],
+      "resizeArena": [
+        "js/render.js"
+      ],
+      "snapCamera": [
+        "js/render.js"
+      ],
+      "draw": [
+        "js/render.js"
+      ],
+      "AUD": [
+        "js/audio.js"
+      ],
+      "sndCfg": [
+        "js/audio.js"
+      ],
+      "audInit": [
+        "js/audio.js"
+      ],
+      "uiSfx": [
+        "js/audio.js"
+      ],
+      "playMusic": [
+        "js/audio.js"
+      ],
+      "preloadZoneSounds": [
+        "js/audio.js"
+      ],
+      "curTab": [
+        "js/ui.js"
+      ],
+      "invDirty": [
+        "js/ui.js"
+      ],
+      "log": [
+        "js/ui.js"
+      ],
+      "modal": [
+        "js/ui.js"
+      ],
+      "closeModal": [
+        "js/ui.js"
+      ],
+      "autoEquipAll": [
+        "js/ui.js"
+      ],
+      "renderLogOnly": [
+        "js/ui.js"
+      ],
+      "renderInv": [
+        "js/ui.js"
+      ],
+      "showTab": [
+        "js/ui.js"
+      ],
+      "refresh": [
+        "js/ui.js"
+      ],
+      "updateDots": [
+        "js/ui.js"
+      ],
+      "updateTop": [
+        "js/ui.js"
+      ],
+      "slotMenu": [
+        "js/ui.js"
+      ],
+      "pickFaction": [
+        "js/ui.js"
+      ],
+      "gamepadPoll": [
+        "js/control.js"
+      ],
+      "renderPad": [
+        "js/control.js"
+      ],
+      "updatePadCd": [
+        "js/control.js"
+      ],
+      "bindControls": [
+        "js/control.js"
+      ],
+      "loginCheck": [
+        "js/rewards.js"
+      ],
+      "LV_MS": [
+        "js/rewards.js"
+      ],
+      "achCheck": [
+        "js/rewards.js"
+      ],
+      "dotGift": [
+        "js/rewards.js"
+      ],
+      "giftModal": [
+        "js/rewards.js"
+      ],
+      "checkHints": [
+        "js/guide.js"
+      ],
+      "SV": [
+        "js/survival.js"
+      ],
+      "svExit": [
+        "js/survival.js"
+      ],
+      "svCastUlt": [
+        "js/survival.js"
+      ],
+      "svUseBomb": [
+        "js/survival.js"
+      ],
+      "svUseHp": [
+        "js/survival.js"
+      ],
+      "svTick": [
+        "js/survival.js"
+      ],
+      "svPause": [
+        "js/survival.js"
+      ],
+      "svIntro": [
+        "js/survival.js"
+      ],
+      "svDraw": [
+        "js/survival.js"
+      ]
+    },
+    "decls": [
+      "lastT",
+      "saveT",
+      "uiT",
+      "drawTog",
+      "UI_KEY",
+      "UI_FS",
+      "UI_FS_NAME",
+      "UIP",
+      "uiPrefs",
+      "applyUiPrefs",
+      "setUiPref",
+      "onZoneChange",
+      "onStageChange",
+      "onLevelUp",
+      "STEP",
+      "MAX_STEPS",
+      "LERP_MAX",
+      "simAcc",
+      "movers",
+      "simulateFrame",
+      "drawLerp",
+      "loopErr",
+      "loopLast",
+      "guard",
+      "frame",
+      "showOffline",
+      "fitApp",
+      "setCompact",
+      "init"
+    ],
+    "winUsages": [
+      "window.visualViewport",
+      "window.innerHeight",
+      "window.addEventListener",
+      "window.__tampered"
+    ],
+    "docCount": 11,
+    "dollarCount": 12,
+    "provided": {
+      "UI_FS_NAME": [
+        "js/ui.js"
+      ],
+      "uiPrefs": [
+        "js/ui.js"
+      ],
+      "setUiPref": [
+        "js/ui.js"
+      ],
+      "onZoneChange": [
+        "js/combat.js",
+        "js/control.js"
+      ],
+      "onStageChange": [
+        "js/combat.js"
+      ],
+      "onLevelUp": [
+        "js/combat.js"
+      ],
+      "guard": [
+        "js/ui.js"
+      ]
+    }
+  }
+}

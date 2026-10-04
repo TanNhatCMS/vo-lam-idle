@@ -724,10 +724,37 @@ class MainActivity : ComponentActivity() {
                 apkDownloading = false
                 btn?.isEnabled = true
                 btn?.text = label
-                if (file != null) openApkInstaller(file)
-                else Toast.makeText(applicationContext, "Tải APK thất bại — kiểm tra mạng rồi thử lại", Toast.LENGTH_LONG).show()
+                if (file == null) {
+                    Toast.makeText(applicationContext, "Tải APK thất bại — kiểm tra mạng rồi thử lại", Toast.LENGTH_LONG).show()
+                    return@runOnUiThread
+                }
+                // So chữ ký APK tải về với app đang cài: khác chữ ký (vd máy đang cài bản debug)
+                // thì trình cài hệ thống sẽ báo "xung đột gói" — cảnh báo trước kèm hướng dẫn
+                val sameSig = signaturesMatch(file)
+                if (sameSig == false) {
+                    AlertDialog.Builder(this)
+                        .setTitle("APK khác chữ ký với bản đang cài")
+                        .setMessage("Máy đang cài một bản app khác chữ ký (thường là bản debug).\n" +
+                            "Để lên bản này: 1) Xuất file lưu (thẻ Khác → Tải file lưu), " +
+                            "2) GỠ app cũ, 3) Cài lại APK, 4) Vào game → Nạp từ file.")
+                        .setNegativeButton("Để sau", null)
+                        .show()
+                    return@runOnUiThread
+                }
+                openApkInstaller(file)
             }
         }.start()
+    }
+
+    /** So chữ ký của APK tải về với app đang cài: true = khớp, false = khác, null = không kiểm tra được. */
+    @Suppress("DEPRECATION")
+    private fun signaturesMatch(apkFile: File): Boolean? = try {
+        val cur = packageManager.getPackageInfo(packageName, android.content.pm.PackageManager.GET_SIGNATURES).signatures
+        val apk = packageManager.getPackageArchiveInfo(apkFile.absolutePath, android.content.pm.PackageManager.GET_SIGNATURES)?.signatures
+        if (cur == null || apk == null || apk.isEmpty()) null
+        else cur.size == apk.size && cur.zip(apk).all { (x, y) -> x.toCharsString() == y.toCharsString() }
+    } catch (e: Exception) {
+        null
     }
 
     /** Mở trình cài đặt hệ thống với APK đã tải; lỗi thì fallback mở trang release. */
