@@ -1,0 +1,19 @@
+// Cloudflare Worker phuc vu ban web (Next.js static export) cua Vo Lam Idle.
+// Assets = thu muc game/ (index.html + _next/ + media) — CUNG mot artifact ma
+// app Android nhan qua OTA, nen web va app luon dong bo.
+// Deploy: npx wrangler deploy   (can dang nhap Cloudflare: npx wrangler login)
+{
+  "$schema": "https://unpkg.com/wrangler/config-schema.json",
+  "name": "vo-lam-idle",
+  "compatibility_date": "2026-10-04",
+  "workers_dev": true,
+  "observability": { "enabled": false },
+  "routes": [
+    { "pattern": "vo-lam-idle.tannhatcms.io.vn", "custom_domain": true }
+  ],
+  "assets": {
+    "directory": "game",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "none"
+  }
+}

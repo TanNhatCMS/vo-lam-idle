@@ -1,4 +1,4 @@
-package vn.name.mrkiet.volam
+package vn.io.tannhatcms.volamidle
 
 import android.content.Context
 import android.util.Log
@@ -30,9 +30,9 @@ import java.util.zip.ZipFile
 object OtaManager {
     private const val TAG = "VLOta"
     private const val MANIFEST_URL =
-        "https://raw.githubusercontent.com/TanNhatCMS/volam-idle-android/main/assets-manifest.json"
+        "https://raw.githubusercontent.com/TanNhatCMS/vo-lam-idle/main/assets-manifest.json"
     private const val RELEASES_API =
-        "https://api.github.com/repos/TanNhatCMS/volam-idle-android/releases?per_page=15"
+        "https://api.github.com/repos/TanNhatCMS/vo-lam-idle/releases?per_page=15"
 
     /**
      * Cau hinh OTA theo variant: build thuong (debug/release) deu dung GitHub

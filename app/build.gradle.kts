@@ -14,15 +14,15 @@ val keystoreProps = Properties().apply {
 }
 
 android {
-    namespace = "vn.name.mrkiet.volam"
+    namespace = "vn.io.tannhatcms.volamidle"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "vn.name.mrkiet.volam"
+        applicationId = "vn.io.tannhatcms.volamidle"
         minSdk = 24
         targetSdk = 35
-        versionCode = 12
-        versionName = "1.4.6"
+        versionCode = 1
+        versionName = "1.5.0"
     }
 
     compileOptions {

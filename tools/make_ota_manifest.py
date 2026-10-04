@@ -35,7 +35,7 @@ OUT_MANIFEST = os.path.join(REPO, "assets-manifest.json")
 MEDIA_DIRS = ["img", "snd", "music", "fx"]  # gói assets; còn lại thuộc gói data
 EXCLUDE_FILES = {"sw.js", "README.md", "wrangler.jsonc", ".gitignore", ".gitattributes", ".assetsignore"}
 EXCLUDE_DIRS = {".git", ".wrangler", ".zcode", ".claude", "android"}
-ZIP_URL_BASE = "https://github.com/TanNhatCMS/volam-idle-android/releases/download/v{v}/{name}"
+ZIP_URL_BASE = "https://github.com/TanNhatCMS/vo-lam-idle/releases/download/v{v}/{name}"
 FIXED_ZIP_TIME = (2020, 1, 1, 0, 0, 0)
 
 

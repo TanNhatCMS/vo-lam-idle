@@ -1,4 +1,4 @@
-package vn.name.mrkiet.volam
+package vn.io.tannhatcms.volamidle
 
 import android.animation.Animator
 import android.animation.ObjectAnimator

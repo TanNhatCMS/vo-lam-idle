@@ -33,6 +33,15 @@ npm run android:sync -- --clean          # sync + xóa code vanilla cũ trong ga
 node scripts/serve-static.mjs ../deploy 8080   # thử bản đóng gói trên máy
 ```
 
+**Deploy web**: Worker Cloudflare static assets cấu hình ở `wrangler.jsonc`, phục vụ chính thư mục `game/` (cùng artifact với OTA Android) tại **https://vo-lam-idle.tannhatcms.io.vn**:
+
+```bash
+cd web && npm run android:sync && cd ..   # sinh lại game/ nếu vừa sửa web
+npx wrangler deploy                        # cần: npx wrangler login
+```
+
+Hoặc tự động: push `game/**` lên main → workflow `Deploy web (Cloudflare)` chạy `wrangler deploy` (cần đặt secret `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` trong repo settings).
+
 **Media trong dev**: `img/snd/music/fx` (~115MB) KHÔNG copy vào repo — `npm run dev` tự tạo **junction** `public/<media>` → `../game/<media>` (`scripts/prep-public.mjs`, gitignored); `sync-android.mjs` tự gỡ junction trước `next build` để `out/` không nhồi 115MB, rồi tạo lại. `ui/` + `fonts/` nhỏ nên copy thật trong `public/`.
 
 ### Kiến trúc
@@ -46,6 +55,7 @@ node scripts/serve-static.mjs ../deploy 8080   # thử bản đóng gói trên m
 ### GitHub Actions
 
 - **Web build** (`.github/workflows/web.yml`) — `npm ci → typecheck → next build`, artifact `web-out` + `web-full` (kèm media, deploy được ngay).
+- **Deploy web** (`.github/workflows/deploy-web.yml`) — push `game/**` → `wrangler deploy` Worker lên `vo-lam-idle.tannhatcms.io.vn` (cần secret `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`).
 - **APK build** (`.github/workflows/apk.yml`) — `assembleRelease`, artifact APK (không có keystore trong CI thì tự fallback debug signing).
 - **OTA release** (`.github/workflows/ota.yml`) — chạy tay với input `version` (vd `1.4.4`): build web → sync vào `game/` → sinh ZIP + bản vá → commit `assets-manifest.json` → tạo GitHub Release đính kèm ZIP (tùy chọn kèm APK).
 
@@ -120,5 +130,6 @@ ZIP đính kèm release phải khớp `data.zipUrl` / `assets.zipUrl` (và `patc
 - `game/` — thư mục game chạy thật: `index.html` + `_next/` do `npm run android:sync` chép từ `web/out`, media (`img/snd/music/fx/ui`, `fonts`) dùng chung cho Android OTA; phần code sync vào APK lúc build (thư mục copy `app/src/main/assets/game/` đã gitignore).
 - `assets-manifest.json` — manifest OTA (commit), `ota-assets-*.zip` — ZIP OTA đính kèm release (gitignored).
 - `tools/make_ota_manifest.py` — sinh ZIP + manifest; `tools/local_ota_server.py` — server test local.
+- `wrangler.jsonc` — Worker Cloudflare phục vụ `game/` tại `vo-lam-idle.tannhatcms.io.vn` (deploy: `npx wrangler deploy`).
 - `.github/workflows/` — CI: `web.yml` (build web), `apk.yml` (build APK), `ota.yml` (đóng gói + phát hành OTA).
 - `gradle/wrapper/` — Gradle 8.10.2 (pin bản 8.x vì AGP 8.7.3 không tương thích Gradle 9).

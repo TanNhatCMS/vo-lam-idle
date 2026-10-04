@@ -1,0 +1,31 @@
+name: Deploy web (Cloudflare)
+
+# Deploy thu muc game/ (Next static export da sync — CUNG artifact voi OTA Android)
+# len Worker vo-lam-idle.tannhatcms.io.vn.
+# Cap nhat web: chay `cd web && npm run android:sync` roi commit game/ (dung quy
+# trinh OTA) — web va app luon dong bo, khong build lai trong CI (tranh hash chunk
+# doi moi lan chay).
+# Can dat 2 secret trong repo settings (Settings -> Secrets and variables -> Actions):
+#   CLOUDFLARE_API_TOKEN  — token co quyen "Edit Cloudflare Workers"
+#   CLOUDFLARE_ACCOUNT_ID — account id Cloudflare
+on:
+  push:
+    branches: [main]
+    paths: ['game/**', 'wrangler.jsonc', '.github/workflows/deploy-web.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy lên Cloudflare Workers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy
