@@ -4,7 +4,10 @@ export const metadata: Metadata = {
   title: 'Võ Lâm Idle',
   description: 'Game võ hiệp idle — tự đi, tự đánh, tự nhặt đồ, chơi offline 100%',
   manifest: '/manifest.json',
-  icons: { icon: '/img/p/shaolin.png' },
+  icons: {
+    icon: [{ url: '/ui/pwa-192.png', sizes: '192x192', type: 'image/png' }],
+    apple: [{ url: '/ui/pwa-192.png', sizes: '192x192', type: 'image/png' }],
+  },
 };
 
 export const viewport: Viewport = {
