@@ -169,19 +169,24 @@ function pickUp(drop, quiet) {
   R.ground.splice(i, 1);
   addItem(drop.it, quiet, true, R.pickTarget === drop); questTick('picked');   // cham tay chon nhat: giu, khong coi la do thua
   if (R.pickTarget === drop) R.pickTarget = null;
+  if (R.autoPick === drop) R.autoPick = null;
   return true;
 }
-/* Nhat: di toi mon dang chon (cham tay) hoac, luc khong con quai, tu di nhat mon khop bo loc */
+/* Nhat: di toi mon tay chon (R.pickTarget) hoac mon tu chon (R.autoPick) khop bo loc —
+   che do "cho het quai" (mac dinh) hay "luon di nhat khi do vot" do radio bo loc chon (lootF.always).
+   autoPick dat rieng de vong combat tam nhuong di chuyen/attack khi dang di nhat tu dong. */
 function updateGround(dt) {
   for (const d of R.ground) d.age += dt;
-  let target = R.pickTarget && R.ground.includes(R.pickTarget) ? R.pickTarget : null;
   const lf = lootFilter();
-  /* auto + (luôn nhặt: đồ vừa rớt là đi nhặt ngay, kể cả còn quái | mặc định: chờ hết quái) */
-  if (!target && lf.auto && !(typeof manual === 'function' && manual()) && (lf.always || !R.enemies.some(e => !e.dead))) {
+  const gate = lf.auto && !(typeof manual === 'function' && manual()) && (lf.always || !R.enemies.some(e => !e.dead));
+  let target = R.pickTarget && R.ground.includes(R.pickTarget) ? R.pickTarget : null;   // tay chon uu tien
+  if (!target && R.autoPick && R.ground.includes(R.autoPick)) target = R.autoPick;      // tu chon tu lan truoc
+  if (target === R.autoPick && !gate) { R.autoPick = null; target = null; }             // het cua so tu nhat -> bo target (khong keo theo khi co quai)
+  if (!target && gate) {
     let best = null, bd = 1e9;
     const full = S.inv.length >= INV_MAX, floor = full ? Math.min(...S.inv.filter(x => !x.set).map(itemPower), Infinity) : -Infinity;
     for (const d of R.ground) { if (d.age < 0.4 || !lootMatch(d.it) || (full && itemPower(d.it) <= floor)) continue; const k = Math.hypot(d.x - H.x, d.y - H.y); if (k < bd) { bd = k; best = d; } }
-    target = best;
+    if (best) { R.autoPick = best; target = best; }
   }
   if (!target) return false;
   const dist = Math.hypot(target.x - H.x, target.y - H.y);
