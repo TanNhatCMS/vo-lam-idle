@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- APK bản cập nhật tải về cache/apk-update — chia sẻ cho trình cài đặt hệ thống qua FileProvider -->
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <cache-path
+        name="apk"
+        path="apk-update/" />
+</paths>

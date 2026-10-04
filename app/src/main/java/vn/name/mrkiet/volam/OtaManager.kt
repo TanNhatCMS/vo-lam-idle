@@ -74,7 +74,7 @@ object OtaManager {
         val files: Map<String, String>,
     )
 
-    class ReleaseInfo(val tag: String, val url: String)
+    class ReleaseInfo(val tag: String, val url: String, val apkUrl: String?, val apkSize: Long)
 
     private val http: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)
@@ -179,7 +179,7 @@ object OtaManager {
         return true
     }
 
-    /** Ban APK moi tren GitHub Releases; null neu loi/khong check duoc. */
+    /** Ban APK moi tren GitHub Releases (kem URL + dung luong file APK trong release); null neu loi. */
     fun fetchLatestRelease(): ReleaseInfo? = try {
         val req = Request.Builder().url(RELEASES_API)
             .header("Accept", "application/vnd.github+json").build()
@@ -187,7 +187,19 @@ object OtaManager {
             if (!resp.isSuccessful) return null
             val obj = JSONObject(resp.body!!.string())
             if (obj.optBoolean("draft", false) || obj.optBoolean("prerelease", false)) return null
-            ReleaseInfo(obj.getString("tag_name"), obj.getString("html_url"))
+            var apkUrl: String? = null
+            var apkSize = 0L
+            obj.optJSONArray("assets")?.let { arr ->
+                for (i in 0 until arr.length()) {
+                    val a = arr.getJSONObject(i)
+                    if (a.optString("name", "").endsWith(".apk")) {
+                        apkUrl = a.getString("browser_download_url")
+                        apkSize = a.optLong("size", 0L)
+                        break
+                    }
+                }
+            }
+            ReleaseInfo(obj.getString("tag_name"), obj.getString("html_url"), apkUrl, apkSize)
         }
     } catch (e: Exception) {
         Log.w(TAG, "fetchLatestRelease: ${e.message}")
@@ -530,6 +542,29 @@ object OtaManager {
         assetsDir(ctx).deleteRecursively()
         indexFile(ctx).delete()
         otaTmp(ctx).deleteRecursively()
+    }
+
+    /**
+     * Tai APK ban cap nhat ve cache/apk-update (dung lai downloadZip — resume duoc,
+     * bao tien do qua onProgress; dut giua chung giu .part, lan sau tai tiep).
+     * File da tai dung dung luong tu lan truoc thi tra ngay de cai lai khong phai tai.
+     * Tra null neu loi.
+     */
+    fun downloadApk(ctx: Context, url: String, size: Long, onProgress: (Long, Long) -> Unit): File? {
+        canceled = false
+        val dir = File(ctx.cacheDir, "apk-update").apply { mkdirs() }
+        val name = url.substringAfterLast('/')
+        val part = File(dir, "$name.part")
+        val done = File(dir, name)
+        if (done.isFile && done.length() == size) return done
+        // part đã đủ dung lượng (lần tải trước đứt ngay trước khi rename, hoặc HTTP 416
+        // khi resume từ cuối file) → bỏ qua bước tải, chỉ đổi tên
+        if (!part.isFile || part.length() != size) {
+            val ok = downloadZip(part, done, url, size) { d, t -> onProgress(d, t) }
+            if (!ok && (part.length() != size)) return null
+        }
+        if (!part.renameTo(done)) { part.copyTo(done, overwrite = true); part.delete() }
+        return if (done.isFile && done.length() == size) done else null
     }
 
     /** hash file tren dia so voi Entry: null neu file thieu/sai size. */

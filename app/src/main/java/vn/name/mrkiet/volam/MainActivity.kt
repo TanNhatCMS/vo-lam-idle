@@ -18,6 +18,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.provider.Settings
 import android.util.Base64
 import android.util.Log
 import android.view.View
@@ -37,6 +38,7 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.FileProvider
 import androidx.webkit.WebViewAssetLoader
 import java.io.ByteArrayInputStream
 import java.io.File
@@ -251,6 +253,7 @@ class MainActivity : ComponentActivity() {
 
     // Bản APK mới trên GitHub Releases (nếu có) — hiện nút trên màn đang mở
     @Volatile private var apkRelease: OtaManager.ReleaseInfo? = null
+    private var apkDownloading = false
 
     // Trễ ngắn "Đã sẵn sàng" rồi mới vào game cho mượt
     private val pendingStart = Runnable { startGame() }
@@ -385,13 +388,22 @@ class MainActivity : ComponentActivity() {
         ui.findViewById<TextView>(R.id.versionCorner).text = versionCornerText()
         startLoadingFx(ui)
         ui.findViewById<Button>(R.id.loadingRetry).setOnClickListener { startOtaFlow() }
-        checkApkUpdate()
-        showApkUpdateButton(ui)
-
         Thread {
             val manifest = OtaManager.fetchManifest()
+            val rel = OtaManager.fetchLatestRelease()   // check APK mới gộp chung — cần kết quả trước khi quyết dừng màn loading
             val idx = OtaManager.loadIndex(this)
             runOnUiThread {
+                if (rel != null) {
+                    val current = try {
+                        packageManager.getPackageInfo(packageName, 0).versionName
+                    } catch (e: Exception) {
+                        null
+                    }
+                    if (current != null && isNewerVersion(rel.tag, current)) {
+                        apkRelease = rel
+                        showApkUpdateButton(ui)
+                    }
+                }
                 when {
                     // Mất mạng nhưng đã từng cài đủ (data + assets) → chơi tiếp
                     manifest == null && idx.dataVersion != null && idx.assetsVersion != null -> startGame()
@@ -400,7 +412,14 @@ class MainActivity : ComponentActivity() {
                     OtaManager.installedUpToDate(this, manifest) -> {
                         loadingBaseStatus = "Đã sẵn sàng"
                         status.text = loadingBaseStatus
-                        dotsHandler.postDelayed(pendingStart, 500)
+                        if (apkRelease != null) {
+                            // Có bản APK mới — dừng lại để user thấy nút cập nhật; "Vào game" để bỏ qua
+                            ui.findViewById<Button>(R.id.loadingRetry).apply {
+                                text = "Vào game"
+                                visibility = View.VISIBLE
+                                setOnClickListener { startGame() }
+                            }
+                        } else dotsHandler.postDelayed(pendingStart, 500)
                     }
                     else -> showUpdateScreen(manifest, idx)
                 }
@@ -653,31 +672,75 @@ class MainActivity : ComponentActivity() {
         return false
     }
 
-    /** Check APK mới trên GitHub Releases — không chặn, hiện nút trên màn đang mở. */
-    private fun checkApkUpdate() {
-        Thread {
-            val rel = OtaManager.fetchLatestRelease() ?: return@Thread
-            val current = try {
-                packageManager.getPackageInfo(packageName, 0).versionName
-            } catch (e: Exception) {
-                null
-            } ?: return@Thread
-            if (!isNewerVersion(rel.tag, current)) return@Thread
-            apkRelease = rel
-            runOnUiThread { screenRoot?.let { showApkUpdateButton(it) } }
-        }.start()
-    }
-
     private fun showApkUpdateButton(root: View) {
         val rel = apkRelease ?: return
         val btn = root.findViewById<Button>(R.id.otaApk) ?: return
-        btn.text = "Cập nhật app ${rel.tag}"
+        btn.text = if (rel.apkSize > 0)
+            String.format(Locale.US, "Cập nhật app %s (~%.1f MB)", rel.tag, rel.apkSize / 1048576.0)
+        else "Cập nhật app ${rel.tag}"
         btn.visibility = View.VISIBLE
-        btn.setOnClickListener {
+        btn.setOnClickListener { confirmApkInstall(rel) }
+    }
+
+    /** Hỏi xác nhận rồi tải APK bản mới về và mở trình cài đặt luôn. */
+    private fun confirmApkInstall(rel: OtaManager.ReleaseInfo) {
+        val msg = buildString {
+            append("Tải về và cài đặt bản ${rel.tag}?")
+            if (rel.apkSize > 0) append(String.format(Locale.US, "%nDung lượng ~%.1f MB.", rel.apkSize / 1048576.0))
+            append("\nTiến trình chơi trong game được giữ nguyên.")
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Cập nhật app ${rel.tag}")
+            .setMessage(msg)
+            .setNegativeButton("Hủy", null)
+            .setPositiveButton("Tải về & cài") { _, _ -> installUpdateApk(rel) }
+            .show()
+    }
+
+    private fun installUpdateApk(rel: OtaManager.ReleaseInfo) {
+        if (rel.apkUrl == null) {   // release không kèm file APK — mở trang tải như cũ
+            try { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(rel.url))) } catch (e: Exception) {}
+            return
+        }
+        if (Build.VERSION.SDK_INT >= 26 && !packageManager.canRequestPackageInstalls()) {
             try {
-                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(rel.url)))
-            } catch (e: Exception) {
+                startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName")))
+                Toast.makeText(this, "Cấp quyền \"Cài ứng dụng không rõ nguồn gốc\" rồi bấm lại nút này", Toast.LENGTH_LONG).show()
+            } catch (e: Exception) {}
+            return
+        }
+        if (apkDownloading) return
+        apkDownloading = true
+        val btn = screenRoot?.findViewById<Button>(R.id.otaApk)
+        val label = "Cập nhật app ${rel.tag}"
+        btn?.isEnabled = false
+        Thread {
+            val file = OtaManager.downloadApk(this, rel.apkUrl, rel.apkSize) { done, total ->
+                runOnUiThread {
+                    if (total > 0) btn?.text = String.format(Locale.US, "Đang tải %d%%…", done * 100 / total)
+                }
             }
+            runOnUiThread {
+                apkDownloading = false
+                btn?.isEnabled = true
+                btn?.text = label
+                if (file != null) openApkInstaller(file)
+                else Toast.makeText(applicationContext, "Tải APK thất bại — kiểm tra mạng rồi thử lại", Toast.LENGTH_LONG).show()
+            }
+        }.start()
+    }
+
+    /** Mở trình cài đặt hệ thống với APK đã tải; lỗi thì fallback mở trang release. */
+    private fun openApkInstaller(file: File) {
+        try {
+            val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
+            startActivity(
+                Intent(Intent.ACTION_VIEW)
+                    .setDataAndType(uri, "application/vnd.android.package-archive")
+                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
+        } catch (e: Exception) {
+            apkRelease?.let { rel -> try { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(rel.url))) } catch (e2: Exception) {} }
         }
     }
 
