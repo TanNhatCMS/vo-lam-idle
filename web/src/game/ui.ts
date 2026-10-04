@@ -38,6 +38,7 @@ import {
   attrText,
   clamp,
   esc,
+  escRich,
   fmt,
   isAttack,
   skVal,
@@ -176,7 +177,7 @@ export function itemCell(it) {
 export function itemHTML(it) {
   return `<div class="idet"><div class="pic r${it.r}">${it.ic ? `<img src="${esc(it.ic)}" alt="">` : ''}</div><div><h4 style="color:${RAR_COL[it.r]}">${esc(it.n)}${it.enh ? ` <span class="enh">+${it.enh}</span>` : ''}</h4>
   <small class="dim">${esc(J.items[it.d].n)} · cấp ${it.lvl}${it.s >= 0 ? ` · <span style="color:${SERIES_COL[it.s]}">hệ ${SERIES[it.s]}</span>` : ''}</small></div></div>
-  <div class="sl">${itemLines(it).map(([k, t]) => `<div class="${k}">${esc(t)}</div>`).join('')}</div>`;
+  <div class="sl">${itemLines(it).map(([k, t]) => `<div class="${k}">${escRich(t)}</div>`).join('')}</div>`;
 }
 /* Cong diem tiem nang de du yeu cau Suc manh / Than phap / Sinh khi / Noi cong cua mon do (neu du diem) */
 function fixReqPoints(it) {
@@ -293,7 +294,7 @@ function skillEffectLines(s, L) {
 function skillModal(id) {
   const s = SK[id]; if (!s) return;
   const L = S.sk[id] || 0, act = isAttack(s), show = Math.max(1, L), next = L < s.max ? L + 1 : 0;
-  const lines = (lv) => skillEffectLines(s, lv).map(t => `<div>${esc(t)}</div>`).join('') || '<div class="dim">—</div>';
+  const lines = (lv) => skillEffectLines(s, lv).map(t => `<div>${escRich(t)}</div>`).join('') || '<div class="dim">—</div>';
   let atk = '';
   if (act) {
     const a = activeInfo(R.P, s, show + (L ? 0 : 0));

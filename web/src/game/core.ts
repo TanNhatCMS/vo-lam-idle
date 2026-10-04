@@ -12,6 +12,10 @@ export const pick = a => a[Math.floor(Math.random() * a.length)];
 export const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 export const fmt = n => { n = Math.round(n); const a = Math.abs(n); return a < 1e4 ? '' + n : a < 1e6 ? (n / 1e3).toFixed(a < 1e5 ? 1 : 0) + 'k' : a < 1e9 ? (n / 1e6).toFixed(2) + 'M' : (n / 1e9).toFixed(2) + 'B'; };
 export const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+/* Mot so mo ta trong data JX chua the mau kieu Unity <color=ten>...<color> (the dong khong co gach cheo):
+   esc truoc roi moi doi the thanh span, phan con van duoc escape an toan */
+const COLOR_TAG = { orange: '#ffb38a', blue: '#8fb8ff', red: '#ff7a6a', green: '#8fe08a', yellow: '#ffd24a' };
+export const escRich = s => esc(s).replace(/&lt;color=([a-z]+)&gt;([\s\S]*?)&lt;color&gt;/g, (m, c, body) => `<span style="color:${COLOR_TAG[c] || c}">${body}</span>`);
 export function wpick(list, w) { let t = 0; for (const x of list) t += w(x); let r = Math.random() * t; for (const x of list) { r -= w(x); if (r <= 0) return x; } return list[list.length - 1]; }
 
 /* ---------- ngu hanh: 0 Kim, 1 Moc, 2 Thuy, 3 Hoa, 4 Tho ---------- */
