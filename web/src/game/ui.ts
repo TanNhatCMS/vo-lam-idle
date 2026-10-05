@@ -45,6 +45,7 @@ import {
 } from './core';
 import { forgeModal } from './forge';
 import { bindTodo, codexModal, powerModal, suggestModal, todoHTML, tutorialModal } from './guide';
+import { adminModal } from './admin';
 import { UI_FS, UI_FS_NAME, guard, setUiPref, uiPrefs } from './loop';
 import { uiBump, uiSetTab } from './store';
 import {
@@ -399,6 +400,8 @@ function renderMore() {
       <small class="dim">Tay cầm: cần analog / D-pad để đi, A B X Y dùng chiêu 1–4, LB / RB uống thuốc HP / MP, Start tạm dừng Luyện Công. Phím Esc đóng hộp thoại.</small></div>
     <h3>Điều khiển & Hiển thị</h3><div class="card"><label><input type="checkbox" id="cJoy" ${joyFixed() ? 'checked' : ''}> Joystick cố định ở góc trái dưới (bỏ chọn: joystick nổi theo ngón tay)</label><br>
       <label><input type="checkbox" id="cLowFx" ${S.lowFx ? 'checked' : ''}> Giảm hiệu ứng (mượt hơn trên máy yếu / đông quái)</label></div>
+    <h3>Thử nghiệm</h3><div class="card"><p class="dim small">Trải nghiệm nhanh một tính năng mà không phải cày cuốc: lên thẳng cấp trần, thêm ngân lượng, đủ nguyên liệu, mở toàn bộ vùng, cường hoá đồ, phát một bộ Hoàng Kim, gọi boss ngay. Thay đổi tính vào nhân vật và lưu lại.</p>
+      <div class="btnrow"><button class="btn" id="bAdmin">Bảng thử nghiệm</button></div></div>
     <h3>Nguồn dữ liệu</h3><div class="card small dim">Kỹ năng, quái, trang bị, thuộc tính và tỉ lệ rơi đồ trích từ dữ liệu Võ Lâm Truyền Kỳ 1 (bản fan chơi offline, phi thương mại).</div>
     <div class="btnrow"><button class="btn" id="bSwitch">Đổi nhân vật / slot</button><button class="btn red" id="bReset">Xóa nhân vật</button></div>`;
   $('#bDl').onclick = () => { if (downloadSaveFile()) toast('Đã tải file lưu: ' + saveFileName()); };
@@ -420,6 +423,7 @@ function renderMore() {
   $('#cBuy').onchange = e => { S.autoBuy = e.target.checked; save(); };
   $('#cForge').onchange = e => { S.autoForge = e.target.checked; if (S.autoForge) autoForge(); save(); };
   $('#bStashM').onclick = () => stashModal(); $('#bTut').onclick = () => tutorialModal(0); $('#bCodex').onclick = () => codexModal(); $('#bSug').onclick = suggestModal;
+  $('#bAdmin').onclick = () => adminModal();
   $('#uFs').onchange = e => { setUiPref({ fs: +e.target.value }); }; $('#uSaver').onchange = e => setUiPref({ saver: e.target.checked });
   $('#bSwitch').onclick = () => switchCharacter();
   $('#bReset').onclick = () => modal(`<h3>Xóa nhân vật?</h3><p class="desc">Xóa nhân vật ở slot ${SLOT + 1} (${esc(FAC[S.fac] ? FAC[S.fac].n : '')} cấp ${S.lvl}). Toàn bộ tiến trình của slot này sẽ mất; các slot khác không ảnh hưởng.</p><div class="btnrow"><button class="btn red" id="bYes">Xóa</button></div>`, () => $('#bYes').onclick = () => deleteSlot(SLOT));

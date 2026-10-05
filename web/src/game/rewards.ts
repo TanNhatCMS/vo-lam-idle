@@ -13,6 +13,7 @@ import {
 import { backFromTown } from './control';
 import {
   $,
+  DETAIL_SLOT,
   FAC,
   INV_MAX,
   J,
@@ -21,6 +22,7 @@ import {
   PET_EQ_BUFF,
   PET_GEAR_POWER,
   PET_LV,
+  PET_SLOTS,
   RAR_COL,
   SERIES,
   SERIES_COL,
@@ -286,10 +288,23 @@ function doReborn() {
 }
 
 /* ---------- 8. dong hanh (thu nuoi danh cung, len cap theo quai ha) ---------- */
-/* O trang bi cua Dong hanh: petW = vu khi (d 0..1), petA = ao/giap (d 2), petJ = boi/trang suc (d 3..9). Ngua (d 10) khong dung duoc. */
-const PET_SLOT_RANGES = { petW: [0, 1], petA: [2, 2], petJ: [3, 9] };
-export const PET_SLOTS = [['petW', 'Vuốt/Nanh'], ['petA', 'Giáp'], ['petJ', 'Bội']];
-export function petSlotFor(it) { if (!it) return null; for (const k in PET_SLOT_RANGES) { const [a, b] = PET_SLOT_RANGES[k]; if (it.d >= a && it.d <= b) return k; } return null; }
+/* O trang bi cua Dong hanh = dung bo o cua nhan vat, CHI THIEU Ngua (PET_SLOTS o core.ts).
+   Mon nao vao o nao theo DETAIL_SLOT; rieng nhan chia 2 o ring1/ring2 nhu nhan vat. */
+export function petSlotFor(it) {
+  if (!it || !(it.d >= 0 && it.d <= 9)) return null;              // Ngua (d 10) khong cho Dong hanh
+  const s = DETAIL_SLOT[it.d]; if (!s) return null;
+  if (s !== 'ring') return s;
+  const eq = S.rw && S.rw.pet && S.rw.pet.eq;
+  if (!eq || !eq.ring1) return 'ring1';
+  if (!eq.ring2) return 'ring2';
+  return itemPower(eq.ring1) <= itemPower(eq.ring2) ? 'ring1' : 'ring2';
+}
+/* Mon co vua o slot cu the khong (dung cho bo chon do theo tung o) */
+function petFits(slot, it) {
+  if (!it || !(it.d >= 0 && it.d <= 9)) return false;
+  const s = DETAIL_SLOT[it.d];
+  return s === slot || (s === 'ring' && (slot === 'ring1' || slot === 'ring2'));
+}
 export const petUnlocked = () => !!(S && S.fac) && (S.lvl >= PET_LV || (S.rw && S.rw.stat && S.rw.stat.reborn > 0));
 /* Dong hanh dang ra tran (co loai, khong o trong thanh) — dung de giao viec nhat do auto cho pet thay nguoi */
 export const petActive = () => { const p = S && S.rw && S.rw.pet; return !!(p && MON[p.tid] && !R.town); };
@@ -326,7 +341,7 @@ export function petStats(p) {
   for (const k in eq) {
     const it = eq[k]; if (!it || !Array.isArray(it.base)) continue;
     power += itemPower(it); const em = enhMul(it);
-    for (const [id, mn] of it.base) if ((id === 28 || id === 29) && k === 'petW') atk += mn * em;   // vu khi cua pet: cong sat thuong goc
+    for (const [id, mn] of it.base) if ((id === 28 || id === 29) && k === 'weapon') atk += mn * em;   // vu khi cua pet: cong sat thuong goc
     for (const m of it.mag || []) {
       const nm = attrName(m.a), raw = m.p && m.p[0] != null ? m.p[0] : 0, v = raw === -1 ? 0 : raw;
       if (nm === 'deadlystrike_p' || nm === 'deadlystrikeenhance_p' || nm === 'deadlystrike_v') crit += v;
@@ -390,7 +405,7 @@ export function petWants(it) {
   return !cur || itemPower(it) > itemPower(cur) * 0.9;
 }
 function petEquip(slot, it) {
-  const p = petCur(); if (!p || !petUnlocked() || petSlotFor(it) !== slot || !S.inv.includes(it)) return;
+  const p = petCur(); if (!p || !petUnlocked() || !petFits(slot, it) || !S.inv.includes(it)) return;
   const old = p.eq[slot]; S.inv = S.inv.filter(x => x !== it); if (old) S.inv.unshift(old);
   p.eq[slot] = it; R.dirty = true; setInvDirty(true); save(); closeModal(true); refresh(); toast('Gắn cho Đồng hành: ' + it.n);
 }
@@ -403,7 +418,7 @@ function petUnequip(slot) {
 const petCell = it => `<button class="it r${it.r}" data-puid="${it.uid}">${it.ic ? `<img src="${esc(it.ic)}" alt="">` : ''}<i>${it.lvl}</i>${it.s >= 0 ? `<b class="s5" style="background:${SERIES_COL[it.s]}"></b>` : ''}</button>`;
 function petPickModal(slot) {
   const vi = (PET_SLOTS.find(x => x[0] === slot) || [slot, slot])[1];
-  const list = S.inv.filter(it => petSlotFor(it) === slot).sort((a, b) => itemPower(b) - itemPower(a));
+  const list = S.inv.filter(it => petFits(slot, it)).sort((a, b) => itemPower(b) - itemPower(a));
   modal(`<h3>Gắn ${esc(vi)} cho Đồng hành</h3><p class="desc">Chọn món trong hành trang. Thuộc tính món được cộng vào nhân vật ${Math.round(PET_EQ_BUFF * 100)}% (mọi dòng, kể cả dòng ẩn).</p>
     ${list.length ? `<div class="slotlist">${list.map(it => `<button class="slotrow petrow" data-pe="${it.uid}"><span>${esc(it.n)}<small>${esc(J.items[it.d].n)} · cấp ${it.lvl} · hệ ${SERIES[it.s]} · sức mạnh ${fmt(itemPower(it))}</small></span></button>`).join('')}</div>`
       : '<p class="desc">Hành trang không có món phù hợp ô này.</p>'}`, () => {

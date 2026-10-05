@@ -14,7 +14,7 @@
 | # | Vấn đề | Chốt |
 |---|---|---|
 | 1 | "Menu cuối trang" là gì | Thêm **tab thứ 6 "🐾 Đồng hành"** vào thanh tab đáy (`#tabs`), đặt giữa "Hành trang" và "Khác". Đây là màn quản lý pet: chọn loài + gắn trang bị. |
-| 2 | Pet gắn được món gì | 3 ô: **Vuốt/Nanh** (vũ khí, `d` 0–1), **Giáp** (áo, `d` 2), **Bội** (trang sức, `d` 3–9). Ngựa (`d` 10) **không** gắn được. |
+| 2 | Pet gắn được món gì | **Đúng bộ ô của nhân vật, chỉ thiếu Ngựa** — 10 ô: Vũ khí, Áo, Mũ, Đai lưng, Giày, Hộ uyển, Dây chuyền, Nhẫn 1, Nhẫn 2, Ngọc bội (`PET_SLOTS` = `SLOTS` lọc bỏ `horse`). Món vào ô theo `DETAIL_SLOT[it.d]`; nhẫn chia `ring1`/`ring2` như nhân vật (ưu tiên ô trống, rồi ô yếu hơn). Ngựa (`d` 10) **không** gắn được. Save cũ kiểu 3 ô (`petW`/`petA`/`petJ`) tự migrate sang key mới khi nạp. |
 | 3 | Trang bị pet buff nhân vật bao nhiêu | **50%** (`PET_EQ_BUFF`) của **dòng gốc + mọi dòng ma thuật (kể cả dòng ẩn)**. Cộng thẳng vào bảng thuộc tính `calc()` như trang bị thứ hai → sinh lực/nội lực/kháng/crit… tự suy ra theo công thức sẵn có. |
 | 4 | Pet có tự mạnh lên theo đồ không | Có: sát thương riêng của pet = nền theo cấp + 35% (`PET_GEAR_POWER`) × tổng `itemPower` 3 món + dòng sát thương; chí mạng và tốc độ lấy từ dòng đồ. |
 | 5 | Phân chia hệ Ngũ hành | Mỗi **loài** gán 1 hệ cố định (Kim/Mộc/Thủy/Hỏa/Thổ) suy từ vùng xuất hiện; màn chọn loài nhóm theo 5 hệ. Pet **tương khắc** hệ quái: +25% sát thương (⚡), bị khắc −15%. |
@@ -31,11 +31,12 @@ export const PET_LV        = 20;    // cấp mở khóa Đồng hành (trước 
 export const SERIES_ELEM   = ['phys','poison','cold','fire','light'];  // hệ Ngũ hành -> nguyên tố sát thương (giống enemyHit)
 ```
 
-Ô trang bị (`rewards.ts`):
+Ô trang bị (`core.ts` + `rewards.ts`):
 
 ```ts
-const PET_SLOT_RANGES = { petW: [0, 1], petA: [2, 2], petJ: [3, 9] };
-export const PET_SLOTS = [['petW','Vuốt/Nanh'], ['petA','Giáp'], ['petJ','Bội']];
+export const PET_SLOTS = SLOTS.filter(([k]) => k !== 'horse');   // 10 o giong nhan vat
+export function petSlotFor(it)  // DETAIL_SLOT[it.d]; 'ring' -> ring1/ring2 (o trong truoc, roi o yeu hon)
+function petFits(slot, it)      // mon co vua o cu the khong (dung cho bo chon do theo o)
 ```
 
 ## 2. Dữ liệu lưu (theo nhân vật, `S.rw.pet`)
@@ -47,7 +48,7 @@ rw.pet = { tid, lvl, xp, eq: { petW?, petA?, petJ? } }
   tid : id loài (khóa trong JW.mon)
   lvl : cấp pet (lên cấp theo số quái hạ)
   xp  : kinh nghiệm tích lũy (need = 20 + lvl*12)
-  eq  : 3 ô trang bị (Item giống hệt Item trong túi — cùng uid, không nhân bản)
+  eq  : 10 ô giống nhân vật trừ Ngựa (weapon/armor/helm/belt/boot/cuff/amulet/ring1/ring2/pendant; save cũ petW/petA/petJ tự migrate) (Item giống hệt Item trong túi — cùng uid, không nhân bản)
 ```
 
 - `RW()`: `r.pet = r.pet || null; if (r.pet) r.pet.eq = r.pet.eq || {}`.
@@ -99,7 +100,7 @@ Vì trang bị pet đi qua `calc()`, `equipCompare`/`power`/`autoEquipAll` của
 - **Tab đáy thứ 6 "🐾 Đồng hành"** (`TabsNav.tsx`, `Panel.tsx` `#t-pet`, CSS `#tabs` 6 cột + icon 🐾).
 - `renderPet()` (trong `rewards.ts`, đăng ký vào `refresh()` của `ui.ts`):
   - Thẻ thông tin: tên loài, **hệ** (màu theo `SERIES_COL`), cấp, XP, sát thương/đòn, chu kỳ đánh, chí mạng, sức mạnh trang bị.
-  - 3 ô trang bị; chạm ô trống → `petPickModal(slot)` (danh sách món trong túi hợp ô, sắp theo sức mạnh); chạm món đang gắn → `petItemModal` (xem + Tháo).
+  - 10 ô trang bị giống nhân vật (lưới `.eqgrid` 4 cột như thẻ Nhân vật); chạm ô trống → `petPickModal(slot)` (danh sách món trong túi hợp ô, sắp theo sức mạnh); chạm món đang gắn → `petItemModal` (xem + Tháo).
   - Nhóm chọn loài theo 5 hệ (`petGrouped()`), đổi loài giữ cấp + trang bị.
 - Tab "Đồng hành" cũ trong hộp 🎁 vẫn còn, chỉ trỏ sang tab mới để tránh nhầm.
 - **Thẻ Hành trang:** chi tiết món đồ (món đang trong túi, hợp một ô pet, pet đã mở + đã chọn loài) có thêm nút **"Gắn cho Đồng hành"** — bấm là gắn thẳng vào ô tương ứng (Vuốt/Nanh · Giáp · Bội), không cần mở tab Đồng hành. Món không hợp (vd Ngựa `d 10`) hoặc chưa có pet thì nút không hiện.
@@ -159,7 +160,7 @@ Nguyên tắc: **không tạo module mới** (đặt logic pet trong `rewards.ts
 | T3 | Mô hình `rw.pet.eq` + `RW()` bổ sung tại chỗ | ✅ |
 | T4 | `petElemOf` + nhóm 5 hệ + tương khắc trong `petTick` | ✅ |
 | T5 | `petStats` (atk/crit/cd/power) từ cấp + hệ + đồ | ✅ |
-| T6 | Gắn/tháo trang bị pet (3 ô) + modal chọn/xem | ✅ |
+| T6 | Gắn/tháo trang bị pet (10 ô giống nhân vật trừ Ngựa) + modal chọn/xem | ✅ |
 | T7 | Tab đáy thứ 6 "Đồng hành" + icon + CSS 6 cột | ✅ |
 | T8 | `petWants` chặn auto-bán đồ hợp pet | ✅ |
 | T9 | `migrate()` chuẩn hoá save cũ + uid | ✅ |
@@ -194,6 +195,7 @@ Kịch bản: seed save cấp 25 phái Thiếu Lâm, túi có 3 món (vũ khí `
 | Migrate save cũ | bỏ món sai (Ngựa `d10`, item thiếu `base`) | `pet.eq` sau migrate = **[]** ✅ |
 | Lỗi JS runtime | không có | `errs = []` ✅ |
 | **Pet đi nhặt auto** (3 món cách nhân vật 400–565px, pet ra trận) | pet tự tới nhặt, nhân vật đứng yên | nhân vật giữ nguyên 768,768 (cách đồ 400px); pet tới (1126,781)/(784,1141) nhặt 2 món đầu ở t≈2,4s và 5,4s; `petLoot` bật 38 khung; túi 0→3 món ✅ |
+| **10 ô giống nhân vật** (đổi từ 3 ô) | đủ 10 ô, không có Ngựa; migrate save cũ | save cũ `petW`/`petA`/`petJ` → `weapon`/`armor`/`amulet`; lưới 10 ô (Vũ khí…Ngọc bội, không Ngựa); gắn Mũ `lifemax_v 200` qua picker → sinh lực nhân vật 492→**592** (+50%) ✅ |
 
 > Ghi chú kiểm thử: trong pane xem thử của ZCode, `requestAnimationFrame` bị treo (0 khung/2,9s) nên vòng lặp không tự chạy; đã xác minh bằng cách gọi thẳng hàm mô phỏng `simulate()` qua hook tạm (đã gỡ khỏi mã). Ngoài ra dev server có thể phục vụ chunk cũ — cần thêm tham số `?cb=<time>` khi nạp lại để lấy mã mới.
 

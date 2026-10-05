@@ -3,9 +3,11 @@ import { autoBuyWeapon, autoForge } from './auto';
 import { R, expFor, gainXp, stageLevel } from './combat';
 import {
   $,
+  DETAIL_SLOT,
   FAC,
   INV_MAX,
   MAX_LEVEL,
+  PET_SLOT_KEYS,
   SK,
   STAGES,
   clamp,
@@ -79,7 +81,19 @@ function migrate(o) {
   s.rw = o.rw && typeof o.rw === 'object' ? o.rw : {};    // phan thuong: file cu chua co -> RW() tu dien mac dinh
   // Dong hanh: o trang bi (save cu chua co) — chi giu mon hop le (co base/mag, khong phai ngua d 10)
   s.rw.pet = s.rw.pet && typeof s.rw.pet === 'object' ? s.rw.pet : null;
-  if (s.rw.pet) { s.rw.pet.eq = s.rw.pet.eq && typeof s.rw.pet.eq === 'object' ? s.rw.pet.eq : {}; for (const k of Object.keys(s.rw.pet.eq)) { const it = s.rw.pet.eq[k]; if (!it || !Array.isArray(it.base) || !Array.isArray(it.mag) || !(it.d >= 0 && it.d <= 9)) delete s.rw.pet.eq[k]; } }
+  /* Dong hanh: chuan hoa o trang bi — save cu co the dung key petW/petA/petJ (3 o) doi sang
+     bo 10 o giong nhan vat (weapon/armor/...); mon sai o (Ngua d10, item hong) bi loai. */
+  if (s.rw.pet) {
+    const eq0 = s.rw.pet.eq && typeof s.rw.pet.eq === 'object' ? s.rw.pet.eq : {}, fixed = {};
+    for (const k of Object.keys(eq0)) {
+      const it = eq0[k]; if (!it || !Array.isArray(it.base) || !Array.isArray(it.mag) || !(it.d >= 0 && it.d <= 9)) continue;
+      let key = k;
+      if (k === 'petW') key = 'weapon'; else if (k === 'petA') key = 'armor'; else if (k === 'petJ') { const ds = DETAIL_SLOT[it.d]; key = ds === 'ring' ? 'ring1' : ds; }
+      if (!PET_SLOT_KEYS.includes(key)) continue;
+      if (!fixed[key]) fixed[key] = it;              // 2 mon cung o (hiem): giu mon dau
+    }
+    s.rw.pet.eq = fixed;
+  }
   s.lvl = clamp(Math.floor(+s.lvl) || 1, 1, MAX_LEVEL); s.xp = Math.max(0, +s.xp || 0);
   s.gold = Number.isFinite(+s.gold) ? Math.max(0, +s.gold) : 0; s.skPts = Math.max(0, Math.floor(+s.skPts) || 0); s.attrPts = Math.max(0, Math.floor(+s.attrPts) || 0);
   s.inv = (Array.isArray(s.inv) ? s.inv : []).filter(it => it && typeof it === 'object' && Array.isArray(it.base) && Array.isArray(it.mag)).slice(0, INV_MAX);

@@ -6,6 +6,7 @@ import { S } from '../game/save';
 
 import { nameModal } from '../game/ui';
 import { giftModal } from '../game/rewards';
+import { adminModal } from '../game/admin';
 import { uiSfx } from '../game/audio';
 import { setCompact } from '../game/loop';
 
@@ -35,6 +36,7 @@ export default function TopBar() {
         </div>
       </div>
       <div className="gold"><span className="coin" /><span id="gold">{fac ? fmt(S.gold) : 0}</span></div>
+      <button id="adminQuickBtn" title="Bảng thử nghiệm" onClick={() => { if (fac) { uiSfx('click'); adminModal(); } }}>⚡</button>
       <button id="giftBtn" title="Phần thưởng" onClick={() => { if (fac) { uiSfx('click'); giftModal(); } }}>🎁</button>
       <button id="compactBtn" title="Thu gọn / mở rộng sân đấu"
         onClick={() => setCompact(!document.body.classList.contains('compact'))}>⛶</button>
