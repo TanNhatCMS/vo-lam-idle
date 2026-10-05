@@ -28,4 +28,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # Worker chi co `assets` (khong co `main`): wrangler 3.x bao "Missing entry-point",
+          # phai dung wrangler >= 4 moi deploy duoc dang assets-only.
+          wranglerVersion: '4'
           command: deploy
