@@ -73,7 +73,7 @@ export default function Battle() {
         return (
           <button id="wbBtn" className={'chip' + (wb.mode === 'ready' ? ' on pulse' : '')}
             onClick={() => { uiSfx('click');
-              if (wb.mode === 'count') toast(`Boss Thế Giới sẽ xuất hiện sau ${wb.t}s`);
+              if (wb.mode === 'count') { const m = Math.floor(wb.t / 60), s = wb.t % 60; toast(`Boss Thế Giới sẽ xuất hiện sau ${m}:${String(s).padStart(2, '0')}`); }
               else if (wb.mode === 'inside') backFromBossArena();
               else goBossArena();
             }}>

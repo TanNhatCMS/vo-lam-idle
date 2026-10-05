@@ -245,7 +245,10 @@ export function wbUiState(): { mode: 'hidden' | 'ready' | 'inside' | 'count'; la
   const w = (S.rw && S.rw.wb) || {};
   if (w.up) return { mode: 'ready', label: '⚔ Boss Thế Giới', t: 0 };
   const left = w.next != null ? w.next - Date.now() : Infinity;                       // mốc thời gian thực
-  if (S.lvl >= WB_MIN_LV && left <= 60000) return { mode: 'count', label: `⚔ Boss ${Math.floor(left / 60000)}:${String(Math.max(0, Math.floor(left / 1000) % 60)).padStart(2, '0')}`, t: Math.ceil(left / 1000) };
+  if (S.lvl >= WB_MIN_LV) {                                                           // luôn hiện đếm ngược tới con boss kế
+    const sec = Math.max(0, Math.ceil(left / 1000));
+    return { mode: 'count', label: `⚔ Boss ${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`, t: sec };
+  }
   return { mode: 'hidden', label: '', t: 0 };
 }
 
