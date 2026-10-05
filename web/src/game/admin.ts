@@ -78,6 +78,10 @@ const ADMIN_OPTS = [
 const adminHomNay = () => { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
 const adminDaDung = () => false; // MOD: khong gioi han luot dung
 
+/* Toc do game: nhan vao thoi gian mo phong (xem gameSpeed() trong loop.ts, cung danh sach). */
+const SPEEDS = [1, 1.5, 2.5];
+const speedNow = () => (SPEEDS.includes(+S.speed) ? +S.speed : 1);
+
 export function adminApply(k) {
   const o = ADMIN_OPTS.find(x => x.k === k); if (!o) return;
   let kq = 'xong';
@@ -97,9 +101,14 @@ export function adminModal() {
     + '<p class="desc">' + (used
       ? 'Hôm nay bạn đã dùng rồi. Bảng thử nghiệm mỗi ngày chỉ mở một lần và chọn một mục.'
       : 'Chọn mục để kích hoạt ngay. Thay đổi tính vào nhân vật và lưu lại.') + '</p>'
+    + '<h3 style="margin:6px 0 4px">Tốc độ game</h3><div class="card"><div class="row">Tốc độ <select id="adSpeed">'
+    + SPEEDS.map(v => '<option value="' + v + '"' + (speedNow() === v ? ' selected' : '') + '>x' + v + '</option>').join('')
+    + '</select> <small class="dim">nhân vào thời gian mô phỏng, vật lý vẫn bước 1/60s</small></div></div>'
     + ADMIN_OPTS.map(o => '<div class="card"><b>' + esc(o.n) + '</b><br><small class="dim">' + esc(o.d) + '</small>'
       + '<div class="btnrow"><button class="btn" data-ad="' + o.k + '"' + (used ? ' disabled' : '') + '>Kích hoạt</button></div></div>').join('')
     + '<div class="btnrow"><button class="btn" onclick="closeModal()">Đóng</button></div>', () => {
       document.querySelectorAll('#mBody [data-ad]').forEach(b => b.onclick = () => { if (!adminDaDung()) adminApply(b.dataset.ad); });
+      const sel = document.getElementById('adSpeed');
+      if (sel) sel.onchange = () => { S.speed = parseFloat(sel.value); save(); refresh(); toast('Tốc độ game x' + S.speed); };
     });
 }

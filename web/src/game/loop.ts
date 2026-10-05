@@ -49,6 +49,9 @@ export function onStageChange() { if (curTab === 'log') refresh(); }
 export function onLevelUp() { if (S.autoPts === true) { autoSpendAttrs(); autoSpendSkills(); } autoEquipAll(); if (!R.quiet) { checkHints(); updateDots(); renderPad(); dotGift(); if (LV_MS.some(m => m[0] === S.lvl)) toast(`Đạt mốc cấp ${S.lvl}: nhận quà ở nút 🎁`); } }
 const STEP = 1 / 60, MAX_STEPS = 10, LERP_MAX = 120;
 let simAcc = 0;
+/* Toc do game (Bang thu nghiem): nhan vao thoi gian mo phong — vat ly van buoc 1/60s, chi chay nhieu buoc hon. */
+export const GAME_SPEEDS = [1, 1.5, 2.5];
+export const gameSpeed = () => (S && GAME_SPEEDS.includes(+(S as any).speed) ? +(S as any).speed : 1);
 function movers() { return [H, R.petPos].concat(SV.on ? SV.en : R.enemies).filter(Boolean); }
 function simulateFrame(dt) {
   simAcc += dt; let n = 0;
@@ -87,7 +90,7 @@ function uiPump() {
 function frame(now) {
   const dt = Math.min(0.25, (now - lastT) / 1000); lastT = now;
   guard('tay cam', gamepadPoll);
-  if (S.fac && !document.hidden) { guard('mo phong', () => simulateFrame(dt)); if (!uiPrefs().saver || (drawTog = !drawTog)) guard('ve', () => drawLerp(dt)); }
+  if (S.fac && !document.hidden) { const gdt = dt * gameSpeed(); guard('mo phong', () => simulateFrame(gdt)); if (!uiPrefs().saver || (drawTog = !drawTog)) guard('ve', () => drawLerp(gdt)); }
   uiT += dt;
   if (uiT > 0.1 && S.fac) {
     uiT = 0;
