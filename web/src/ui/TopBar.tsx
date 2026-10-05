@@ -4,7 +4,7 @@ import { W, J, FAC, fmt, WAVES } from '../game/core';
 import { R } from '../game/combat';
 import { S } from '../game/save';
 
-import { nameModal } from '../game/ui';
+import { nameModal, showTab } from '../game/ui';
 import { giftModal } from '../game/rewards';
 import { adminModal } from '../game/admin';
 import { uiSfx } from '../game/audio';
@@ -19,6 +19,11 @@ export default function TopBar() {
   const heroImg = fac ? ((W.hero || {})[S.fac] || {}).img : null;
   const facName = fac ? fac.n : 'Võ Lâm Idle';
   const displayName = fac && S.name && S.name !== fac.n ? S.name : facName;
+  /* HUD Dong hanh: so loai so huu + hoi chieu ky nang (docs/PET-MO-RONG.md) */
+  const petN = fac && S.rw && S.rw.pets ? Object.keys(S.rw.pets).length : 0;
+  const pet = fac && S.rw && S.rw.pet;
+  const skillUnlocked = !!(pet && (pet.star | 0) >= 1);
+  const cd = R.petSkillCd || 0;
   return (
     <header id="top">
       <div className="lvbox" style={(heroImg ? { '--pl': `url('${heroImg}')` } : undefined) as React.CSSProperties}
@@ -36,6 +41,12 @@ export default function TopBar() {
         </div>
       </div>
       <div className="gold"><span className="coin" /><span id="gold">{fac ? fmt(S.gold) : 0}</span></div>
+      {petN > 0 && (
+        <button id="petChip" title="Đồng hành — bấm để mở thẻ"
+          onClick={() => { uiSfx('click'); showTab('pet'); }}>🐾{petN}{skillUnlocked
+            ? <small>{cd > 0 ? Math.ceil(cd) + 's' : '⚡'}</small> : null}
+        </button>
+      )}
       <button id="adminQuickBtn" title="Bảng thử nghiệm" onClick={() => { if (fac) { uiSfx('click'); adminModal(); } }}>⚡</button>
       <button id="giftBtn" title="Phần thưởng" onClick={() => { if (fac) { uiSfx('click'); giftModal(); } }}>🎁</button>
       <button id="compactBtn" title="Thu gọn / mở rộng sân đấu"

@@ -36,6 +36,7 @@ import {
   upgradeOre,
   upgradePlatina,
 } from './recipes';
+import { petCanEquip, petForgeCost, petForgeItem } from './rewards';
 import { S, save } from './save';
 import { closeModal, invDirty, itemHTML, log, modal, toast } from './ui';
 import { setInvDirty } from './ui';
@@ -88,6 +89,13 @@ function platCard(it) {
     <small>${u.inputs[0].qty} Thủy Tinh Trắng (có ${matHave('misc', 'wc')}) · ${u.inputs[1].qty} Thần Bí Khoáng Thạch (có ${matHave('misc', 'mys')}) · ${fmt(platCost(u.cost.van))} lượng</small>
     <div class="btnrow"><button class="btn" id="fPlat" ${ok ? '' : 'disabled'}>Thăng cấp</button></div></div>`;
 }
+/* Duc Thu Boi: mon 4 dong he Dong hanh, chi pet mac duoc (docs/PET-MO-RONG.md muc 9) */
+function petForgeCard() {
+  const c = petForgeCost(), ok = matHave('ht', c.tier) >= c.ht && S.gold >= c.gold;
+  return `<div class="card"><b>Đúc Thú Bội</b> <small class="dim">món 4 dòng hệ Đồng hành — chỉ nó mặc được, nhân vật không mặc được</small><br>
+    <small>${c.ht} Huyền Tinh cấp ${c.tier} (có ${matHave('ht', c.tier)}) · ${fmt(c.gold)} lượng</small>
+    <div class="btnrow"><button class="btn" id="fPet" ${ok ? '' : 'disabled'}>Đúc</button></div></div>`;
+}
 export function forgeModal(it) {
   const max = (it.enh || 0) >= ENH_MAX;
   modal(`<h3>Rèn đồ <small>${fmt(S.gold)} lượng</small></h3>${itemHTML(it)}
@@ -97,12 +105,13 @@ export function forgeModal(it) {
     <div class="card"><b>Tẩy luyện</b> <small class="dim">gieo lại ${(it.mag || []).length} dòng thuộc tính</small><br>
       ${canReroll(it) ? `<small>Giá ${fmt(rerollCost(it))} lượng</small>` : '<small class="dim">Đồ trắng / đồ bộ / đồ Tím không tẩy luyện được</small>'}
       <div class="btnrow"><button class="btn red" id="fRe" ${canReroll(it) && S.gold >= rerollCost(it) ? '' : 'disabled'}>Tẩy luyện</button></div></div>
-    ${enchaseCard(it)}${platCard(it)}`, () => {
+    ${enchaseCard(it)}${platCard(it)}${petCanEquip(it) ? petForgeCard() : ''}`, () => {
     $('#fEnh').onclick = () => enhance(it); $('#fRe').onclick = () => reroll(it);
     const k = $('#fKham'), lo = $('#fHtLo');
     if (k) k.onclick = () => afterRc(enchase(it, +$('#cHt').value, $('#cOre').value), () => forgeModal(it));
     if (lo) lo.onclick = () => htModal();
     const pu = $('#fPlat'); if (pu) pu.onclick = () => afterRc(upgradePlatina(it), () => forgeModal(it));
+    const pf = $('#fPet'); if (pf) pf.onclick = () => { const made = petForgeItem(); if (made) { closeModal(); refresh(); } };
   });
 }
 /* Lo Huyen Tinh: hop tu 3 mon, thang cap Huyen Tinh va khoang */

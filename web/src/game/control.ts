@@ -24,6 +24,7 @@ import {
 } from './core';
 import { onZoneChange } from './loop';
 import { groundAt } from './loot';
+import { petRealmAbort } from './rewards';
 import { obsLoad, obsMove } from './mapobs';
 import { CAM, CV, img, snapCamera, uiScale } from './render';
 import { S, save } from './save';
@@ -130,6 +131,7 @@ export function drinkNow(kind) {
 export function goTown() {
   if (R.town) return;
   if ((R.tpCd || 0) > 0) { toast(`Thổ Địa Phù hồi sau ${Math.ceil(R.tpCd)} giây`); return; }
+  petRealmAbort(true);                                   // ve thanh: nghi bi canh (khong mat cooldown)
   R.town = true; R.enemies = []; R.corpses = []; R.pickTarget = null; R.moveTo = null; INPUT.target = null;
   obsLoad('town'); [H.x, H.y] = inWorld(WORLD.w / 2, WORLD.h / 2); snapCamera();
   R.bgImg = img(W.town.bg); uiSfx('use');

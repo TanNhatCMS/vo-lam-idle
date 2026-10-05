@@ -31,7 +31,8 @@ import {
   skVal,
 } from './core';
 import { baseRow, slotFor } from './loot';
-import { rebornBonus, titleAttr } from './rewards';
+import { PET_BENCH_BUFF, TEAM_CHAIN_PCT } from './core';
+import { rebornBonus, teamChainOk, titleAttr } from './rewards';
 import { S } from './save';
 import { enoughToActive, goldEnhance } from './sets';
 import { equip, equipGain } from './ui';
@@ -104,14 +105,18 @@ export function calc(eq) {
     (it.mag || []).forEach((m, i) => { if (i % 2 === 0 || Math.floor(i / 2) < act) addItemAttr(m); });
     if (it.set) { const ex = goldEnhance(it, eq); (it.ext || []).slice(0, ex).forEach(addItemAttr); }
   }
-  /* Trang bi gan cho Dong hanh: cong thuoc tinh vao NHAN VAT theo ti le PET_EQ_BUFF (moi dong hien lan an deu hieu luc).
-     Khong xet yeu cau cap/he (do la do cua thu, khong phai cua nguoi); khong tinh dong bo (set) de tranh phu thuoc S.eq. */
-  const peq = S.rw && S.rw.pet && S.rw.pet.eq;
-  if (peq) for (const k in peq) {
+  /* Trang bi gan cho Dong hanh: cong thuoc tinh vao NHAN VAT — con ra tran x PET_EQ_BUFF, 2 ho menh x PET_BENCH_BUFF
+     (moi dong hien lan an deu hieu luc). Khong xet yeu cau cap/he (do cua thu, khong phai cua nguoi);
+     khong tinh dong bo (set) de tranh phu thuoc S.eq. */
+  const rw = S.rw;
+  const petGearLists = [];
+  if (rw && rw.pet && rw.pet.eq) petGearLists.push([rw.pet.eq, PET_EQ_BUFF]);
+  if (rw && Array.isArray(rw.team)) for (const tid of rw.team.slice(1)) { const bp = tid && rw.pets && rw.pets[tid]; if (bp && bp.eq) petGearLists.push([bp.eq, PET_BENCH_BUFF]); }
+  for (const [peq, mult] of petGearLists) for (const k in peq) {
     const it = peq[k]; if (!it || !Array.isArray(it.base) || !Array.isArray(it.mag)) continue;
     const em = enhMul(it);
-    for (const [id, mn, mx] of it.base) addAttr(A, attrName(id), [(id === 28 || id === 29 ? mn : (mn + mx) / 2) * em * PET_EQ_BUFF, 0, 0]);
-    for (const m of it.mag) addItemAttr(m, PET_EQ_BUFF);
+    for (const [id, mn, mx] of it.base) addAttr(A, attrName(id), [(id === 28 || id === 29 ? mn : (mn + mx) / 2) * em * mult, 0, 0]);
+    for (const m of it.mag) addItemAttr(m, mult);
   }
   // ky nang bi dong
   const wc = weaponCode(eq), plus = av(A, 'allskill_v');
@@ -129,6 +134,7 @@ export function calc(eq) {
   titleAttr(A);                                            // danh hieu dang deo (rewards.js)
   P.rebDmg = 1 + rebornBonus().dmg;                        // chuyen sinh: +10% sat thuong moi lan
   P.dmgMul = P.rebDmg * facNorm(S.fac, lv);                // + can bang theo phai / cap (FAC_DMG_NORM)
+  if (teamChainOk()) P.dmgMul *= 1 + TEAM_CHAIN_PCT / 100; // tran phap Tam Tuong Sinh: +5% sat thuong
   // thuoc tinh co ban: diem goc cua he + diem phan phoi + trang bi
   P.str = st.str + S.attr.str + av(A, 'strength_v');
   P.dex = st.dex + S.attr.dex + av(A, 'dexterity_v');
@@ -273,6 +279,7 @@ export const sexReqOkFor = (it, sex) => { const r = (it.req || []).find(q => q[0
 export const sexReqOk = req => sexReqOkFor({ req }, S.sex);
 export const sexOk = it => sexReqOk(it.req);
 export function reqOk(it) {
+  if (it.petOnly) return false;                           // Thu Boi: chi Dong hanh mac duoc
   if (!sexOk(it)) return false;
   for (const [id, v] of it.req || []) {
     if (id === 36 && S.lvl < v) return false;

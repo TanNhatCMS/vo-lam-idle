@@ -1,5 +1,7 @@
 # SPEC → PLAN → TASK: Trang bị cho Đồng hành (Pet) + hệ Ngũ hành
 
+> Đợt 2 (đội hình 3 pet, tiến hoá, bí cảnh, đúc Thú Bội, bách khoa…): xem **docs/PET-MO-RONG.md**.
+
 - Ngày lập: 2026-10-05 · Trạng thái: **đã triển khai + E2E đạt** (cùng ngày)
 - Phạm vi: chỉ sửa `web/src/**` + `web/public/style.css`. **Không sửa Kotlin/APK** — mọi thứ chạy trong WebView, phát hành bằng **OTA data** (assets không đổi).
 - Mọi con số dưới đây là **giá trị mặc định**, gom thành hằng số ở đầu module; đổi số không đổi logic.

@@ -48,6 +48,7 @@ import { bindTodo, codexModal, powerModal, suggestModal, todoHTML, tutorialModal
 import { adminModal } from './admin';
 import { UI_FS, UI_FS_NAME, guard, setUiPref, uiPrefs } from './loop';
 import { uiBump, uiSetTab } from './store';
+import { pickAllGround } from './loot';
 import {
   LOOT_ATTR_GROUPS,
   itemLines,
@@ -62,7 +63,7 @@ import {
 } from './loot';
 import { FUSE_SLOTS } from './recipes';
 import { img, label } from './render';
-import { dotGift, loginCheck, petActive, petCanEquip, petEquipItem, petWants, petWearingOf, renderPet } from './rewards';
+import { dotGift, loginCheck, petActive, petCanEquip, petEquipItem, petRealmAbort, petWants, petWearingOf, renderPet } from './rewards';
 import {
   S,
   SLOT,
@@ -112,7 +113,7 @@ export function closeModal(force?) { if ($('#modal').dataset.locked && !force) r
    Nhan / day chuyen / ngoc boi yeu van giu toi da 6 mon lam nguyen lieu hop Huyen Tinh. */
 const FUSE_KEEP = 6;
 function isJunk(it) {
-  if (it.set || it.vio || it.plv) return false;
+  if (it.set || it.vio || it.plv || it.petOnly) return false;
   if (petWants(it)) return false;                      // mon phu hop o trang bi Dong hanh: giu lai, khong tu ban
   if (!sexOk(it)) return true;                         // trang phuc khac gioi tinh: khong bao gio mac duoc
   const f = FAC[S.fac];
@@ -133,7 +134,7 @@ export function sweepJunk() {
 }
 export function addItem(it, quiet, picked, keep) {
   if (!picked && !lootMatch(it)) { S.gold += itemValue(it); return false; } // khong qua mat dat (offline): mon khong khop bo loc tu ban
-  if (S.inv.length >= INV_MAX && (it.set || it.vio || it.plv)) makeRoom(it, true);   // do quy (bo / Tim / Bach Kim): nhuong cho bang cach ban mon yeu nhat
+  if (S.inv.length >= INV_MAX && (it.set || it.vio || it.plv || it.petOnly)) makeRoom(it, true);   // do quy (bo / Tim / Bach Kim): nhuong cho bang cach ban mon yeu nhat
   if (S.inv.length >= INV_MAX) { S.gold += itemValue(it); if (!quiet) log('<span class="dim">Túi đầy, tự bán ' + esc(it.n) + '</span>'); return false; }
   if (!keep && S.autoJunk !== false && isJunk(it)) { S.gold += itemValue(it); return false; }   // do thua: tu ban, khong chat hanh trang
   S.inv.unshift(it); invDirty = true;
@@ -163,7 +164,7 @@ export function equip(it, quiet) {
 }
 function unequip(slot) { const it = S.eq[slot]; if (!it) return; if (S.inv.length >= INV_MAX) { toast('Túi đầy'); return; } delete S.eq[slot]; S.inv.unshift(it); R.dirty = true; invDirty = true; closeModal(); refresh(); }
 /* Ban mon khong khop bo loc (nut trong the Hanh trang, cua hang, Tho Dia Phu): khong bao gio ban do bo, do Tim dang kham, Bach Kim da thang cap */
-export const sellProtected = it => !!(it.set || it.vio || it.plv);
+export const sellProtected = it => !!(it.set || it.vio || it.plv || it.petOnly);
 export function sellUnmatched() {
   const w = S.inv.filter(i => !lootMatch(i) && !sellProtected(i)); let g = 0;
   for (const i of w) g += itemValue(i);
@@ -243,7 +244,7 @@ function renderLog() {
   document.querySelectorAll('.zrow').forEach(b => b.onclick = () => gotoStage(+b.dataset.z * ZONE_STAGES + 1));
 }
 export function renderLogOnly() { const b = $('#logBox'); if (b) b.innerHTML = R.logs.map(l => `<div>${l}</div>`).join(''); }
-function gotoStage(st) { st = clamp(st, 1, S.maxStage); if (st === S.stage) return; S.stage = st; S.wave = 1; S.push = false; R.enemies = []; R.spawnT = 0.3; refresh(); }
+function gotoStage(st) { st = clamp(st, 1, S.maxStage); if (st === S.stage) return; petRealmAbort(true); S.stage = st; S.wave = 1; S.push = false; R.enemies = []; R.spawnT = 0.3; refresh(); }
 
 /* ---------- the: nhan vat ---------- */
 export const ATTR_VI = { str: 'Sức mạnh', dex: 'Thân pháp', vit: 'Sinh khí', eng: 'Nội công' };
@@ -348,7 +349,7 @@ export function renderInv() {
   const ser = SERIES.map((n, i) => `<label class="chip2" style="color:${SERIES_COL[i]}"><input type="checkbox" data-s="${i}" ${f.series.includes(i) ? 'checked' : ''}>${n}</label>`).join('');
   const onGround = R.ground.length, match = R.ground.filter(d => lootMatch(d.it)).length;
   $('#t-inv').innerHTML = `<div class="invbar"><span>${S.inv.length}/${INV_MAX}</span><span class="sp"></span>
-    <button class="btn sm" id="bStash">Kho chung</button><button class="btn sm" id="bBest">Mặc đồ tốt</button><button class="btn sm red" id="bSellAll">Bán đồ không khớp lọc</button></div>
+    <button class="btn sm" id="bStash">Kho chung</button><button class="btn sm" id="bBest">Mặc đồ tốt</button><button class="btn sm" id="bGrabAll" ${onGround ? '' : 'disabled'}>Lấy hết đồ (${onGround})</button><button class="btn sm red" id="bSellAll">Bán đồ không khớp lọc</button></div>
     <div class="invgrid">${S.inv.map(itemCell).join('')}</div>
     <h3>Đồ rơi trên đất <small>${onGround} món · ${match} khớp bộ lọc</small></h3>
     <div class="card lootf">
@@ -372,6 +373,7 @@ export function renderInv() {
   document.querySelectorAll('#t-inv [data-s]').forEach(b => b.onchange = () => { const v = +b.dataset.s; f.series = b.checked ? [...new Set(f.series.concat(v))] : f.series.filter(x => x !== v); upd(); });
   $('#bStash').onclick = () => stashModal();
   $('#bBest').onclick = () => { for (const it of S.inv.slice()) if (betterThanEquipped(it)) equip(it, true); refresh(); };
+  $('#bGrabAll').onclick = () => { const n = pickAllGround(); toast(n ? `Đã lấy ${n} món từ đất` : 'Không lấy thêm được (túi đầy?)'); refresh(); };
   $('#bSellAll').onclick = () => { const r = sellUnmatched(); toast(`Bán ${r.n} món${r.kept ? ` (giữ ${r.kept} món bộ / Tím / Bạch Kim)` : ''}`); refresh(); };
   document.querySelectorAll('#t-inv .it').forEach(b => b.onclick = () => itemModal(findItem(b.dataset.uid)));
 }

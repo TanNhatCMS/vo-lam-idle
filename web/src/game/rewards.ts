@@ -15,19 +15,36 @@ import {
   $,
   DETAIL_SLOT,
   FAC,
+  FD_LEVEL_COST,
   INV_MAX,
   J,
   MAX_LEVEL,
   MON,
+  PET_BENCH_BUFF,
   PET_EQ_BUFF,
   PET_GEAR_POWER,
   PET_LV,
+  PET_SKILL_CD,
+  PET_SKILL_MAX,
+  PET_SKILL_NAMES,
+  PET_SKILL_RAD,
   PET_SLOTS,
+  REALM_CD,
+  REALM_HT_CHANCE,
+  REALM_KILLS,
   RAR_COL,
   SERIES,
   SERIES_COL,
   SERIES_ELEM,
+  SINH,
+  STAR_ATK_PCT,
+  STAR_COST,
+  STAR_MAX,
+  STAR_NAMES,
+  STAR_REQ_LV,
   STAGES,
+  TEAM_CHAIN_PCT,
+  TEAM_SAME_ATK,
   ZONES,
   attrName,
   attrText,
@@ -39,8 +56,10 @@ import {
   fmt,
   inWorld,
   irnd,
+  petElemOf,
   pick,
   rnd,
+  soLevelCost,
   wpick,
 } from './core';
 import { itemPower, makeItem, sexPart } from './loot';
@@ -48,6 +67,7 @@ import {
   MON_SCALE,
   NAME_COL,
   addText,
+  burst,
   dirOf,
   drawAnim,
   img,
@@ -60,7 +80,9 @@ import { enoughToActive, makeSetItem } from './sets';
 import { potStock } from './shop';
 import { addAttr, autoSpendAttrs, sexReqOk } from './stats';
 import { addItem, closeModal, findItem, itemHTML, log, modal, refresh, setInvDirty, toast } from './ui';
-import { matAdd } from './recipes';
+import { obsSteer } from './mapobs';
+import { codexModal } from './guide';
+import { matAdd, matHave } from './recipes';
 import { WB_EVERY, WB_FIRST, WB_MIN_LV } from './worldboss';
 
 /* ======================= PHAN THUONG NGOAI GAME GOC (docs/DE_XUAT.md) =======================
@@ -79,7 +101,27 @@ export function RW() { // trang thai phan thuong trong file luu (tao / bo sung t
   r.login = Object.assign({ last: '', streak: 0, total: 0, got: {}, claimed: true }, r.login || {});
   r.ach = r.ach || {}; r.title = r.title || ''; r.fd = r.fd || 0; if (r.gbT == null) r.gbT = GB_EVERY;
   r.pet = r.pet || null;
-  if (r.pet && typeof r.pet === 'object') { if (!r.pet.eq || typeof r.pet.eq !== 'object') r.pet.eq = {}; }   // dong hanh: o trang bi (save cu chua co -> tu bo sung)
+  /* Roster Dong hanh (docs/PET-MO-RONG.md): rw.pets theo tid, rw.pet = cung tham chieu voi entry
+     ra tran (rw.team[0]) — mutate qua rw.pet tu dong cap nhat roster, khong diverge. */
+  if (!r.pets || typeof r.pets !== 'object') r.pets = {};
+  if (r.pet && typeof r.pet === 'object' && !r.pets[r.pet.tid]) r.pets[r.pet.tid] = r.pet;   // save cu 1 pet -> roster
+  if (!r.team || !Array.isArray(r.team) || r.team.length !== 3) r.team = [null, null, null];
+  r.team = r.team.map(t => (t && r.pets[t]) ? t : null);                                    // chi giu loai da so huu
+  if (!r.pet || r.pets[r.pet.tid] !== r.pet) r.pet = r.team[0] ? r.pets[r.team[0]] : null;
+  r.team[0] = r.pet ? r.pet.tid : null;
+  if (!r.pet) { const first = Object.keys(r.pets)[0]; if (first) { r.pet = r.pets[first]; r.team[0] = first; } }
+  for (const tid in r.pets) {
+    const p = r.pets[tid]; if (!p || typeof p !== 'object') { delete r.pets[tid]; continue; }
+    p.lvl = Math.max(1, Math.floor(+p.lvl) || 1); p.xp = Math.max(0, +p.xp || 0);
+    if (!(p.star >= 0)) p.star = 0;
+    if (!p.eq || typeof p.eq !== 'object') p.eq = {};
+  }
+  if (r.pet && (!r.pet.eq || typeof r.pet.eq !== 'object')) r.pet.eq = {};
+  r.petSeen = r.petSeen && typeof r.petSeen === 'object' ? r.petSeen : {};
+  if (r.pet) r.petSeen[r.pet.tid] = 1;
+  r.realmCd = r.realmCd && typeof r.realmCd === 'object' ? r.realmCd : {};
+  r.petF = Object.assign({ elemOnly: 0 }, r.petF && typeof r.petF === 'object' ? r.petF : {});
+  r.codexPet = r.codexPet && typeof r.codexPet === 'object' ? r.codexPet : {};
   /* Boss Thế Giới + Vỏ Sò: bổ sung TRÊN TẠI object cũ (không thay bằng bản sao như stat/login ở trên)
      vì worldboss wbVictory / spinSo giữ tham chiếu w/so qua nhiều lần gọi RW() giữa các mutation. */
   const wbHad = !!(r.wb && typeof r.wb === 'object');
@@ -227,7 +269,7 @@ export function titleAttr(A) { // goi tu calc(): chi so cua danh hieu dang deo
 }
 
 /* ---------- 4. trum Hoang Kim dinh ky ---------- */
-export function goldBossTick(dt) { if (S.fac && !R.town && !R.tower && !R.wbArena) RW().gbT -= dt; }   // wbArena: hai boss không chạy song song
+export function goldBossTick(dt) { if (S.fac && !R.town && !R.tower && !R.wbArena && !R.petRealm) RW().gbT -= dt; }   // wbArena/petRealm: hai boss và bí cảnh không chạy song song
 export function goldBossDue() { return !R.tower && RW().gbT <= 0; }
 export function spawnGoldBoss() {
   // cap trum khong vuot cap nhan vat + 2 (nhip len cap cham: nhan vat thuong danh ai cao hon cap minh)
@@ -250,6 +292,7 @@ export function offlineChests(secs) {
 /* ---------- 6. thap thu thach (Phong Ky) ---------- */
 function towerStart() {
   if (R.town) backFromTown();
+  petRealmAbort(true);                                   // vao thap: nghi bi canh
   R.tower = { floor: Math.max(1, RW().stat.towerBest - 4) }; R.enemies = []; R.corpses = []; R.spawnT = 0.5;
   R.banner = { t: 2, text: `Tháp thử thách · tầng ${R.tower.floor}`, sub: 'Gục ngã là rời tháp' }; closeModal(true);
 }
@@ -325,19 +368,6 @@ export function petEquipItem(it) {
 }
 /* Tra ve object pet trong file luu, bao dam co o trang bi (mutate tai cho — giu tham chieu nhu wb/so) */
 function petCur() { const r = RW(); if (r.pet && typeof r.pet === 'object' && (!r.pet.eq || typeof r.pet.eq !== 'object')) r.pet.eq = {}; return r.pet; }
-/* He ngu hanh cua loai: lay he chiem uu the cua vung xuat hien dau tien (sw lech han); vung can bang -> gan theo loai */
-const PET_ELEM = {};
-export function petElemOf(tid) {
-  if (PET_ELEM[tid] != null) return PET_ELEM[tid];
-  let e = -1;
-  for (const z of ZONES) {
-    if (!z.m || z.m.indexOf(tid) < 0) continue;
-    const sw = z.sw, mx = Math.max.apply(null, sw), mn = Math.min.apply(null, sw);
-    if (mx > mn) { e = sw.indexOf(mx); break; }
-  }
-  if (e < 0) e = ((tid % 5) + 5) % 5;
-  return (PET_ELEM[tid] = e);
-}
 /* Thong so Dong hanh: cap + he + trang bi (trang bi cong vao NHAN VAT o calc(); tai day cong vao luc danh cua rieng pet) */
 export function petStats(p) {
   const lvl = p.lvl || 1, eq = p.eq || {}, elem = petElemOf(p.tid);
@@ -357,14 +387,54 @@ export function petStats(p) {
     }
   }
   atk = atk * (1 + dmgPct / 100) + PET_GEAR_POWER * power + elemAdd;
-  return { lvl, elem, atk, crit: clamp(crit, 0, 60), cd: clamp(1.2 / (1 + aspd / 100), 0.5, 3), power };
+  const star = p.star | 0;
+  atk *= 1 + STAR_ATK_PCT * star / 100;                        // pham chat: moi sao +12%
+  if (p === (S.rw && S.rw.pet) && teamSameOk()) atk *= 1 + TEAM_SAME_ATK / 100;   // Tam Dong Khi: 3 con cung he
+  return { lvl, elem, star, atk, crit: clamp(crit, 0, 60), cd: clamp(1.2 / (1 + aspd / 100), 0.5, 3), power };
+}
+/* He cua 3 con trong doi hinh [ra tran, ho menh 1, ho menh 2] */
+function teamElems() {
+  const r = S.rw; if (!r || !Array.isArray(r.team)) return [];
+  return r.team.map(tid => (tid && MON[tid]) ? petElemOf(tid) : null);
+}
+/* Tam Tuong Sinh: 3 con tao chuoi sinh ke tiep (Kim->Thuy->Moc->Hoa->Tho hoac doan nao do chuoi) */
+export function teamChainOk() {
+  const es = teamElems();
+  return es.length === 3 && es.every(e => e != null) && SINH[es[0]] === es[1] && SINH[es[1]] === es[2];
+}
+export function teamSameOk() {
+  const es = teamElems();
+  return es.length === 3 && es[0] != null && es[0] === es[1] && es[1] === es[2];
 }
 function petChoices() {
   const zs = ZONES.slice(0, zoneIdx(Math.min(S.maxStage, STAGES)) + 1);
   return [...new Set(zs.flatMap(z => z.m))].filter(t => MON[t] && MON[t].anim).slice(0, 20);
 }
 function petGrouped() { const g = [[], [], [], [], []]; for (const t of petChoices()) g[petElemOf(t)].push(t); return g; }
-function petAdopt(tid) { const old = RW().pet; RW().pet = { tid, lvl: old ? old.lvl : 1, xp: old ? old.xp : 0, eq: (old && old.eq) || {} }; R.petPos = null; R.dirty = true; toast(`Đồng hành: ${MON[tid].n} · hệ ${SERIES[petElemOf(tid)]}`); save(); refresh(); refreshGift(); }
+/* Moi loai la 1 con rieng trong roster; nhan loai = chuyen con do ra tran (giu nguyen cap/eq cua no) */
+function petAdopt(tid) {
+  const r = RW();
+  if (!r.pets[tid]) r.pets[tid] = { tid, lvl: 1, xp: 0, eq: {}, star: 0 };
+  r.petSeen[tid] = 1;
+  r.team[0] = tid; r.pet = r.pets[tid];
+  R.petPos = null; R.petLoot = null; R.dirty = true;
+  toast(`Đồng hành: ${MON[tid].n} · hệ ${SERIES[petElemOf(tid)]}`);
+  save(); refresh(); refreshGift();
+}
+/* Doi thanh vien doi hinh: i=0 ra tran (pet.roster), i=1..2 ho menh (khong trung loai) */
+export function teamSet(i, tid) {
+  const r = RW(); tid = tid ? +tid : null;
+  if (i === 0) {
+    if (!tid || !r.pets[tid]) return;
+    r.team[0] = tid; r.pet = r.pets[tid]; R.petPos = null; R.petLoot = null;
+  } else {
+    if (r.team[i] === tid) tid = null;
+    if (tid && (r.team[0] === tid || r.team[3 - i] === tid)) { toast('Loài này đã trong đội hình'); return; }
+    if (tid && !r.pets[tid]) return;
+    r.team[i] = tid || null;
+  }
+  R.dirty = true; save(); refresh();
+}
 function petDmg(p) { return petStats(p).atk; }
 export function petTick(dt) {
   const p = S.rw && S.rw.pet; if (!p || R.town || !MON[p.tid]) { R.petPos = null; R.petLoot = null; return; }
@@ -374,9 +444,21 @@ export function petTick(dt) {
   const t = lt ? null : alive().sort((a, b) => Math.hypot(a.x - pp.x, a.y - pp.y) - Math.hypot(b.x - pp.x, b.y - pp.y))[0];
   const goal = lt || t || { x: H.x - 36, y: H.y + 12 }, d = Math.hypot(goal.x - pp.x, goal.y - pp.y), reach = lt ? 16 : t ? t.r + 14 : 10;
   pp.moving = d > reach;
-  if (pp.moving) { const k = Math.min(1, 170 * dt / d); pp.dir = dirOf(goal.x - pp.x, goal.y - pp.y); pp.x += (goal.x - pp.x) * k; pp.y += (goal.y - pp.y) * k; }
+  if (pp.moving) {
+    obsSteer(pp, goal.x, goal.y, 170 * dt); pp.dir = dirOf(goal.x - pp.x, goal.y - pp.y);   // di vong vat can nhu nhan vat
+    const d1 = Math.hypot(goal.x - pp.x, goal.y - pp.y);
+    pp._stk = d1 >= d - 0.5 ? (pp._stk || 0) + 1 : 0;      // khong tien duoc (ket duong): dem frame
+    if (pp._stk > 30) { pp.x = H.x - 30; pp.y = H.y + 10; pp._stk = 0; pp._pp = null; }   // ket: dich ve canh chu roi di lai
+  }
   if (!lt && Math.hypot(H.x - pp.x, H.y - pp.y) > 500) { pp.x = H.x - 30; pp.y = H.y + 10; }   // lac xa: dich chuyen ve canh chu (khong ap dung khi dang di nhat xa)
   pp.t -= dt;
+  /* Ky nang chu dong (mo tu 1 sao): tu dung khi co quai trong ban kinh, hoi chieu PET_SKILL_CD giay */
+  R.petSkillCd = Math.max(0, (R.petSkillCd || 0) - dt);
+  if (!lt && (p.star | 0) >= 1 && R.petSkillCd <= 0) {
+    const st0 = petStats(p);
+    const near = alive().filter(e => Math.hypot(e.x - pp.x, e.y - pp.y) <= PET_SKILL_RAD + e.r).slice(0, PET_SKILL_MAX);
+    if (near.length) { R.petSkillCd = PET_SKILL_CD; castPetSkill(pp, st0, near); }
+  }
   if (t && !pp.moving && pp.t <= 0) {
     const st = petStats(p); pp.t = st.cd;
     const el = SERIES_ELEM[st.elem] || 'phys';                 // don cua pet mang he cua no
@@ -388,6 +470,19 @@ export function petTick(dt) {
     t.hp -= dmg; t.hitT = 0.1; pp.act = 'at'; pp.actT = 0; pp.dir = dirOf(t.x - pp.x, t.y - pp.y);
     addText(t.x, t.y - 30, fmt(dmg) + (adv ? ' ⚡' : ''), crit ? '#ffe14a' : '#9fe36a', 11);
   }
+}
+function castPetSkill(pp, st, targets) {
+  const el = SERIES_ELEM[st.elem] || 'phys', nm = PET_SKILL_NAMES[st.elem] || 'Chiêu';
+  addText(pp.x, pp.y - 46, nm + '!', SERIES_COL[st.elem], 12);
+  for (const e of targets) {
+    let dmg = st.atk * (2 + 0.5 * (st.star | 0)) * rnd(0.9, 1.1);
+    const adv = counters(st.elem, e.series);
+    if (adv) dmg *= 1.25; else if (counters(e.series, st.elem)) dmg *= 0.85;
+    dmg = Math.max(1, dmg * (100 - clamp(e.res[el] || 0, -100, 95)) / 100);
+    e.hp -= dmg; e.hitT = 0.15;
+    addText(e.x, e.y - e.r - 6, fmt(dmg) + (adv ? ' ⚡' : ''), SERIES_COL[st.elem], 14);
+  }
+  burst(pp.x, pp.y, SERIES_COL[st.elem]);
 }
 function petGainXp(n) {
   const p = S.rw && S.rw.pet; if (!p) return;
@@ -406,13 +501,16 @@ export function drawPet(c, dt) {
 export function petWants(it) {
   const slot = petSlotFor(it); if (!slot || !petUnlocked()) return false;
   if (S.inv.length >= INV_MAX - 6) return false;               // tui gan day: nhuong cho, ban nhu thuong
-  const cur = S.rw && S.rw.pet && S.rw.pet.eq && S.rw.pet.eq[slot];
+  const r = S.rw, p = r && r.pet;
+  if (r && r.petF && r.petF.elemOnly && p && it.s !== petElemOf(p.tid)) return false;   // bo loc: chi giu do cung he pet
+  const cur = p && p.eq && p.eq[slot];
   return !cur || itemPower(it) > itemPower(cur) * 0.9;
 }
-function petEquip(slot, it) {
+function petEquip(slot, it, quiet) {
   const p = petCur(); if (!p || !petUnlocked() || !petFits(slot, it) || !S.inv.includes(it)) return;
   const old = p.eq[slot]; S.inv = S.inv.filter(x => x !== it); if (old) S.inv.unshift(old);
-  p.eq[slot] = it; R.dirty = true; setInvDirty(true); save(); closeModal(true); refresh(); toast('Gắn cho Đồng hành: ' + it.n);
+  p.eq[slot] = it; R.dirty = true; setInvDirty(true); save();
+  if (!quiet) { closeModal(true); refresh(); toast('Gắn cho Đồng hành: ' + it.n); }
 }
 function petUnequip(slot) {
   const p = petCur(); if (!p || !p.eq || !p.eq[slot]) return;
@@ -435,28 +533,193 @@ function petItemModal(it, slot) {
   modal(`${itemHTML(it)}${hcur ? `<div class="cmp"><small class="dim">Nhân vật đang mặc:</small>${itemHTML(hcur)}</div>` : ''}<p class="dim small">Đang gắn cho Đồng hành · thuộc tính cộng vào nhân vật ${Math.round(PET_EQ_BUFF * 100)}%.</p>
     <div class="btnrow"><button class="btn" id="pUn">Tháo về hành trang</button></div>`, () => { $('#pUn').onclick = () => petUnequip(slot); });
 }
+/* ---------- 8c. tien hoa sao + nap linh luc + auto-gan do ---------- */
+/* Tien hoa (len sao): can cap + Huyen Tinh + luong; moi sao +12% sat thuong pet, 1 sao mo ky nang */
+export function petEvolve() {
+  const p = petCur(); if (!p || !petUnlocked()) return;
+  const star = p.star | 0;
+  if (star >= STAR_MAX) { toast('Đã đạt Hoàn Mỹ'); return; }
+  const c = STAR_COST[star];
+  if ((p.lvl || 1) < STAR_REQ_LV[star]) { toast(`Cần Đồng hành cấp ${STAR_REQ_LV[star]} (hiện ${p.lvl})`); return; }
+  if (matHave('ht', c.ht) < c.n) { toast(`Cần ${c.n} Huyền Tinh cấp ${c.ht} (có ${matHave('ht', c.ht)})`); return; }
+  if (S.gold < c.gold) { toast('Không đủ ngân lượng'); return; }
+  matAdd('ht', c.ht, -c.n); S.gold -= c.gold; p.star = star + 1;
+  log(`Đồng hành <b>${esc(MON[p.tid].n)}</b> tiến hoá lên <b style="color:#ffb52e">${STAR_NAMES[p.star]}</b>${p.star === 1 ? ' — mở kỹ năng ' + PET_SKILL_NAMES[petElemOf(p.tid)] + '!' : ''}`);
+  toast(`Tiến hoá: ${STAR_NAMES[p.star]}`); uiSfx('learn');
+  R.dirty = true; save(); refresh();
+}
+/* Nap linh luc: tien te co san doi lay +1 cap cho pet */
+export function petFeed(kind) {
+  const p = petCur(); if (!p || !petUnlocked()) return;
+  const need = 20 + p.lvl * 12, r = RW();
+  if (kind === 'so') { const c = soLevelCost(p.lvl); if (r.so.n < c) { toast(`Cần ${c} Vỏ Sò (có ${r.so.n})`); return; } r.so.n -= c; }
+  else { if (r.fd < FD_LEVEL_COST) { toast(`Cần ${FD_LEVEL_COST} Phúc Duyên (có ${r.fd})`); return; } r.fd -= FD_LEVEL_COST; }
+  p.xp += need;
+  while (p.xp >= 20 + p.lvl * 12) { p.xp -= 20 + p.lvl * 12; p.lvl++; }
+  log(`Nạp linh lực: Đồng hành ${esc(MON[p.tid].n)} lên cấp <b>${p.lvl}</b>`);
+  uiSfx('learn'); R.dirty = true; save(); refresh();
+}
+/* Tu gann do tot nhat cho tung o (moi 30s quet cung bo tu dong cua nhan vat; im lang) */
+export function petAutoEquip() {
+  if (S.autoPet === false || !petUnlocked() || !S.rw || !S.rw.pet) return 0;
+  const p = S.rw.pet, eq = p.eq || (p.eq = {}); let n = 0;
+  for (const [k] of PET_SLOTS) {
+    const cur = eq[k]; let best = null;
+    for (const it of S.inv) if (petFits(k, it) && (!best || itemPower(it) > itemPower(best))) best = it;
+    if (best && (!cur || itemPower(best) > itemPower(cur) * 1.05)) { petEquip(k, best, true); n++; }
+  }
+  if (n) { setInvDirty(true); R.dirty = true; save(); }
+  return n;
+}
+/* ---------- 8d. Ngu Hanh Bi Canh: 5 cua theo he, ep he quai, thuong nguyen lieu tien hoa ---------- */
+export function petRealmEnter(elem) {
+  const r = RW(); if (!petUnlocked() || !r.pet) return;
+  if (R.tower || R.wbArena) { toast('Đang trong Tháp / Boss Thế Giới'); return; }
+  if ((r.realmCd[elem] || 0) > Date.now()) { toast(`Bí Cảnh ${SERIES[elem]} đang hồi (${Math.ceil((r.realmCd[elem] - Date.now()) / 60000)} phút)`); return; }
+  if (R.town) backFromTown();
+  R.petRealm = { elem, got: 0, need: REALM_KILLS };
+  R.enemies = []; R.corpses = []; R.spawnT = 0.5; R.zoneShown = null; R.stall = 0;
+  R.banner = { t: 2.5, text: `Bí Cảnh ${SERIES[elem]}`, sub: `Hạ ${REALM_KILLS} quái hệ ${SERIES[elem]}` };
+  log(`Vào <b style="color:${SERIES_COL[elem]}">Bí Cảnh ${SERIES[elem]}</b> — hạ ${REALM_KILLS} quái hệ này để nhận thưởng.`);
+  closeModal(true); refresh(); save();
+}
+export const petRealmActive = () => !!R.petRealm;
+export function petRealmAbort(quiet) {
+  if (!R.petRealm) return;
+  R.petRealm = null; R.enemies = []; R.spawnT = 0.5; R.zoneShown = null;
+  if (!quiet) log('<span class="dim">Rời Bí Cảnh Ngũ Hành.</span>');
+}
+export function petRealmSpawn() {
+  const z = zoneOf(Math.min(S.stage, STAGES)), L = stageLevel(S.stage), pr = R.petRealm;
+  R.enemies = []; R.stall = 0;
+  const around = (r0, r1) => { const a = rnd(0, Math.PI * 2), r = rnd(r0, r1); return inWorld(H.x + Math.cos(a) * r, H.y + Math.sin(a) * r); };
+  const n = 2 + irnd(0, 2) + (Math.random() < 0.3 ? 1 : 0);
+  for (let i = 0; i < n; i++) {
+    const [x, y] = around(140, 240);
+    const e = makeEnemy(pick(z.m), L, Math.random() < 0.15 ? 'elite' : 'normal', x, y);
+    e.series = pr.elem;                                    // ep he theo bi canh
+    R.enemies.push(e);
+  }
+}
+function petRealmWin() {
+  const elem = R.petRealm.elem, r = RW();
+  r.realmCd[elem] = Date.now() + REALM_CD * 1000;
+  const tier = String(clamp(Math.round(S.lvl / 12) + 1, 1, 10));
+  const got = grant({ gold: 800 + S.lvl * 20, mat: { g: 'ht', k: tier, n: 2 + irnd(0, 2) }, so: irnd(1, 3) }, `Bí Cảnh ${SERIES[elem]}`);
+  R.petRealm = null; R.enemies = []; R.spawnT = 0.5; R.zoneShown = null;
+  R.banner = { t: 2, text: 'Bí Cảnh hoàn thành!', sub: `Hồi sau ${Math.round(REALM_CD / 60)} phút` };
+  log(`<b style="color:${SERIES_COL[elem]}">Bí Cảnh ${SERIES[elem]} hoàn thành!</b> ${got.join(', ')}`);
+  save(); refresh();
+}
+/* Goi tu rwOnKill: dem kill trong bi canh + roi Huyen Tinh theo ti le */
+function petRealmOnKill(e) {
+  const pr = R.petRealm; if (!pr) return;
+  pr.got++;
+  if (Math.random() < REALM_HT_CHANCE) {
+    const k = String(clamp(Math.round(S.lvl / 12) + 1, 1, 10));
+    matAdd('ht', k, 1); addText(e.x, e.y - 40, '+1 Huyền Tinh ' + k, '#8fc6ff', 10);
+  }
+  if (pr.got >= pr.need) petRealmWin();
+}
+/* ---------- 8e. duc Thu Boi (o Rèn đồ): mon petOnly chi Dong hanh mac duoc ---------- */
+export function petForgeCost() {
+  const tier = String(clamp(Math.round(S.lvl / 12) + 1, 1, 10));
+  return { tier, ht: 30, gold: 3000 };
+}
+export function petForgeItem() {
+  const p = petCur(); if (!p || !petUnlocked()) { toast('Cần chọn Đồng hành trước'); return null; }
+  const c = petForgeCost();
+  if (matHave('ht', c.tier) < c.ht) { toast(`Cần ${c.ht} Huyền Tinh cấp ${c.tier} (có ${matHave('ht', c.tier)})`); return null; }
+  if (S.gold < c.gold) { toast('Không đủ ngân lượng'); return null; }
+  const detail = wpick([[0, 30], [1, 10], [2, 20], [3, 8], [4, 8], [5, 6], [6, 6], [7, 4], [8, 4], [9, 4]], x => x[1])[0];
+  let it = null;
+  for (let k = 0; k < 8 && !it; k++) it = makeItem(detail, irnd(0, 5), clamp(Math.round(S.lvl / 12) + 1, 1, 10), 4);
+  if (!it) { toast('Đúc thất bại (không có mẫu đồ phù hợp)'); return null; }
+  matAdd('ht', c.tier, -c.ht); S.gold -= c.gold;
+  it.s = petElemOf(p.tid); it.petOnly = 1; it.n = 'Thú Bội · ' + it.n;
+  const rq = (it.req || []).find(q => q[0] === 37); if (rq && rq[1] >= 0) rq[1] = it.s;   // dong bo yeu cau he theo he pet
+  addItem(it, true, true, true);
+  log(`Đúc <b style="color:${RAR_COL[it.r]}">${esc(it.n)}</b> (hệ ${SERIES[it.s]}) — chỉ Đồng hành mặc được`);
+  uiSfx('learn'); R.dirty = true; setInvDirty(true); save();
+  return it;
+}
+/* ---------- 8f. Bach khoa Dong hanh: thuong khi du bo loai cua mot he ---------- */
+function realmSpeciesOf(elem) { const out = []; for (const tid in MON) if (MON[tid].anim && petElemOf(+tid) === elem) out.push(+tid); return out; }
+export function petCodexClaim(elem) {
+  const r = RW(); if (r.codexPet[elem]) { toast('Đã nhận thưởng hệ này'); return; }
+  const list = realmSpeciesOf(elem);
+  if (!list.length || !list.every(t => r.petSeen[t])) { toast('Chưa gặp đủ loài của hệ này'); return; }
+  r.codexPet[elem] = 1;
+  grant({ fd: 10 }, `Bách khoa Đồng hành · đủ bộ hệ ${SERIES[elem]}`);
+  save(); refresh();
+}
 export function renderPet() {
   const el = $('#t-pet'); if (!el) return;
-  if (!petUnlocked()) { el.innerHTML = `<h3>Đồng hành</h3><p class="desc">Đồng hành mở khóa ở cấp ${PET_LV} (hoặc sau chuyển sinh). Đồng hành đi theo, cùng đánh quái, lên cấp theo số quái hạ, và mang trang bị để cộng thuộc tính cho nhân vật.</p>`; return; }
-  const p = petCur(), st = p && MON[p.tid] ? petStats(p) : null, need = p ? 20 + p.lvl * 12 : 0;
+  if (!petUnlocked()) { el.innerHTML = `<h3>Đồng hành</h3><p class="desc">Đồng hành mở khóa ở cấp ${PET_LV} (hoặc sau chuyển sinh). Đồng hành đi theo, cùng đánh quái, lên cấp theo số quái hạ, mang trang bị để cộng thuộc tính cho nhân vật.</p>`; return; }
+  const r = RW(), p = petCur(), st = p && MON[p.tid] ? petStats(p) : null, need = p ? 20 + p.lvl * 12 : 0;
   const slots = PET_SLOTS.map(([k, vi]) => `<div class="slot" data-pslot="${k}">${p && p.eq && p.eq[k] ? petCell(p.eq[k]) : `<span>${vi}</span>`}</div>`).join('');
+  const star = p ? (p.star | 0) : 0;
+  const starTxt = '★'.repeat(star) + '<span class="dim">' + '★'.repeat(STAR_MAX - star) + '</span>';
+  /* doi hinh: ra tran + 2 ho menh */
+  const owned = Object.keys(r.pets);
+  const opt = (sel, allowEmpty) => `<option value=""${!sel ? ' selected' : ''}>— trống —</option>` + owned.map(t => `<option value="${t}"${sel === +t ? ' selected' : ''}>${esc(MON[t].n)} · Lv${r.pets[t].lvl} · ${SERIES[petElemOf(+t)]}</option>`).join('');
+  const teamRow = (i, vi) => `<div class="teamrow"><span>${vi}</span><select data-team="${i}">${i === 0 ? opt(r.team[0], false) : opt(r.team[i], true)}</select></div>`;
+  const chain = teamChainOk(), same = teamSameOk();
+  /* bien canh */
+  const realmBtns = SERIES.map((nm, e) => {
+    const cd = (r.realmCd[e] || 0) - Date.now();
+    return `<button class="btn sm" data-realm="${e}" ${cd > 0 ? 'disabled' : ''} style="border-color:${SERIES_COL[e]}">${nm}${cd > 0 ? ` · ${Math.ceil(cd / 60000)}′` : ''}</button>`;
+  }).join('');
+  /* tien hoa */
+  const c = STAR_COST[star] || null;
+  const evoOk = p && star < STAR_MAX && (p.lvl || 1) >= STAR_REQ_LV[star] && matHave('ht', c.ht) >= c.n && S.gold >= c.gold;
+  const evoTxt = star >= STAR_MAX ? 'Đã Hoàn Mỹ' : `Cần cấp ${STAR_REQ_LV[star]} · ${c.n} Huyền Tinh ${c.ht} (có ${matHave('ht', c.ht)}) · ${fmt(c.gold)} lượng`;
+  const skName = PET_SKILL_NAMES[petElemOf(p.tid)] || '';
   const groups = petGrouped().map((list, e) => list.length ? `<div class="peGroup"><h4 style="color:${SERIES_COL[e]}">Hệ ${SERIES[e]}</h4><div class="petpick">${list.map(t => `<button data-p="${t}" class="${p && p.tid === t ? 'on' : ''}">${MON[t].img ? `<img src="${esc(MON[t].img)}" alt="">` : ''}<b>${esc(MON[t].n)}</b></button>`).join('')}</div></div>` : '').join('');
   const body = p && st ? `<div class="card stats">
       <span>Đang dẫn</span><span><b style="color:${SERIES_COL[st.elem]}">${esc(MON[p.tid].n)}</b></span>
       <span>Hệ</span><span style="color:${SERIES_COL[st.elem]}">${SERIES[st.elem]}</span>
+      <span>Phẩm chất</span><span style="color:#ffb52e">${starTxt} ${STAR_NAMES[star]}</span>
       <span>Cấp</span><span>${p.lvl}</span><span>Kinh nghiệm</span><span>${Math.floor(p.xp)}/${need}</span>
       <span>Sát thương</span><span>${fmt(st.atk)}/đòn</span><span>Chu kỳ đánh</span><span>${st.cd.toFixed(2)}s</span>
-      <span>Chí mạng</span><span>${Math.round(st.crit)}%</span><span>Sức mạnh trang bị</span><span>${fmt(st.power)}</span></div>
+      <span>Chí mạng</span><span>${Math.round(st.crit)}%</span><span>Sức mạnh trang bị</span><span>${fmt(st.power)}</span>
+      <span>Kỹ năng</span><span>${star >= 1 ? `<b style="color:${SERIES_COL[st.elem]}">${esc(skName)}</b> · nổ ${fmt(st.atk * (2 + 0.5 * star))} × 3 mục tiêu · hồi ${PET_SKILL_CD}s` : '<span class="dim">Tiến hoá 1★ để mở</span>'}</span></div>
+    <div class="btnrow"><button class="btn" id="pEvo" ${evoOk ? '' : 'disabled'} title="${esc(evoTxt)}">Tiến hoá ${star < STAR_MAX ? `→ ${STAR_NAMES[star + 1]}` : ''}</button>
+      <button class="btn" id="pFeedSo">Nạp +1 cấp · ${soLevelCost(p.lvl)} 🐚</button>
+      <button class="btn" id="pFeedFd">Nạp +1 cấp · ${FD_LEVEL_COST} Phúc Duyên</button></div>
+    <p class="dim small">${esc(evoTxt)}</p>
+    <h3>Đội hình <small>${chain ? '<b style="color:#ffb52e">Tam Tương Sinh: +5% sát thương</b>' : same ? '<b style="color:#ffb52e">Tam Đồng Khí: pet +15% sát thương</b>' : 'ra trận + 2 hộ mệnh'}</small></h3>
+    <div class="card">${teamRow(0, 'Ra trận')}${teamRow(1, 'Hộ mệnh 1')}${teamRow(2, 'Hộ mệnh 2')}
+      <p class="dim small">Hộ mệnh không đánh nhưng trang bị của chúng cộng ${Math.round(PET_BENCH_BUFF * 100)}% thuộc tính vào nhân vật. 3 con tương sinh (Kim→Thủy→Mộc→Hỏa→Thổ) hoặc đồng hệ tạo trận pháp.</p></div>
     <h3>Trang bị cho Đồng hành <small>cộng ${Math.round(PET_EQ_BUFF * 100)}% thuộc tính vào nhân vật</small></h3>
     <div class="eqgrid">${slots}</div>
-    <p class="dim small">Chạm ô trống để gắn món trong hành trang; chạm món đang gắn để xem/tháo. Đồng hành tương khắc hệ quái: +25% sát thương (⚡). Ra trận, Đồng hành tự đi nhặt đồ auto theo bộ lọc ở thẻ Hành trang thay nhân vật.</p>`
-    : '<p class="desc">Chưa chọn loài Đồng hành — chọn một loài bên dưới (đổi loài vẫn giữ cấp và trang bị).</p>';
-  el.innerHTML = `<h3>Đồng hành</h3>${body}<h3>Chọn loài <small>theo hệ ngũ hành</small></h3>${groups}`;
+    <p class="dim small">Chạm ô trống để gắn món trong hành trang; chạm món đang gắn để xem/tháo. Đồng hành tương khắc hệ quái: +25% sát thương (⚡). Ra trận, Đồng hành tự đi nhặt đồ auto theo bộ lọc ở thẻ Hành trang thay nhân vật.</p>
+    <div class="card lootf">
+      <label><input type="checkbox" id="cAutoPet" ${S.autoPet === false ? '' : 'checked'}> Tự gắn đồ tốt hơn cho Đồng hành (mỗi 30 giây)</label>
+      <label><input type="checkbox" id="cPetElem" ${r.petF.elemOnly ? 'checked' : ''}> Chỉ giữ đồ cùng hệ <b style="color:${SERIES_COL[st.elem]}">${SERIES[st.elem]}</b> cho Đồng hành (bỏ chọn = giữ mọi hệ)</label></div>
+    <h3>Ngũ Hành Bí Cảnh <small>hạ ${REALM_KILLS} quái đúng hệ → Huyền Tinh + lượng + Vỏ Sò</small></h3>
+    <div class="btnrow">${realmBtns}</div>
+    <p class="dim small">Trong bí cảnh mọi quái đều thuộc hệ đã chọn (dễ khai thác tương khắc), mỗi quái 25% rớt Huyền Tinh. Xong một cửa nghỉ ${Math.round(REALM_CD / 60)} phút.</p>
+    <div class="btnrow"><button class="btn" id="pForge">Đúc Thú Bội · 30 Huyền Tinh ${petForgeCost().tier} + ${fmt(petForgeCost().gold)} lượng</button>
+      <button class="btn" id="pCodex">Bách khoa Đồng hành</button></div>
+    <p class="dim small">Thú Bội: món 4 dòng hệ Đồng hành, chỉ nó mặc được (nhân vật không mặc được).</p>`
+    : '<p class="desc">Chưa chọn loài Đồng hành — chọn một loài bên dưới (mỗi loài là một con riêng, lên cấp riêng).</p>';
+  el.innerHTML = `<h3>Đồng hành <small>${Object.keys(r.pets).length} loài sở hữu</small></h3>${body}<h3>Chọn loài <small>theo hệ ngũ hành — mỗi loài một con riêng</small></h3>${groups}`;
   el.querySelectorAll('[data-pslot]').forEach(b => b.onclick = () => {
     const k = b.dataset.pslot, it = p && p.eq && p.eq[k];
     if (it) petItemModal(it, k); else petPickModal(k);
   });
   el.querySelectorAll('#t-pet .petpick [data-p]').forEach(x => x.onclick = () => petAdopt(+x.dataset.p));
+  el.querySelectorAll('[data-team]').forEach(s => s.onchange = () => teamSet(+s.dataset.team, s.value || null));
+  const q = id => el.querySelector(id);
+  if (q('#pEvo')) q('#pEvo').onclick = () => petEvolve();
+  if (q('#pFeedSo')) q('#pFeedSo').onclick = () => petFeed('so');
+  if (q('#pFeedFd')) q('#pFeedFd').onclick = () => petFeed('fd');
+  if (q('#pForge')) q('#pForge').onclick = () => { const it = petForgeItem(); if (it) refresh(); };
+  if (q('#pCodex')) q('#pCodex').onclick = () => codexModal('pet');
+  if (q('#cAutoPet')) q('#cAutoPet').onchange = e => { S.autoPet = e.target.checked; if (S.autoPet) petAutoEquip(); save(); renderPet(); };
+  if (q('#cPetElem')) q('#cPetElem').onchange = e => { r.petF.elemOnly = e.target.checked ? 1 : 0; save(); renderPet(); };
+  el.querySelectorAll('[data-realm]').forEach(b => b.onclick = () => petRealmEnter(+b.dataset.realm));
 }
 
 /* ---------- 9. su kien theo mua (theo thang hien tai) ---------- */
@@ -624,6 +887,7 @@ export function claimWelcome() {
 export function rwOnKill(e) {
   if (!S.fac) return;
   const r = RW(); r.stat.kills++; questTick('kills');
+  petRealmOnKill(e);
   if (e.cls === 'boss') { r.stat.bosses++; questTick('bosses'); }
   if (e.goldBoss) { r.stat.goldBoss++; grant({ set: 1, fd: 10 }, 'Hạ Trùm Hoàng Kim'); }
   if (Math.random() < 0.05) { r.stat.tokens++; const ev = eventNow(); addText(e.x, e.y - 50, '+1 ' + ev.token, ev.col, 11); }
