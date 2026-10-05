@@ -82,6 +82,9 @@ export const STAGES = ZONES.length * ZONE_STAGES;
 /* ---------- trang bi ---------- */
 export const SLOTS = [['weapon', 'Vũ khí'], ['armor', 'Áo'], ['helm', 'Mũ'], ['belt', 'Đai lưng'], ['boot', 'Giày'], ['cuff', 'Hộ uyển'],
   ['amulet', 'Dây chuyền'], ['ring1', 'Nhẫn 1'], ['ring2', 'Nhẫn 2'], ['pendant', 'Ngọc bội'], ['horse', 'Ngựa']];
+/* Dong hanh mang dung bo o giong nhan vat, CHI THIEU Ngua */
+export const PET_SLOTS = SLOTS.filter(([k]) => k !== 'horse');
+export const PET_SLOT_KEYS = PET_SLOTS.map(([k]) => k);
 export const SLOT_VI = Object.fromEntries(SLOTS);
 export const DETAIL_SLOT = ['weapon', 'weapon', 'armor', 'ring', 'amulet', 'boot', 'belt', 'helm', 'cuff', 'pendant', 'horse']; // theo equip_detail
 export const MELEE_KIND = ['sword', 'blade', 'wand', 'spear', 'hammer', 'dualblades'], RANGE_KIND = ['darts', 'knife', 'crossbow'];
