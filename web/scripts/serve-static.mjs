@@ -20,5 +20,6 @@ createServer((req, res) => {
   if (!existsSync(file) && existsSync(join(file, 'index.html'))) file = join(file, 'index.html');
   if (!existsSync(file) || !statSync(file).isFile()) { res.statusCode = 404; return res.end('404'); }
   res.setHeader('Content-Type', MIME[extname(file).toLowerCase()] || 'application/octet-stream');
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');   // dev: bao luon lay ban moi, tranh index/chunk cu trong cache
   createReadStream(file).pipe(res);
 }).listen(PORT, () => console.log(`[serve-static] ${ROOT} -> http://localhost:${PORT}`));

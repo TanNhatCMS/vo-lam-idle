@@ -45,22 +45,23 @@ export const WB_LIFE = numArg('wbl', 1200);
 export const WB_MIN_LV = 10;
 const WB_HP_X = 3, WB_DMG_X = 1.15, WB_EXIT_T = 60, WB_WAIT_MAX = 12, SO_MIN = 8, SO_MAX = 15, SO_FIRST_DAY = 5;
 // WB_EXIT_T: sau khi hạ boss được ở lại 60s nhặt đồ (hết 60s còn đồ mới thì gia hạn tối đa WB_WAIT_MAX); WB_LIFE: mỗi lần vào bí cảnh có bấy nhiêu giây để hạ boss, hết là rút lui
-const WB_MAP = 'town';                                    // bí cảnh dùng lại bản đồ Thành phố (Biện Kinh) — W.town
+const WB_MAP = 224;                                       // bí cảnh dùng lại map 224 "Sa mạc địa biểu" — sa mạc KHÔNG cây (user yêu cầu đổi map)
+const WBZ = W.zones.find(z => z.id === WB_MAP) || W.zones[0];
 let wbBgWarmed = false;
 /* Điểm vào bí cảnh: dữ liệu vật cản không biết cây trang trí -> quét pixel ảnh nền quanh tâm,
    chọn ô ÍT MÀU XANH LÁ nhất (đá/sân) mà vẫn thoáng va chạm — tránh "xuất hiện trong lùm cây". */
 function wbEntrySpot(): [number, number] {
   const D: any = DEV ? (window as any).__WB_ENTRY_DIAG = { steps: [] } : null;
   try {
-    const bg = img(W.town.bg);
+    const bg = img(WBZ.bg);
     if (D) D.steps.push({ bg: !!bg, complete: !!(bg && bg.complete), w: bg ? bg.naturalWidth : 0 });
     if (bg && bg.complete && bg.naturalWidth >= 128) {
-      const A = bg.naturalWidth, W2 = WORLD.w, C = document.createElement('canvas');
+      const A = bg.naturalWidth, W2 = WORLD.w, scale = W2 ? A / W2 : 1, C = document.createElement('canvas');
       C.width = 64; C.height = 64;
       const g = C.getContext('2d', { willReadFrequently: true });
       if (D) { D.steps.push({ ctx: !!g }); }
       const greenRatio = (wx, wy) => {                                   // tỉ lệ pixel xanh lá (cây/cỏ) quanh (wx,wy)
-        const mx = Math.round(wx < W2 / 2 ? wx : W2 - wx), my = Math.round(wy < W2 / 2 ? wy : W2 - wy);   // nền 2x2 lat guong
+        const mx = Math.round((wx < W2 / 2 ? wx : W2 - wx) * scale), my = Math.round((wy < W2 / 2 ? wy : W2 - wy) * scale);   // nen 2x2 lat guong (hoac 1:1 neu anh bang kich thuoc the gioi)
         g.clearRect(0, 0, 64, 64);
         g.drawImage(bg, clamp(mx - 32, 0, A - 64), clamp(my - 32, 0, A - 64), 64, 64, 0, 0, 64, 64);
         const d = g.getImageData(0, 0, 64, 64).data; let green = 0, n = 0;
@@ -95,7 +96,7 @@ function wb() {                                           // trạng thái lưu:
 /* ---------- vòng đời ---------- */
 export function wbTick(dt) {
   if (!S || !S.fac) return;
-  if (!wbBgWarmed) { wbBgWarmed = true; try { img(W.town.bg); } catch (e) { /* bỏ qua */ } }   // nạp sớm ảnh nền cho wbEntrySpot (không đặt cấp module: vấp TDZ vòng import tròn)
+  if (!wbBgWarmed) { wbBgWarmed = true; try { img(WBZ.bg); } catch (e) { /* bỏ qua */ } }   // nạp sớm ảnh nền cho wbEntrySpot (không đặt cấp module: vấp TDZ vòng import tròn)
   const w = wb();
   if (R.wbArena) {
     if (R.wbExitT > 0) {
@@ -158,7 +159,7 @@ export function goBossArena() {
   obsLoad(WB_MAP);
   { const [hx, hy] = wbEntrySpot(); H.x = hx; H.y = hy; }   // điểm vào sân đá thoáng, không lùm cây
   snapCamera();
-  R.bgImg = img(W.town.bg); playMusic(W.town.id);
+  R.bgImg = img(WBZ.bg); playMusic(WBZ.id);
   if (!R.wbE) {                                           // lần đầu trong phiên: tạo boss; vào lại sau khi gục → giữ HP cũ
     const a = rnd(0, Math.PI * 2), [bx, by] = obsOpenNear(H.x + Math.cos(a) * 180, H.y + Math.sin(a) * 180, 34);   // boss bán kính 30: cần khoảng trống đủ rộng
     const e = makeEnemy(w.up.tid, w.up.L, 'boss', bx, by);
