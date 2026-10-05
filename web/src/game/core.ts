@@ -45,6 +45,31 @@ export const PTS_PER_LEVEL = 5, SKILL_PTS_PER_LEVEL = 1, MAX_LEVEL = Math.min(99
 export const PET_EQ_BUFF = 0.5, PET_GEAR_POWER = 0.35, PET_LV = 20;
 /* He ngu hanh -> nguyen to sat thuong (giong enemyHit trong combat.ts): Kim vat ly, Moc doc, Thuy bang, Hoa hoa, Tho loi */
 export const SERIES_ELEM = ['phys', 'poison', 'cold', 'fire', 'light'];
+/* Mo rong pet (docs/PET-MO-RONG.md): doi hinh 3 con + tran phap, pham chat sao, ky nang, bi canh, duc Thu Boi */
+export const SINH = { 0: 2, 2: 1, 1: 3, 3: 4, 4: 0 };            // a sinh b: Kim sinh Thuy, Thuy sinh Moc, Moc sinh Hoa, Hoa sinh Tho, Tho sinh Kim
+export const PET_BENCH_BUFF = 0.25, TEAM_CHAIN_PCT = 5, TEAM_SAME_ATK = 15;
+export const STAR_MAX = 4, STAR_ATK_PCT = 12;
+export const STAR_NAMES = ['Thường', 'Lương', 'Thượng', 'Trân', 'Hoàn Mỹ'];
+export const STAR_REQ_LV = [20, 40, 60, 80];
+export const STAR_COST = [{ ht: '2', n: 20, gold: 5000 }, { ht: '3', n: 40, gold: 15000 }, { ht: '4', n: 80, gold: 40000 }, { ht: '5', n: 160, gold: 100000 }];
+export const PET_SKILL_CD = 30, PET_SKILL_RAD = 140, PET_SKILL_MAX = 3;
+export const PET_SKILL_NAMES = ['Kim Phong Trảm', 'Mộc Linh Thuật', 'Băng Lăng Thứ', 'Liệt Viêm Chưởng', 'Thổ Long Phá'];
+export const REALM_KILLS = 30, REALM_CD = 300, REALM_HT_CHANCE = 0.25;
+export const FD_LEVEL_COST = 8;
+export const soLevelCost = lvl => 5 + Math.floor((lvl || 1) / 10);
+/* He cua loai: he troi cua vung xuat hien dau tien (sw lech); vung can bang -> gan theo loai */
+const PET_ELEM_CACHE = {};
+export function petElemOf(tid) {
+  if (PET_ELEM_CACHE[tid] != null) return PET_ELEM_CACHE[tid];
+  let e = -1;
+  for (const z of ZONES) {
+    if (!z.m || z.m.indexOf(tid) < 0) continue;
+    const sw = z.sw, mx = Math.max.apply(null, sw), mn = Math.min.apply(null, sw);
+    if (mx > mn) { e = sw.indexOf(mx); break; }
+  }
+  if (e < 0) e = ((tid % 5) + 5) % 5;
+  return (PET_ELEM_CACHE[tid] = e);
+}
 
 /* ---------- thuoc tinh ma thuat ---------- */
 const ATTR_ID = Object.fromEntries((J.attr || []).map((n, i) => [n, i]));

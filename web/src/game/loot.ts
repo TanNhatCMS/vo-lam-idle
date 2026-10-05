@@ -182,7 +182,7 @@ export function dropToGround(it, at) {
   const a = rnd(0, Math.PI * 2), d = rnd(10, 26);
   const [x, y] = inWorld(at.x + Math.cos(a) * d, at.y + Math.sin(a) * d);
   R.ground.push({ it, x, y, age: 0 });
-  if (R.ground.length > GROUND_MAX) { let i = R.ground.findIndex(d => !d.it.set && !d.it.vio && !d.it.plv); if (i < 0) i = 0; const old = R.ground.splice(i, 1)[0]; S.gold += itemValue(old.it); } // qua nhieu: mon cu nhat tu ban (khong ban do bo / Tim / Bach Kim neu con mon khac)
+  if (R.ground.length > GROUND_MAX) { let i = R.ground.findIndex(d => !d.it.set && !d.it.vio && !d.it.plv && !d.it.petOnly); if (i < 0) i = 0; const old = R.ground.splice(i, 1)[0]; S.gold += itemValue(old.it); } // qua nhieu: mon cu nhat tu ban (khong ban do bo / Tim / Bach Kim neu con mon khac)
   if (!R.quiet) uiSfx(it.d <= 1 ? 'dropWeapon' : it.d === 2 || it.d === 7 ? 'dropCloth' : 'dropOther');
   if (it.r >= 2 && !R.quiet) log(`Rơi xuống đất: <span style="color:${RAR_COL[it.r]}">${esc(it.n)}</span>`);
 }
@@ -191,7 +191,7 @@ export function dropToGround(it, at) {
 export function makeRoom(it, force) {
   let worst = null;
   // khong bo mon Tim dang kham do (vio) va Bach Kim da thang cap (plv) khi nhet do moi; mon trang goc van co the bi bo (kham ngay sau khi mua)
-  for (const x of S.inv) if (!x.set && !x.vio && !x.plv && (!worst || itemPower(x) < itemPower(worst))) worst = x;
+  for (const x of S.inv) if (!x.set && !x.vio && !x.plv && !x.petOnly && (!worst || itemPower(x) < itemPower(worst))) worst = x;
   if (!worst || (!force && itemPower(worst) >= itemPower(it))) return false;
   S.gold += itemValue(worst); S.inv.splice(S.inv.indexOf(worst), 1); setInvDirty(true);
   return true;
@@ -226,7 +226,10 @@ export function updateGround(dt) {
      — theo dung cai dat bo loc (auto / cho het quai / luon di nhat), khong doi luat nhat. */
   if (target !== R.pickTarget && petActive() && R.petPos) {
     R.petLoot = target;
-    if (Math.hypot(target.x - R.petPos.x, target.y - R.petPos.y) <= PICK_R) { R.petLoot = null; pickUp(target, true); }
+    if (Math.hypot(target.x - R.petPos.x, target.y - R.petPos.y) <= PICK_R) {
+      R.petLoot = null;
+      if (!pickUp(target, true) && (R.petFullT = (R.petFullT || 0) - 1) <= 0) { R.petFullT = 300; toast('Túi đầy — Đồng hành không nhặt được đồ'); }
+    }
     return true;
   }
   R.petLoot = null;
@@ -234,6 +237,12 @@ export function updateGround(dt) {
   if (dist <= PICK_R) { pickUp(target, true); return true; }
   obsSteer(H, target.x, target.y, 170 * (R.P ? R.P.speed : 1) * dt); H.face = target.x >= H.x ? 1 : -1;
   return true;
+}
+/* Lay HET do tren dat ve tui (nut o the Hanh trang); het cho thi dung */
+export function pickAllGround() {
+  let n = 0;
+  for (const d of R.ground.slice()) { if (!pickUp(d, true)) break; n++; }
+  return n;
 }
 export function groundAt(x, y) {
   let best = null, bd = 30;

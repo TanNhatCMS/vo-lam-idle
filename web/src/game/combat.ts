@@ -44,6 +44,10 @@ import {
   RW,
   goldBossDue,
   goldBossTick,
+  petAutoEquip,
+  petRealmAbort,
+  petRealmActive,
+  petRealmSpawn,
   petTick,
   questTick,
   rebornBonus,
@@ -103,6 +107,7 @@ export function makeEnemy(tid, L, cls, x, y) {
     ranged: Math.random() < 0.2 && cls !== 'boss', stun: 0, poison: 0, poisonDmg: 0, hitT: 0, face: 1 };
 }
 function spawnWave() {
+  if (R.petRealm) { petRealmSpawn(); return; }             // Bi canh Ngu Hanh: quai ep he, khong sinh theo vung
   R.enemies = []; R.stall = 0;
   const z = zoneOf(S.stage), L = stageLevel(S.stage);
   // quai xuat hien quanh nhan vat (ngoai tam nhin mot chut) roi tien lai
@@ -253,7 +258,7 @@ function enemyAI(e, dt) {
 }
 export function tick(dt) {
   obsFrame();
-  if ((R.sweepT = (R.sweepT || 0) + dt) > 30) { R.sweepT = 0; autoEquipAll(); sweepJunk(); autoBuyWeapon(); autoForge(); checkHints(); }
+  if ((R.sweepT = (R.sweepT || 0) + dt) > 30) { R.sweepT = 0; autoEquipAll(); petAutoEquip(); sweepJunk(); autoBuyWeapon(); autoForge(); checkHints(); }
   if (R.dirty) recalc();
   const P = R.P;
   if (R.deadT > 0) { R.deadT -= dt; if (R.deadT <= 0) { R.life = P.life; R.mana = P.mana; S.wave = 1; if (R.wbArena) backFromBossArena(); else spawnWave(); } return; }
@@ -343,6 +348,7 @@ function waveCleared() {
 }
 function heroDeath() {
   if (R.enemies.some(e => e.goldBoss && !e.dead)) RW().gbT = GB_RETRY;   // thua trum Hoang Kim: 5 phut sau quay lai
+  petRealmAbort(true);                                   // guc trong bi canh: roi ra, khong mat cooldown
   R.deadT = 3; R.life = 0; R.enemies = [];
   log('<span class="bad">Bạn đã trọng thương.</span>');
   if (R.tower) { towerExit(true); return; }               // gục trong thap: roi thap, khong lui ai

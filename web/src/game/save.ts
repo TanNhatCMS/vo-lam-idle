@@ -14,7 +14,7 @@ import {
 } from './core';
 import { moneyDrop, rollDrops, saveGround } from './loot';
 import { mats } from './recipes';
-import { offlineChests } from './rewards';
+import { offlineChests, petAutoEquip } from './rewards';
 import { potStock } from './shop';
 import { sexReqOkFor } from './stats';
 import { addItem, autoEquipAll, sweepJunk } from './ui';
@@ -81,10 +81,14 @@ function migrate(o) {
   s.rw = o.rw && typeof o.rw === 'object' ? o.rw : {};    // phan thuong: file cu chua co -> RW() tu dien mac dinh
   // Dong hanh: o trang bi (save cu chua co) — chi giu mon hop le (co base/mag, khong phai ngua d 10)
   s.rw.pet = s.rw.pet && typeof s.rw.pet === 'object' ? s.rw.pet : null;
-  /* Dong hanh: chuan hoa o trang bi — save cu co the dung key petW/petA/petJ (3 o) doi sang
-     bo 10 o giong nhan vat (weapon/armor/...); mon sai o (Ngua d10, item hong) bi loai. */
-  if (s.rw.pet) {
-    const eq0 = s.rw.pet.eq && typeof s.rw.pet.eq === 'object' ? s.rw.pet.eq : {}, fixed = {};
+  /* Dong hanh: chuan hoa o trang bi cua MOI con trong roster — save cu co the dung key petW/petA/petJ
+     (3 o) doi sang bo 10 o giong nhan vat (weapon/armor/...); mon sai o (Ngua d10, item hong) bi loai. */
+  s.rw.pets = s.rw.pets && typeof s.rw.pets === 'object' ? s.rw.pets : {};
+  if (s.rw.pet && typeof s.rw.pet === 'object' && !s.rw.pets[s.rw.pet.tid]) s.rw.pets[s.rw.pet.tid] = s.rw.pet;   // save cu 1 pet -> roster (cung tham chieu)
+  for (const tid of Object.keys(s.rw.pets)) {
+    const p = s.rw.pets[tid];
+    if (!p || typeof p !== 'object') { delete s.rw.pets[tid]; continue; }
+    const eq0 = p.eq && typeof p.eq === 'object' ? p.eq : {}, fixed = {};
     for (const k of Object.keys(eq0)) {
       const it = eq0[k]; if (!it || !Array.isArray(it.base) || !Array.isArray(it.mag) || !(it.d >= 0 && it.d <= 9)) continue;
       let key = k;
@@ -92,14 +96,15 @@ function migrate(o) {
       if (!PET_SLOT_KEYS.includes(key)) continue;
       if (!fixed[key]) fixed[key] = it;              // 2 mon cung o (hiem): giu mon dau
     }
-    s.rw.pet.eq = fixed;
+    p.eq = fixed;
   }
+  if (s.rw.pet) s.rw.pet = s.rw.pets[s.rw.pet.tid] || s.rw.pet;   // rw.pet tro dung vao roster
   s.lvl = clamp(Math.floor(+s.lvl) || 1, 1, MAX_LEVEL); s.xp = Math.max(0, +s.xp || 0);
   s.gold = Number.isFinite(+s.gold) ? Math.max(0, +s.gold) : 0; s.skPts = Math.max(0, Math.floor(+s.skPts) || 0); s.attrPts = Math.max(0, Math.floor(+s.attrPts) || 0);
   s.inv = (Array.isArray(s.inv) ? s.inv : []).filter(it => it && typeof it === 'object' && Array.isArray(it.base) && Array.isArray(it.mag)).slice(0, INV_MAX);
-  const petEq = (s.rw.pet && s.rw.pet.eq) || {};
+  const petEq = [].concat(...Object.values(s.rw.pets || {}).map(p => Object.values((p && p.eq) || {})));
   let maxUid = 0; for (const it of s.inv.concat(Object.values(s.eq || {}), Object.values(petEq))) if (it && it.uid > maxUid) maxUid = it.uid; s.uid = Math.max(+s.uid || 1, maxUid + 1);
-  { const seen = new Set(); const dedupe = it => { if (seen.has(it.uid)) { it.uid = s.uid++; } seen.add(it.uid); }; s.inv.forEach(dedupe); Object.values(petEq).forEach(dedupe); }   // uid trung (nhap ma sua tay): cap lai
+  { const seen = new Set(); const dedupe = it => { if (seen.has(it.uid)) { it.uid = s.uid++; } seen.add(it.uid); }; s.inv.forEach(dedupe); petEq.forEach(dedupe); }   // uid trung (nhap ma sua tay): cap lai
   s.diff = [0, 1, 2].includes(+o.diff) ? +o.diff : 1; s.hints = o.hints && typeof o.hints === 'object' ? o.hints : {};
   if (s.fac) s.sex = FEMALE_FAC.includes(s.fac) ? 1 : 0;         // gioi tinh theo phai (file luu cu mac dinh 0 -> phai nu mac nham do nam)
   const wrongSex = k => s.eq[k] && !sexReqOkFor(s.eq[k], s.sex);
@@ -227,7 +232,7 @@ export function offlineGains() {
     if (!it) continue;
     if (addItem(it, true)) got++; else sold++;
   }
-  autoEquipAll(); sweepJunk(); autoBuyWeapon(); autoForge();
+  autoEquipAll(); petAutoEquip(); sweepJunk(); autoBuyWeapon(); autoForge();
   const chests = offlineChests(secs);                       // rương tu luyen theo moc 1 / 4 / 8 gio (rewards.js)
   return { secs, kills, xp, gold, lv0, lv1: S.lvl, got, sold, chests };
 }

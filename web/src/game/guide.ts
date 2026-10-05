@@ -8,6 +8,7 @@ import {
   INV_MAX,
   J,
   MON,
+  petElemOf,
   SERIES,
   SERIES_COL,
   SK,
@@ -19,7 +20,7 @@ import {
 } from './core';
 import { htModal } from './forge';
 import { DROP, PLAT_MAKE, fuseCost, matHave, mats, reqOfRow } from './recipes';
-import { giftModal, giftPending } from './rewards';
+import { giftModal, giftPending, petCodexClaim } from './rewards';
 import { S, save } from './save';
 import { autoSpendSkills, calc, canLearn, power, sexReqOk } from './stats';
 import {
@@ -173,7 +174,7 @@ export function suggestModal() {
 let codexTab = 'zone';
 export function codexModal(tab) {
   if (tab) codexTab = tab;
-  const tabs = [['zone', 'Vùng và quái'], ['set', 'Bộ Hoàng Kim'], ['mat', 'Nguyên liệu rèn']];
+  const tabs = [['zone', 'Vùng và quái'], ['set', 'Bộ Hoàng Kim'], ['mat', 'Nguyên liệu rèn'], ['pet', 'Đồng hành']];
   let body = '';
   if (codexTab === 'zone') {
     body = ZONES.map((z, i) => { const open = S.maxStage >= i * ZONE_STAGES + 1, nm = z.m.filter(t => MON[t]).map(t => esc(MON[t].n)).join(', ');
@@ -184,6 +185,18 @@ export function codexModal(tab) {
     const list = [...groups.values()].sort((a, b) => reqOfRow(a[0], 36) - reqOfRow(b[0], 36));
     body = `<p class="desc">Bộ Hoàng Kim của phái bạn (${list.length} bộ). Mặc đủ số món của một bộ sẽ mở hết dòng ẩn của mọi trang bị. Bạch Kim chế từ 2 món Hoàng Kim giống nhau.</p>` +
       list.map(g => { const r0 = g[0], need = r0.n2 || 99; return `<div class="card"><b>${esc(r0.n.split(' ').slice(0, 2).join(' '))}…</b> <small class="dim">cấp ${reqOfRow(r0, 36)} · ${g.length} món · đủ ${need} món mở dòng ẩn</small><br><small class="dim">${g.map(r => esc(r.n)).join(' · ')}</small></div>`; }).join('') || '<p class="dim">Không có.</p>';
+  } else if (codexTab === 'pet') {
+    const seen = (S.rw && S.rw.petSeen) || {}, got = (S.rw && S.rw.codexPet) || {}, groups = [[], [], [], [], []];
+    let total = 0, have = 0;
+    for (const tid in MON) { if (!MON[tid].anim) continue; total++; groups[petElemOf(+tid)].push(+tid); }
+    have = Object.keys(seen).filter(t => MON[t] && MON[t].anim).length;
+    body = `<p class="desc">Đã gặp <b>${have}/${total}</b> loài (gặp = từng dẫn làm Đồng hành). Đủ bộ loài của một hệ → nhận 10 Phúc Duyên.</p>` +
+      SERIES.map((nm, e) => {
+        const list = groups[e], s = list.filter(t => seen[t]).length, done = list.length > 0 && s === list.length;
+        return `<div class="card"><b style="color:${SERIES_COL[e]}">Hệ ${nm}</b> <small class="dim">${s}/${list.length}${done ? (got[e] ? ' · đã nhận thưởng' : ' · <b style="color:#ffb52e">đủ bộ!</b>') : ''}</small>
+          ${done && !got[e] ? `<div class="btnrow"><button class="btn sm" data-cx="${e}">Nhận 10 Phúc Duyên</button></div>` : ''}
+          <small>${list.map(t => `${seen[t] ? '<b style="color:#8fe08a">✔</b>' : '·'} ${esc(MON[t].n)}`).join(' · ') || '<span class="dim">—</span>'}</small></div>`;
+      }).join('');
   } else {
     const d = k => `${Math.round(DROP[k].boss * 1000) / 10}% trùm · ${Math.round(DROP[k].elite * 1000) / 10}% tinh anh · ${Math.round(DROP[k].normal * 10000) / 100}% quái thường`;
     body = `<div class="card"><b>Chuỗi rèn</b><br><small>Tím: hợp Huyền Tinh (3 nhẫn / dây chuyền / ngọc bội, ${fmt(fuseCost())} lượng) → thăng cấp (3 viên cùng cấp → 1, rủi ro 2/11) → khảm 6 dòng (đúng hệ, thất bại 5%).<br>Hoàng Kim: gom mảnh từ trùm (9 / 6 / 4 mảnh) ghép thành món bộ.<br>Bạch Kim: 2 Hoàng Kim giống nhau + Thủy Tinh Trắng + Thần Bí Khoáng Thạch (${PLAT_MAKE.rate}% thành công), rồi thăng +1…+10.</small></div>
@@ -194,5 +207,6 @@ export function codexModal(tab) {
   }
   modal(`<h3>Bách khoa</h3><div class="dtabs">${tabs.map(([k, n]) => `<button data-c="${k}" class="${k === codexTab ? 'on' : ''}">${n}</button>`).join('')}</div><div class="codex">${body}</div>`, () => {
     document.querySelectorAll('#mBody .dtabs [data-c]').forEach(b => b.onclick = () => codexModal(b.dataset.c));
+    document.querySelectorAll('#mBody [data-cx]').forEach(b => b.onclick = () => petCodexClaim(+b.dataset.cx));
   });
 }
