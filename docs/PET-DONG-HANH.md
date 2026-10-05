@@ -102,6 +102,7 @@ Vì trang bị pet đi qua `calc()`, `equipCompare`/`power`/`autoEquipAll` của
   - 3 ô trang bị; chạm ô trống → `petPickModal(slot)` (danh sách món trong túi hợp ô, sắp theo sức mạnh); chạm món đang gắn → `petItemModal` (xem + Tháo).
   - Nhóm chọn loài theo 5 hệ (`petGrouped()`), đổi loài giữ cấp + trang bị.
 - Tab "Đồng hành" cũ trong hộp 🎁 vẫn còn, chỉ trỏ sang tab mới để tránh nhầm.
+- **Thẻ Hành trang:** chi tiết món đồ (món đang trong túi, hợp một ô pet, pet đã mở + đã chọn loài) có thêm nút **"Gắn cho Đồng hành"** — bấm là gắn thẳng vào ô tương ứng (Vuốt/Nanh · Giáp · Bội), không cần mở tab Đồng hành. Món không hợp (vd Ngựa `d 10`) hoặc chưa có pet thì nút không hiện.
 
 ## 7. Chống nuốt đồ
 
@@ -165,6 +166,7 @@ Nguyên tắc: **không tạo module mới** (đặt logic pet trong `rewards.ts
 | T10 | `typecheck` + `build` + E2E | ✅ |
 | T11 | Tài liệu spec/plan/task | ✅ |
 | T12 | Pet đi nhặt đồ auto thay nhân vật (`updateGround`/`petTick`/`combat`) | ✅ |
+| T13 | Nút "Gắn cho Đồng hành" trong chi tiết đồ ở thẻ Hành trang (khi khả dụng) | ✅ |
 
 ## C.2 Lệnh kiểm tra tĩnh
 
