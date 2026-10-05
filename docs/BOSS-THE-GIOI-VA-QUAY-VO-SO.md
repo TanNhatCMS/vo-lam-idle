@@ -12,7 +12,7 @@
 | 1 | Chu kỳ boss | **20 phút THỜI GIAN THỰC** (mốc epoch `wb.next`, không theo thời gian chơi) — tới giờ là ra kể cả đang ở thành/tháp/luyện công hay vừa mở lại app. Nhân vật mới: con đầu sau **5 phút** (`WB_FIRST`). |
 | 2 | Boss sống bao lâu | **Mỗi lần vào bí cảnh có trọn `WB_LIFE` = 20 phút để hạ boss** (đồng hồ chạy liên tục, hiện trên HUD; vào lại là đầy lại). Hết giờ boss rút lui. Spawn mới bị chặn khi boss cũ chưa được giải quyết. |
 | 3 | Boss qua phiên | **Sống qua phiên**: `up` lưu trong save — mở lại app vẫn thấy boss đang chờ (mốc thực chưa trôi qua thì chưa hẹn con mới). |
-| 4 | Map arena | Dùng lại **bản đồ Thành phố (Biện Kinh)** — `WB_MAP = 'town'` (obs + bg + nhạc của `W.town`). |
+| 4 | Map arena | **Map 224 "Sa mạc địa biểu"** (`WB_MAP = 224`) — đo mật độ pixel xanh toàn ảnh = 0% nên không thể kẹt lùm cây (map Thành phố bị bỏ vì cây trang trí không có trong dữ liệu va chạm, user vẫn thấy kẹt). |
 | 5 | Vỏ Sò | Per nhân vật, lưu `RW().so` (không qua Kho chung). |
 | 6 | Pity | 25 quay chưa trúng Tím+ → lượt thứ 25 ép rơi từ nhóm Tím+. |
 | 7 | Popup | **Không khóa màn**. Đang mở modal khác → chỉ banner + log + toast + chip nhấp nháy. |
@@ -27,7 +27,7 @@ const WB_LIFE    = 1200;  // mỗi lần vào bí cảnh có 20 phút để hạ
 const WB_HP_X    = 3;     // HP nhân trên khuôn 'boss' (Trùm Hoàng Kim nhân 2)
 const WB_DMG_X   = 1.15;  // sát thương nhân
 const WB_MIN_LV  = 10;
-const WB_MAP = 'town';    // bí cảnh dùng lại bản đồ Thành phố (Biện Kinh) — obs/bg/nhạc của W.town
+const WB_MAP = 224;       // bí cảnh dùng lại map 224 "Sa mạc địa biểu" — obs/bg/nhạc của WBZ (W.zones)
 const WB_EXIT_T  = 2;     // s đứng thưởng tối thiểu sau khi hạ boss (chờ nhặt hết đồ MỚI rơi rồi mới rời, gia hạn tối đa WB_WAIT_MAX = 12s)
 const SO_MIN = 8, SO_MAX = 15;      // vỏ sò khi hạ boss
 const SO_FIRST_DAY = 5;             // thưởng con đầu tiên mỗi ngày
@@ -94,7 +94,7 @@ Hạ để nhận Vỏ Sò — quay thưởng ở nút 🎁.
 
 ### 2.4 Arena (khuôn goTown/backFromTown — control.ts:129-145)
 
-`goBossArena()` (từ popup hoặc chip): yêu cầu `S.fac && wb.up`. `R.town = false; R.wbArena = true; R.enemies = []; R.corpses = []`; `obsLoad(WB_MAP)`; `H` về `wbEntrySpot()` — **điểm vào sân đá cổng chùa**: quét pixel ảnh nền thành (canvas 64×64, mirror 2×2, dải phía bắc tâm), chọn điểm **ít màu xanh lá nhất** mà vẫn qua `obsOpen(…, 14)` (dữ liệu vật cản không biết cây trang trí — chỉ thoáng va-chạm thì vẫn "xuất hiện trong lùm cây"); không đọc được ảnh → `obsOpenNear(…, 14)`. Ảnh nền nạp ấm ở tick đầu (`wbBgWarmed` — **không đặt `img()` ở cấp module: vấp TDZ vòng import tròn, app trắng trang**). `snapCamera()`; `R.bgImg = img(W.town.bg)`; `playMusic(W.town.id)`; banner "Bí Cảnh Boss Thế Giới"; `uiBump()`; đặt `R.wbLastHp = R.wbE.hp; R.wbIdle = 0` (mới đánh thì không tính giờ rút lui). Nếu chưa có `R.wbE` (lần đầu vào trong phiên): tạo boss tại `obsOpenNear(gần điểm vào, bán kính 34)` (boss r=30 cần khoảng trống rộng — fix bug "kẹt với cây" do obsSnap cũ chỉ đảm bảo tâm); `makeEnemy(tid, L, 'boss', …)` rồi `hp = max = max * WB_HP_X; dmg *= WB_DMG_X; n = wb.up.n; wboss = true` — đẩy vào `R.enemies`; `R.wbLife = WB_LIFE`. Vào lại sau khi gục: dùng lại `R.wbE` (HP tiếp diễn), không tạo mới.
+`goBossArena()` (từ popup hoặc chip): yêu cầu `S.fac && wb.up`. `R.town = false; R.wbArena = true; R.enemies = []; R.corpses = []`; `obsLoad(WB_MAP)`; `H` về `wbEntrySpot()` — **điểm vào có ít cây nhất**: quét pixel ảnh nền map (canvas 64×64, mapping `scale = A / WORLD.w` tổng quát — ảnh 1:1 hoặc 2×2 mirror đều đúng), chọn điểm **ít màu xanh lá nhất** mà vẫn qua `obsOpen(…, 14)` (dữ liệu vật cản không biết cây trang trí — chỉ thoáng va-chạm thì vẫn "xuất hiện trong lùm cây"); không đọc được ảnh → `obsOpenNear(…, 14)`. Ảnh nền nạp ấm ở tick đầu (`wbBgWarmed` — **không đặt `img()` ở cấp module: vấp TDZ vòng import tròn, app trắng trang**). `snapCamera()`; `R.bgImg = img(WBZ.bg)`; `playMusic(WBZ.id)`; banner "Bí Cảnh Boss Thế Giới"; `uiBump()`; Nếu chưa có `R.wbE` (lần đầu vào trong phiên): tạo boss tại `obsOpenNear(gần điểm vào, bán kính 34)` (boss r=30 cần khoảng trống rộng — fix bug "kẹt với cây" do obsSnap cũ chỉ đảm bảo tâm); `makeEnemy(tid, L, 'boss', …)` rồi `hp = max = max * WB_HP_X; dmg *= WB_DMG_X; n = wb.up.n; wboss = true` — đẩy vào `R.enemies`; `R.wbLife = WB_LIFE`. Vào lại sau khi gục: dùng lại `R.wbE` (HP tiếp diễn), không tạo mới.
 
 `backFromBossArena()`: `R.wbArena = false; R.enemies = []` (boss nằm lại `R.wbE`); `obsLoad(zoneOf(min(S.stage, STAGES)).id)`; `snapCamera()`; bg/nhạc theo zone; `R.spawnT = 0.5`; banner "Trở lại ải"; `uiBump()`. **Không tốn Thổ Địa Phù, không cooldown.**
 
