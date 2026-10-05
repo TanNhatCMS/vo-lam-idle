@@ -293,6 +293,16 @@ export function petSlotFor(it) { if (!it) return null; for (const k in PET_SLOT_
 export const petUnlocked = () => !!(S && S.fac) && (S.lvl >= PET_LV || (S.rw && S.rw.stat && S.rw.stat.reborn > 0));
 /* Dong hanh dang ra tran (co loai, khong o trong thanh) — dung de giao viec nhat do auto cho pet thay nguoi */
 export const petActive = () => { const p = S && S.rw && S.rw.pet; return !!(p && MON[p.tid] && !R.town); };
+/* Mon trong tui co gan duoc cho Dong hanh khong (dung o + da mo khoa + da chon loai) — de hien nut trong the Hanh trang */
+export function petCanEquip(it) { return !!petSlotFor(it) && petUnlocked() && !!(S.rw && S.rw.pet); }
+/* Gan mot mon trong tui cho Dong hanh (goi tu nut trong chi tiet do o the Hanh trang) */
+export function petEquipItem(it) {
+  const slot = petSlotFor(it); if (!slot) return;
+  if (!petUnlocked()) { toast(`Đồng hành mở khóa ở cấp ${PET_LV}.`); return; }
+  if (!S.rw || !S.rw.pet) { toast('Chọn loài Đồng hành trước (thẻ Đồng hành).'); return; }
+  if (!S.inv.includes(it)) return;
+  petEquip(slot, it);
+}
 /* Tra ve object pet trong file luu, bao dam co o trang bi (mutate tai cho — giu tham chieu nhu wb/so) */
 function petCur() { const r = RW(); if (r.pet && typeof r.pet === 'object' && (!r.pet.eq || typeof r.pet.eq !== 'object')) r.pet.eq = {}; return r.pet; }
 /* He ngu hanh cua loai: lay he chiem uu the cua vung xuat hien dau tien (sw lech han); vung can bang -> gan theo loai */
