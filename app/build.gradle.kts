@@ -92,14 +92,15 @@ dependencies {
 }
 
 // Dong bo phan "code" cua game tu thu muc game/ cua project vao assets cua APK
-// moi lan build. Phan media nang (img, snd, music, fx) KHONG bundle — tai qua OTA
-// tu raw.githubusercontent (xem OtaManager.kt + assets-manifest.json o goc repo).
+// moi lan build. Phan media nang (img, snd, music, fx) + du lieu game JSON (jdata/)
+// KHONG bundle — tai qua OTA tu raw.githubusercontent (xem OtaManager.kt +
+// assets-manifest.json o goc repo; docs/DU-LIEU-MEDIA.md).
 // Khong dong goi sw.js: service worker se bypass asset interceptor (request tu SW
 // khong di qua shouldInterceptRequest) va lam hong viec doc asset local; game dang
 // ky SW kieu fire-and-forget nen file 404 la vo hai.
 val syncGameAssets = tasks.register("syncGameAssets", Copy::class) {
     from(rootDir.resolve("game")) {
-        exclude("img", "snd", "music", "fx")
+        exclude("img", "snd", "music", "fx", "jdata")
         exclude(".gitignore", ".gitattributes", ".assetsignore", "wrangler.jsonc", "README.md", "sw.js")
     }
     into(layout.projectDirectory.dir("src/main/assets/game"))

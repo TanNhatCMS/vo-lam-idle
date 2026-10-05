@@ -1,8 +1,10 @@
-import { JW } from './jw';
-import { JX } from './jx';
+import { JX, JW } from './jdata';
 import { OBS, obsSnap } from './mapobs';
 
-/* ======================= LOI: tien ich, hang so, chi muc du lieu ======================= */
+/* ======================= LOI: tien ich, hang so, chi muc du lieu =======================
+   JX/JW nap tu game/jdata/*.json (goi assets OTA) XONG truoc khi module nay duoc import —
+   app/page.tsx await loadJData() roi moi import App. Cac guard `|| []` / `|| {}` chi de ban
+   build thieu media van khoi dong duoc (thay vi nem loi ngay luc import). */
 'use strict';
 export const J: any = JX, W: any = JW;
 export const $ = s => document.querySelector(s);
@@ -19,7 +21,7 @@ export const escRich = s => esc(s).replace(/&lt;color=([a-z]+)&gt;([\s\S]*?)&lt;
 export function wpick(list, w) { let t = 0; for (const x of list) t += w(x); let r = Math.random() * t; for (const x of list) { r -= w(x); if (r <= 0) return x; } return list[list.length - 1]; }
 
 /* ---------- ngu hanh: 0 Kim, 1 Moc, 2 Thuy, 3 Hoa, 4 Tho ---------- */
-export const SERIES = J.series;
+export const SERIES = J.series || [];
 export const SERIES_COL = ['#f3d35b', '#6fd46a', '#5fb8ff', '#ff6a3a', '#c8965a'];
 const KHAC = { 0: 1, 1: 4, 4: 2, 2: 3, 3: 0 }; // Kim khac Moc, Moc khac Tho, Tho khac Thuy, Thuy khac Hoa, Hoa khac Kim
 export const counters = (a, t) => a >= 0 && t >= 0 && KHAC[a] === t;
@@ -37,10 +39,15 @@ export const MAX_RESIST = 95, PLAYER_RES_MAX = 75, MAX_HIT = 95, MIN_HIT = 40, C
 export const STR_PER_DMG = 5, DEX_PER_DMG = 5, ENG_PER_DMG = 4;
 /* Can bang rieng game idle (ban goc khong co): 1 Noi cong = +1% sat thuong nguyen to cua chieu, 1 Suc manh (Than phap voi am khi) = +1% sat thuong vat ly */
 export const ENG_PER_PCT = 1, STR_PER_PCT = 1, DEX_PCT_RANGED = 0.5, IDLE_LIFE_PER_LEVEL = 8; // +8 sinh luc moi cap cho moi he (quai danh lien tuc theo dot)
-export const PTS_PER_LEVEL = 5, SKILL_PTS_PER_LEVEL = 1, MAX_LEVEL = Math.min(99, J.exp.length);   // gioi han cap 99 (CLAUDE.md)
+export const PTS_PER_LEVEL = 5, SKILL_PTS_PER_LEVEL = 1, MAX_LEVEL = Math.min(99, (J.exp || []).length);   // gioi han cap 99 (CLAUDE.md)
+/* Dong hanh (pet): trang bi gan cho pet cong thuoc tinh vao nhan vat theo ti le (PET_EQ_BUFF) va
+   tang sat thuong rieng cua pet theo suc manh mon do (PET_GEAR_POWER x itemPower). */
+export const PET_EQ_BUFF = 0.5, PET_GEAR_POWER = 0.35, PET_LV = 20;
+/* He ngu hanh -> nguyen to sat thuong (giong enemyHit trong combat.ts): Kim vat ly, Moc doc, Thuy bang, Hoa hoa, Tho loi */
+export const SERIES_ELEM = ['phys', 'poison', 'cold', 'fire', 'light'];
 
 /* ---------- thuoc tinh ma thuat ---------- */
-const ATTR_ID = Object.fromEntries(J.attr.map((n, i) => [n, i]));
+const ATTR_ID = Object.fromEntries((J.attr || []).map((n, i) => [n, i]));
 export function attrText(name, p) {
   const t = J.attrDesc[name];
   if (!t) return name + ': ' + p.filter(v => v).join(' / ');
@@ -53,9 +60,9 @@ export function attrText(name, p) {
 }
 
 /* ---------- mon phai, ky nang, quai ---------- */
-export const FACTIONS = J.factions.filter(f => f.skills && f.skills.length);
+export const FACTIONS = (J.factions || []).filter(f => f.skills && f.skills.length);
 export const FAC = Object.fromEntries(FACTIONS.map(f => [f.key, f]));
-export const SK = J.skills;
+export const SK = J.skills || {};
 /* Game idle: chieu tan cong dau tien cua moi phai hoc duoc tu cap 1 (ban goc: cap 10, truoc do chi danh thuong) */
 for (const f of FACTIONS) {
   const first = f.skills.map(id => SK[id]).filter(s => s && s.enemy && ['physicsenhance_p', 'physicsdamage_v', 'poisondamage_v', 'colddamage_v', 'firedamage_v', 'lightingdamage_v'].some(a => s.attr[a])).sort((a, b) => a.req - b.req || a.id - b.id);
@@ -68,7 +75,7 @@ for (const f of FACTIONS) {
 export const skVal = (s, attr, L) => { const a = s.attr[attr]; if (!a) return null; const v = a[clamp(L, 1, a.length) - 1]; return Array.isArray(v) ? v : [v, 0, 0]; };
 const DMG_ATTRS = ['physicsenhance_p', 'physicsdamage_v', 'poisondamage_v', 'colddamage_v', 'firedamage_v', 'lightingdamage_v'];
 export const isAttack = s => !!(s && s.enemy && DMG_ATTRS.some(a => s.attr[a]));
-export const ZONES = W.zones, MON = W.mon;
+export const ZONES = W.zones || [], MON = W.mon || {};
 export const ZONE_STAGES = 10, WAVES = 4;
 export const STAGES = ZONES.length * ZONE_STAGES;
 

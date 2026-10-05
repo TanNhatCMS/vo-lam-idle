@@ -74,6 +74,7 @@ body.sv #battle{flex:1 1 auto}
 .petpick{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;max-height:40vh;overflow:auto}
 .petpick button{padding:4px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);font-size:10px}
 .petpick button.on{border-color:var(--gold)} .petpick img{display:block;width:100%;height:44px;object-fit:contain} .petpick b{display:block;font-weight:500}
+.peGroup h4{margin:8px 0 4px;font-size:13px} .slotrow.petrow{grid-template-columns:1fr;text-align:left} .slotrow.petrow span{font-size:13px}
 #hud{position:absolute;left:8px;right:8px;top:6px;display:grid;grid-template-columns:1fr 1fr;gap:4px 8px;pointer-events:none}
 #mainSk{grid-column:1/3;font-size:11px;color:var(--gold);text-shadow:0 0 3px #000}
 
@@ -123,7 +124,7 @@ input.nameinp{background:#0b100e;color:var(--text);border:1px solid var(--line2)
 .skl .lvl{color:var(--gold);font-size:12px}
 .tag{font-size:10px;padding:1px 5px;border-radius:3px;background:#2a3a33;color:var(--dim)} .tag.attack{background:#4a2a1f;color:#ffb38a}
 
-#tabs{display:grid;grid-template-columns:repeat(5,1fr);background:#0b100e;border-top:1px solid var(--gold2);padding-bottom:var(--safe-b)}
+#tabs{display:grid;grid-template-columns:repeat(6,1fr);background:#0b100e;border-top:1px solid var(--gold2);padding-bottom:var(--safe-b)}
 #tabs button{position:relative;padding:10px 2px;font-size:12px;color:var(--dim)} #tabs button.on{color:var(--gold);box-shadow:inset 0 2px 0 var(--gold)}
 .dot{position:absolute;top:6px;right:12%;width:7px;height:7px;border-radius:50%;background:#f55;display:none} .dot.on{display:block}
 
@@ -189,6 +190,7 @@ input.nameinp{background:#0b100e;color:var(--text);border:1px solid var(--line2)
 #tabs button[data-t=log]::before{background-image:url(ui/ic_log.png)} #tabs button[data-t=char]::before{background-image:url(ui/ic_char.png)}
 #tabs button[data-t=skill]::before{background-image:url(ui/ic_skill.png)} #tabs button[data-t=inv]::before{background-image:url(ui/ic_item.png)}
 #tabs button[data-t=more]::before{background-image:url(ui/ic_more.png)}
+#tabs button[data-t=pet]::before{background:none;content:"🐾";font-size:17px;line-height:20px;text-align:center;color:var(--gold)}
 #pad .pbtn.sk{background:url(ui/slot.png) center / 100% 100%,radial-gradient(#26302b,#0b100e)}
 .facpick button{position:relative}
 .s5b{position:absolute;right:4px;top:4px;width:28px;height:28px;background-size:200% 100%;background-position:0 0;filter:drop-shadow(0 0 2px #000)}

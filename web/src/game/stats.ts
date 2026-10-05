@@ -17,6 +17,7 @@ import {
   IDLE_LIFE_PER_LEVEL,
   J,
   PLAYER_RES_MAX,
+  PET_EQ_BUFF,
   PTS_PER_LEVEL,
   SERIES,
   SK,
@@ -89,10 +90,10 @@ export function calc(eq) {
   eq = eq || S.eq;
   const A = {}, lv = S.lvl, ser = heroSeries(), add = J.levelAdd[ser], st = heroStart();
   const skAdd = {};                                        // allskill_v co tham so 3 = id ky nang: +cap cho rieng ky nang do
-  const addItemAttr = (m) => {
+  const addItemAttr = (m, mult = 1) => {
     const name = attrName(m.a), p = m.p.map(v => v === -1 ? 0 : v);
-    if (name === 'allskill_v' && p[2] > 0) { skAdd[p[2]] = (skAdd[p[2]] || 0) + p[0]; return; }
-    addAttr(A, name, p);
+    if (name === 'allskill_v' && p[2] > 0) { skAdd[p[2]] = (skAdd[p[2]] || 0) + p[0] * mult; return; }
+    addAttr(A, name, p, mult);
   };
   // trang bi: thuoc tinh goc + thuoc tinh ma thuat (bo qua mon chua du dieu kien)
   for (const k in eq) {
@@ -102,6 +103,15 @@ export function calc(eq) {
     const act = hiddenActive(it, eq);
     (it.mag || []).forEach((m, i) => { if (i % 2 === 0 || Math.floor(i / 2) < act) addItemAttr(m); });
     if (it.set) { const ex = goldEnhance(it, eq); (it.ext || []).slice(0, ex).forEach(addItemAttr); }
+  }
+  /* Trang bi gan cho Dong hanh: cong thuoc tinh vao NHAN VAT theo ti le PET_EQ_BUFF (moi dong hien lan an deu hieu luc).
+     Khong xet yeu cau cap/he (do la do cua thu, khong phai cua nguoi); khong tinh dong bo (set) de tranh phu thuoc S.eq. */
+  const peq = S.rw && S.rw.pet && S.rw.pet.eq;
+  if (peq) for (const k in peq) {
+    const it = peq[k]; if (!it || !Array.isArray(it.base) || !Array.isArray(it.mag)) continue;
+    const em = enhMul(it);
+    for (const [id, mn, mx] of it.base) addAttr(A, attrName(id), [(id === 28 || id === 29 ? mn : (mn + mx) / 2) * em * PET_EQ_BUFF, 0, 0]);
+    for (const m of it.mag) addItemAttr(m, PET_EQ_BUFF);
   }
   // ky nang bi dong
   const wc = weaponCode(eq), plus = av(A, 'allskill_v');

@@ -1,8 +1,9 @@
 // @ts-nocheck — chuyen tu vanilla JS: bat lai check tung file dan dan (xem README muc TypeScript)
 import { $, W, WORLD, clamp, clampWorld } from './core';
-import { JMO } from './jmo';
+import { JMO } from './jdata';
 
 /* ======================= VAT CAN BAN DO THAT (tools/export_maps.py -> mapobs.js: JMO) =======================
+   JMO nap tu /img/jmo.json trong goi assets (jdata.ts, loadJData) truoc khi vao game.
    Moi vung (zone) co anh nen rong A x A vung (512 diem) va luoi vat can 16 x 32 o moi vung, o = 32 x 16 diem (KRegion.h).
    Chi di duoc o o trong thuoc thanh phan lien thong lon nhat (khong bi nhot trong o bi bao kin). Khong co du lieu -> the gioi cu 3072, khong vat can. */
 'use strict';

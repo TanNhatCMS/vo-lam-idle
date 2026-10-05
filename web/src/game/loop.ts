@@ -4,6 +4,7 @@
    Import theo dung thu tu <script> trong index.html goc de giu thu tu khoi tao toan cuc. */
 import { W, $, STAGES, WORLD, inWorld, fmt, esc } from './core';
 import { obsLoad } from './mapobs';
+import { loadJData } from './jdata';
 import { autoSpendAttrs, autoSpendSkills } from './stats';
 import { restoreGround } from './loot';
 import { R, H, zoneOf, tick, recalc } from './combat';
@@ -117,8 +118,11 @@ function fitApp() {
 export function setCompact(on) { setUiPref({ compact: on }); if (!on && S.fac) refresh(); }
 /* Goi mot lan sau khi React da mount (co #arena trong DOM). */
 let booted = false;
-export function boot() {
+export async function boot() {
   if (booted) return; booted = true;
+  /* Du lieu mo ta media (hieu ung fx, vat can ban do, am thanh) nam trong goi assets —
+     cho nap xong moi dung chi muc / bat dau ve. Thieu file thi van chay (khong hieu ung/am thanh). */
+  await loadJData();
   const pk = pickSlot(); setSlot(pk.slot);
   if (pk.menu) setS(newSave());          // man hinh chon nhan vat: chua nap nhan vat nao
   const had = pk.menu ? false : load();

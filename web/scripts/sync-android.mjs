@@ -2,7 +2,7 @@
    - `node scripts/sync-android.mjs`          : build + chep out/ -> ../game/ (de ranh OTA manifest tool)
    - `node scripts/sync-android.mjs --clean`  : nhu tren + xoa code cu khong con dung (js/, data.js, world.js...)
    - `node scripts/sync-android.mjs --out DIR`: dong goi ban web day du (out + media) vao DIR de deploy static
-   Media (img/snd/music/fx/ui) giu nguyen trong game/ — khong bao gio bi ghi de. */
+   Media (img/snd/music/fx/ui) + du lieu game (jdata/) giu nguyen trong game/ — khong bao gio bi ghi de. */
 import { cpSync, existsSync, lstatSync, mkdirSync, readdirSync, rmSync, statSync, symlinkSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -20,8 +20,8 @@ const clean = args.includes('--clean');
 const outIdx = args.indexOf('--out');
 const outDir = outIdx >= 0 ? join(ROOT, args[outIdx + 1]) : null;
 
-const MEDIA = ['img', 'snd', 'music', 'fx'];
-// junction media tao boi prep-public.mjs cho next dev — next build phai khong thay de tranh copy 115MB vao out/
+const MEDIA = ['img', 'snd', 'music', 'fx', 'jdata'];
+// junction media tao boi prep-public.mjs cho next dev — next build phai khong thay de tranh copy 119MB vao out/
 function unlinkMediaJunctions() {
   for (const m of MEDIA) {
     const p = join(PUBLIC, m);

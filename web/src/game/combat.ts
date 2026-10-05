@@ -275,7 +275,7 @@ export function tick(dt) {
     return;
   }
   if (manual()) moveManual(dt);                             // tu dieu khien: joystick / phim / diem cham
-  if (!(looting && (R.pickTarget || R.autoPick))) {        // dang chu dong di nhat (tay hoac tu dong) thi khong danh
+  if (!(looting && !R.petLoot && (R.pickTarget || R.autoPick))) {   // pet dang di nhat thay (R.petLoot) thi nguoi van danh quai
     if (manual()) { /* dung yen hoac di theo tay, khong tu chay toi quai */ }
     else if (R.moveTo && R.moveTo.hp > 0) {
       obsSteer(H, R.moveTo.x, R.moveTo.y, 150 * P.speed * dt);

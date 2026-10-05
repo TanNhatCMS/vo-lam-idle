@@ -6,7 +6,7 @@ import { S } from '../game/save';
 import { showTab } from '../game/ui';
 import { uiGetTab } from '../game/store';
 
-const TABS = [['log', 'Giang hồ'], ['char', 'Nhân vật'], ['skill', 'Võ công'], ['inv', 'Hành trang'], ['more', 'Khác']];
+const TABS = [['log', 'Giang hồ'], ['char', 'Nhân vật'], ['skill', 'Võ công'], ['inv', 'Hành trang'], ['pet', 'Đồng hành'], ['more', 'Khác']];
 
 /* Thanh tab duoi: nut chuyen the + cham bao diem chua cong (thay updateDots ban goc). */
 export default function TabsNav() {

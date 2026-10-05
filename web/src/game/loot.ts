@@ -24,7 +24,7 @@ import {
   wpick,
 } from './core';
 import { obsSteer } from './mapobs';
-import { questTick } from './rewards';
+import { petActive, questTick } from './rewards';
 import { S } from './save';
 import { goldEnhance, setCounts, setMembers } from './sets';
 import { hiddenActive, sexOk, sexReqOk } from './stats';
@@ -221,7 +221,15 @@ export function updateGround(dt) {
     for (const d of R.ground) { if (d.age < 0.4 || !lootMatch(d.it) || (full && itemPower(d.it) <= floor)) continue; const k = Math.hypot(d.x - H.x, d.y - H.y); if (k < bd) { bd = k; best = d; } }
     if (best) { R.autoPick = best; target = best; }
   }
-  if (!target) return false;
+  if (!target) { R.petLoot = null; return false; }
+  /* Dong hanh ra tran: pet tu di nhat do AUTO thay nguoi (nguoi o lai danh quai); nhat tay (pickTarget) van do nguoi
+     — theo dung cai dat bo loc (auto / cho het quai / luon di nhat), khong doi luat nhat. */
+  if (target !== R.pickTarget && petActive() && R.petPos) {
+    R.petLoot = target;
+    if (Math.hypot(target.x - R.petPos.x, target.y - R.petPos.y) <= PICK_R) { R.petLoot = null; pickUp(target, true); }
+    return true;
+  }
+  R.petLoot = null;
   const dist = Math.hypot(target.x - H.x, target.y - H.y);
   if (dist <= PICK_R) { pickUp(target, true); return true; }
   obsSteer(H, target.x, target.y, 170 * (R.P ? R.P.speed : 1) * dt); H.face = target.x >= H.x ? 1 : -1;
