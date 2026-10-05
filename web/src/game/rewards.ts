@@ -310,6 +310,11 @@ export const petUnlocked = () => !!(S && S.fac) && (S.lvl >= PET_LV || (S.rw && 
 export const petActive = () => { const p = S && S.rw && S.rw.pet; return !!(p && MON[p.tid] && !R.town); };
 /* Mon trong tui co gan duoc cho Dong hanh khong (dung o + da mo khoa + da chon loai) — de hien nut trong the Hanh trang */
 export function petCanEquip(it) { return !!petSlotFor(it) && petUnlocked() && !!(S.rw && S.rw.pet); }
+/* Mon Dong hanh DANG mang o cung loai voi mon dang xem (de hoi "Đồng hành đang mặc:" trong chi tiet do) */
+export function petWearingOf(it) {
+  const slot = petSlotFor(it); if (!slot) return null;
+  return (S.rw && S.rw.pet && S.rw.pet.eq && S.rw.pet.eq[slot]) || null;
+}
 /* Gan mot mon trong tui cho Dong hanh (goi tu nut trong chi tiet do o the Hanh trang) */
 export function petEquipItem(it) {
   const slot = petSlotFor(it); if (!slot) return;
@@ -426,7 +431,8 @@ function petPickModal(slot) {
   });
 }
 function petItemModal(it, slot) {
-  modal(`${itemHTML(it)}<p class="dim small">Đang gắn cho Đồng hành · thuộc tính cộng vào nhân vật ${Math.round(PET_EQ_BUFF * 100)}%.</p>
+  const hcur = slot && S.eq[slot] ? S.eq[slot] : null;   // nhan vat dang mac o cung loai (so sanh nguoc lai)
+  modal(`${itemHTML(it)}${hcur ? `<div class="cmp"><small class="dim">Nhân vật đang mặc:</small>${itemHTML(hcur)}</div>` : ''}<p class="dim small">Đang gắn cho Đồng hành · thuộc tính cộng vào nhân vật ${Math.round(PET_EQ_BUFF * 100)}%.</p>
     <div class="btnrow"><button class="btn" id="pUn">Tháo về hành trang</button></div>`, () => { $('#pUn').onclick = () => petUnequip(slot); });
 }
 export function renderPet() {

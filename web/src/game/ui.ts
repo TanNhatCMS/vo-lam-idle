@@ -62,7 +62,7 @@ import {
 } from './loot';
 import { FUSE_SLOTS } from './recipes';
 import { img, label } from './render';
-import { dotGift, loginCheck, petActive, petCanEquip, petEquipItem, petWants, renderPet } from './rewards';
+import { dotGift, loginCheck, petActive, petCanEquip, petEquipItem, petWants, petWearingOf, renderPet } from './rewards';
 import {
   S,
   SLOT,
@@ -217,7 +217,8 @@ export function autoEquipAll() {
 }
 function itemModal(it, slot) {
   const cur = !slot && S.eq[slotFor(it)];
-  modal(`${itemHTML(it)}${cmpLines(it, slot)}${cur ? `<div class="cmp"><small class="dim">Đang mặc:</small>${itemHTML(cur)}</div>` : ''}
+  const pcur = petWearingOf(it);          // mon Dong hanh dang mang o cung loai (so sanh khi xem do)
+  modal(`${itemHTML(it)}${cmpLines(it, slot)}${cur ? `<div class="cmp"><small class="dim">Đang mặc:</small>${itemHTML(cur)}</div>` : ''}${pcur ? `<div class="cmp"><small class="dim">Đồng hành đang mặc:</small>${itemHTML(pcur)}</div>` : ''}
     <div class="btnrow">${slot ? `<button class="btn" id="bUn">Tháo</button>` : `<button class="btn" id="bEq" ${reqOk(it) ? '' : 'disabled'}>Trang bị</button>${!reqOk(it) && Object.keys(reqDeficit(it)).length && reqProblems(it).length === Object.keys(reqDeficit(it)).length ? '<button class="btn" id="bReqPts">Cộng điểm</button>' : ''}${S.inv.includes(it) && petCanEquip(it) ? '<button class="btn" id="bPetEq">Gắn cho Đồng hành</button>' : ''}<button class="btn red" id="bSell">Bán (${fmt(itemValue(it))})</button>${S.inv.includes(it) ? '<button class="btn" id="bStashIt">Gửi kho</button>' : ''}`}${findItem(it.uid) && it.d <= 10 ? '<button class="btn" id="bForge">Rèn đồ</button>' : ''}</div>`,
   () => { const b1 = $('#bEq'), b2 = $('#bSell'), b3 = $('#bUn'), b4 = $('#bForge'); const bs = $('#bStashIt'); if (bs) bs.onclick = () => { const r = stashDeposit(it); toast(r.msg); if (r.ok) { closeModal(); refresh(); } }; const bp = $('#bReqPts'); if (bp) bp.onclick = () => { if (fixReqPoints(it)) { if (reqOk(it)) equip(it); else itemModal(it, slot); } };
     const bpe = $('#bPetEq'); if (bpe) bpe.onclick = () => petEquipItem(it);

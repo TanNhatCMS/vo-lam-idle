@@ -100,6 +100,7 @@ Vì trang bị pet đi qua `calc()`, `equipCompare`/`power`/`autoEquipAll` của
 - **Tab đáy thứ 6 "🐾 Đồng hành"** (`TabsNav.tsx`, `Panel.tsx` `#t-pet`, CSS `#tabs` 6 cột + icon 🐾).
 - `renderPet()` (trong `rewards.ts`, đăng ký vào `refresh()` của `ui.ts`):
   - Thẻ thông tin: tên loài, **hệ** (màu theo `SERIES_COL`), cấp, XP, sát thương/đòn, chu kỳ đánh, chí mạng, sức mạnh trang bị.
+  - Chi tiết món có khối so sánh chéo: xem đồ trong túi/nhân vật hiện thêm **"Đồng hành đang mặc:"** (món pet ở ô tương ứng); xem đồ pet hiện **"Nhân vật đang mặc:"**.
   - 10 ô trang bị giống nhân vật (lưới `.eqgrid` 4 cột như thẻ Nhân vật); chạm ô trống → `petPickModal(slot)` (danh sách món trong túi hợp ô, sắp theo sức mạnh); chạm món đang gắn → `petItemModal` (xem + Tháo).
   - Nhóm chọn loài theo 5 hệ (`petGrouped()`), đổi loài giữ cấp + trang bị.
 - Tab "Đồng hành" cũ trong hộp 🎁 vẫn còn, chỉ trỏ sang tab mới để tránh nhầm.
