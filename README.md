@@ -15,7 +15,7 @@
 
 ---
 
-App là một cái vỏ WebView gọn (~11MB): phần **code game bundle trong APK**, phần **media (~115MB) tải qua OTA** từ GitHub Release lần chạy đầu, sau đó **chơi offline 100%**.
+App là một cái vỏ WebView gọn (~7.5MB): phần **code game bundle trong APK**, phần **media + dữ liệu game (~119MB) tải qua OTA** từ GitHub Release lần chạy đầu, sau đó **chơi offline 100%**.
 
 ## Bản web Next.js (`web/`)
 
@@ -42,14 +42,14 @@ npx wrangler deploy                        # cần: npx wrangler login
 
 Hoặc tự động: push `game/**` lên main → workflow `Deploy web (Cloudflare)` chạy `wrangler deploy` (cần đặt secret `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` trong repo settings).
 
-**Media trong dev**: `img/snd/music/fx` (~115MB) KHÔNG copy vào repo — `npm run dev` tự tạo **junction** `public/<media>` → `../game/<media>` (`scripts/prep-public.mjs`, gitignored); `sync-android.mjs` tự gỡ junction trước `next build` để `out/` không nhồi 115MB, rồi tạo lại. `ui/` + `fonts/` nhỏ nên copy thật trong `public/`.
+**Media trong dev**: `img/snd/music/fx` + `jdata` (~119MB) KHÔNG copy vào repo — `npm run dev` tự tạo **junction** `public/<thư mục>` → `../game/<thư mục>` (`scripts/prep-public.mjs`, gitignored); `sync-android.mjs` tự gỡ junction trước `next build` để `out/` không nhồi 119MB, rồi tạo lại. `ui/` + `fonts/` nhỏ nên copy thật trong `public/`.
 
 ### Kiến trúc
 
 - **App Router** — `src/app/layout.tsx` (metadata, viewport, link style.css/fonts từ `public/`) + `src/app/page.tsx` (`'use client'`, `dynamic(..., { ssr: false })`) vì game là SPA thuần client: canvas, requestAnimationFrame, localStorage, DOM island — không thể SSR.
 - **Engine** (`web/src/game/*.ts`) — port 1:1 từ vanilla JS cũ sang ES modules: mô phỏng 60 bước/giây, combat, loot, save… giữ nguyên hành vi. `loop.ts` là vòng lặp chính + `boot()`; `store.ts` là cầu nối báo React vẽ lại HUD theo tick 10Hz.
 - **UI React** (`web/src/ui/*.tsx`) — khung app (top bar, sân đấu, pad kỹ năng, tabs, modal, toast) render theo state. Khung **island**: React tạo container rỗng (`#mBody`, `#t-log`…), các renderer của engine ghi DOM vào đó như bản gốc — hai thế giới không giẫm chân nhau.
-- **Data** (`web/src/game/jx.js` v.v.) — dữ liệu game gốc (~3.5MB) giữ nguyên dạng `.js`.
+- **Data** — dữ liệu gốc port từ vanilla JS, nay nằm trong **`game/jdata/*.json`** (gói `assets` OTA, ~3.6MB): `jx` (vật phẩm/kỹ năng/quái), `jw` (vùng/bản đồ), `jfx` (hiệu ứng), `jmo` (vật cản bản đồ), `jsnd` (âm thanh). `web/src/game/jdata.ts` fetch chúng và `app/page.tsx` chờ nạp xong rồi mới import App, nên `core.ts` vẫn dựng chỉ mục đồng bộ lúc module-init — xem [docs/DU-LIEU-MEDIA.md](docs/DU-LIEU-MEDIA.md).
 - **TypeScript**: UI check kiểu đầy đủ; một số engine file còn `// @ts-nocheck` ở đầu file (port máy móc từ JS) — **bật lại check từng file** bằng cách xóa dòng đó rồi chạy `npm run typecheck`. Kiểu dùng chung ở `web/src/game/types.ts` (`SaveState`, `GameState`, `Hero`, `Item`…).
 
 ### GitHub Actions
@@ -81,8 +81,8 @@ Bản `release` được ký bằng keystore tại `keystore/` với thông số
 APK chỉ chứa bản code dự phòng; **toàn bộ tài nguyên của game (gọi chung là `data`: code + media) cập nhật qua OTA dạng ZIP** khi mở app:
 
 1. App đọc `assets-manifest.json` ở **gốc repo** (qua `raw.githubusercontent.com`) — **2 gói** theo tần suất thay đổi, mỗi gói một **ZIP đính kèm GitHub Release**:
-   - `data` (`ota-data-<v>.zip` ~4.1MB): index.html, js, data.js, fonts, ui — **thường thay đổi**
-   - `assets` (`ota-assets-<v>.zip` ~115MB): img, snd, music, fx — **hiếm khi đổi**
+   - `data` (`ota-data-<v>.zip` ~1MB): index.html, js, fonts, ui — **thường thay đổi** (đã nhẹ đi ~4 lần vì dữ liệu game đã sang gói assets)
+   - `assets` (`ota-assets-<v>.zip` ~118MB): img, snd, music, fx, **jdata** — **hiếm khi đổi**; `jdata/` là toàn bộ dữ liệu game JSON (`jx`, `jw`, `jfx`, `jmo`, `jsnd`) để sửa cân bằng/hiệu ứng/âm thanh/bản đồ không phải phát hành lại code — xem [docs/DU-LIEU-MEDIA.md](docs/DU-LIEU-MEDIA.md)
    - `patch`: bản vá **từng gói** (`patch.data` / `patch.assets`) — chỉ chứa file đổi/thêm + `remove[]`; `from` là zipSha256 của gói ở bản liền trước.
 2. **Lần chạy đầu**: tải đủ cả 2 gói về bộ tạm `cache/ota/<data|assets>.zip.part` — **tự resume** bằng HTTP Range nếu đứt giữa chừng.
 3. Verify sha256 ZIP → giải nén → **verify từng file** theo manifest → move vào `files/game-assets` → **verify toàn bộ** → ghi index → dọn bộ tạm.

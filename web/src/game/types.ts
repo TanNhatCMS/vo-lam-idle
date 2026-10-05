@@ -102,6 +102,7 @@ export interface GameState {
   logDirty?: boolean;
   town?: boolean;
   petPos?: any;
+  petLoot?: any;      // mon tren dat ma Dong hanh dang di nhat thay nguoi (loot.ts dat, rewards.petTick di chuyen)
 }
 
 /* Trạng thái màn Luyện Công (survival.ts) */

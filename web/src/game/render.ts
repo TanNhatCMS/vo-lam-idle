@@ -13,7 +13,7 @@ import {
   clamp,
   rnd,
 } from './core';
-import { JFX as JFX_SRC } from './jfx';
+import { JFX } from './jdata';
 import { lootMatch } from './loot';
 import { OBS } from './mapobs';
 import { drawPet } from './rewards';
@@ -36,8 +36,10 @@ export function fxLine(a, b, atk) {
   R.fx.push({ k: 'line', x1: a.x, y1: a.y - 20, x2: b.x, y2: b.y - 14, color: ELEM_COL[el], life: 0.18, max: 0.18 });
 }
 /* ---------- hieu ung chieu goc (Missles.txt -> tools/extract_fx.py -> fx.js): dan bay theo huong + no tai muc tieu ----------
-   chieu can chien: phat hoat anh tai muc tieu; thieu hinh thi ve tia nhu cu */
-export const JFX: any = JFX_SRC || { m: {}, s: {}, c: {}, f: {} }, FX_SCALE = 1.4, FX_MAX = 60;
+   chieu can chien: phat hoat anh tai muc tieu; thieu hinh thi ve tia nhu cu.
+   JFX nap tu /fx/jfx.json trong goi assets (jdata.ts, loadJData) truoc khi vao game */
+export { JFX };
+export const FX_SCALE = 1.4, FX_MAX = 60;
 export const dir16 = (vx, vy) => (((Math.round(Math.atan2(-vx, vy) / (Math.PI / 8)) % 16) + 16) % 16);
 /* hieu ung tai cho nguoi ra chieu (PreCastSpr cua skills.txt) */
 export function castFx(atk) {

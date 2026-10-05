@@ -77,11 +77,15 @@ function migrate(o) {
   if (!o.autoPtsOff) { s.autoPts = false; s.autoPtsOff = 1; }     // tu cong diem tiem nang / ky nang nay mac dinh TAT (ca file luu cu: tat mot lan, bat lai o the Khac)
   s.mats = { ht: Object.assign({}, (o.mats || {}).ht), ore: Object.assign({}, (o.mats || {}).ore), shard: Object.assign({}, (o.mats || {}).shard), misc: Object.assign({}, (o.mats || {}).misc) };
   s.rw = o.rw && typeof o.rw === 'object' ? o.rw : {};    // phan thuong: file cu chua co -> RW() tu dien mac dinh
+  // Dong hanh: o trang bi (save cu chua co) — chi giu mon hop le (co base/mag, khong phai ngua d 10)
+  s.rw.pet = s.rw.pet && typeof s.rw.pet === 'object' ? s.rw.pet : null;
+  if (s.rw.pet) { s.rw.pet.eq = s.rw.pet.eq && typeof s.rw.pet.eq === 'object' ? s.rw.pet.eq : {}; for (const k of Object.keys(s.rw.pet.eq)) { const it = s.rw.pet.eq[k]; if (!it || !Array.isArray(it.base) || !Array.isArray(it.mag) || !(it.d >= 0 && it.d <= 9)) delete s.rw.pet.eq[k]; } }
   s.lvl = clamp(Math.floor(+s.lvl) || 1, 1, MAX_LEVEL); s.xp = Math.max(0, +s.xp || 0);
   s.gold = Number.isFinite(+s.gold) ? Math.max(0, +s.gold) : 0; s.skPts = Math.max(0, Math.floor(+s.skPts) || 0); s.attrPts = Math.max(0, Math.floor(+s.attrPts) || 0);
   s.inv = (Array.isArray(s.inv) ? s.inv : []).filter(it => it && typeof it === 'object' && Array.isArray(it.base) && Array.isArray(it.mag)).slice(0, INV_MAX);
-  let maxUid = 0; for (const it of s.inv.concat(Object.values(s.eq || {}))) if (it && it.uid > maxUid) maxUid = it.uid; s.uid = Math.max(+s.uid || 1, maxUid + 1);
-  { const seen = new Set(); s.inv = s.inv.filter(it => { if (seen.has(it.uid)) { it.uid = s.uid++; } seen.add(it.uid); return true; }); }   // uid trung (nhap ma sua tay): cap lai
+  const petEq = (s.rw.pet && s.rw.pet.eq) || {};
+  let maxUid = 0; for (const it of s.inv.concat(Object.values(s.eq || {}), Object.values(petEq))) if (it && it.uid > maxUid) maxUid = it.uid; s.uid = Math.max(+s.uid || 1, maxUid + 1);
+  { const seen = new Set(); const dedupe = it => { if (seen.has(it.uid)) { it.uid = s.uid++; } seen.add(it.uid); }; s.inv.forEach(dedupe); Object.values(petEq).forEach(dedupe); }   // uid trung (nhap ma sua tay): cap lai
   s.diff = [0, 1, 2].includes(+o.diff) ? +o.diff : 1; s.hints = o.hints && typeof o.hints === 'object' ? o.hints : {};
   if (s.fac) s.sex = FEMALE_FAC.includes(s.fac) ? 1 : 0;         // gioi tinh theo phai (file luu cu mac dinh 0 -> phai nu mac nham do nam)
   const wrongSex = k => s.eq[k] && !sexReqOkFor(s.eq[k], s.sex);

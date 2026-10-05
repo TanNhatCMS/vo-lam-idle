@@ -4,8 +4,9 @@
 Manifest v6 — tài nguyên tách 2 gói theo tần suất thay đổi, mỗi gói một ZIP
 đính kèm GitHub Release + bản vá riêng:
   - data   : ZIP ota-data-<v>.zip   — index.html, js, data.js, fonts, ui
-             (~4MB, THƯỜNG SỬA)
-  - assets : ZIP ota-assets-<v>.zip — img, snd, music, fx (~115MB, ÍT SỬA)
+             (~1MB, THƯỜNG SỬA — chỉ còn code, dữ liệu đã sang gói assets)
+  - assets : ZIP ota-assets-<v>.zip — img, snd, music, fx, jdata (~119MB, ÍT SỬA)
+             (jdata = dữ liệu game JSON: jx, jw, jfx, jmo, jsnd — xem docs/DU-LIEU-MEDIA.md)
   - patch  : { "data": {...}|null, "assets": {...}|null } — bản vá từng gói:
              chỉ chứa file THAY ĐỔI/THÊM MỚI so với bản phát hành TRƯỚC +
              danh sách file bị xóa. App áp vá của gói nào khi dataVersion/
@@ -32,7 +33,7 @@ import zipfile
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 GAME = os.path.join(REPO, "game")
 OUT_MANIFEST = os.path.join(REPO, "assets-manifest.json")
-MEDIA_DIRS = ["img", "snd", "music", "fx"]  # gói assets; còn lại thuộc gói data
+MEDIA_DIRS = ["img", "snd", "music", "fx", "jdata"]  # gói assets (media + dữ liệu game JSON); còn lại thuộc gói data
 EXCLUDE_FILES = {"sw.js", "README.md", "wrangler.jsonc", ".gitignore", ".gitattributes", ".assetsignore"}
 EXCLUDE_DIRS = {".git", ".wrangler", ".zcode", ".claude", "android"}
 ZIP_URL_BASE = "https://github.com/TanNhatCMS/vo-lam-idle/releases/download/v{v}/{name}"

@@ -1,11 +1,11 @@
 import { R } from './combat';
 import { $, MON, rnd } from './core';
-import { JS } from './jsnd';
+import { JS as SND } from './jdata';
 import { S } from './save';
 
-/* ======================= AM THANH (JS tu tools/extract_sound.py) ======================= */
+/* ======================= AM THANH (JS tu tools/extract_sound.py) =======================
+   SND nap tu /snd/jsnd.json trong goi assets (jdata.ts, loadJData) truoc khi vao game */
 'use strict';
-const SND: any = JS || { music: {}, npc: {}, skill: {}, ui: {} };
 export const AUD: { [k: string]: any; ctx: AudioContext | null; gain: GainNode | null; music: HTMLAudioElement | null; musicSrc: string; } = { ctx: null, gain: null, buf: {}, loading: {}, last: {}, voices: 0, music: null, musicSrc: '' };
 const SFX_GAP = 0.07, MAX_VOICES = 10;
 export function sndCfg() { return S.snd || (S.snd = { on: true, vol: 0.7, music: true, mvol: 0.4 }); }

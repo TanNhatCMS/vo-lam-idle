@@ -4,7 +4,7 @@ import { uiGetTab } from '../game/store';
 
 /* Bang thong tin 5 the. Moi the la island rong — renderTab (ui.js) ghi noi dung vao,
    React chi quan ly visibility qua store (showTab). */
-const TABS = ['log', 'char', 'skill', 'inv', 'more'];
+const TABS = ['log', 'char', 'skill', 'inv', 'pet', 'more'];
 
 export default function Panel() {
   useGameTick();

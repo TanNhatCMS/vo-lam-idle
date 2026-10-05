@@ -61,7 +61,7 @@ import {
 } from './loot';
 import { FUSE_SLOTS } from './recipes';
 import { img, label } from './render';
-import { dotGift, loginCheck } from './rewards';
+import { dotGift, loginCheck, petActive, petWants, renderPet } from './rewards';
 import {
   S,
   SLOT,
@@ -112,6 +112,7 @@ export function closeModal(force?) { if ($('#modal').dataset.locked && !force) r
 const FUSE_KEEP = 6;
 function isJunk(it) {
   if (it.set || it.vio || it.plv) return false;
+  if (petWants(it)) return false;                      // mon phu hop o trang bi Dong hanh: giu lai, khong tu ban
   if (!sexOk(it)) return true;                         // trang phuc khac gioi tinh: khong bao gio mac duoc
   const f = FAC[S.fac];
   if (DETAIL_SLOT[it.d] === 'weapon' && f && f.wcode >= 0 && weaponCode({ weapon: it }) !== f.wcode) return true;
@@ -169,7 +170,7 @@ export function sellUnmatched() {
   return { n: w.length, gold: g, kept: S.inv.filter(i => !lootMatch(i)).length };
 }
 export function sell(it) { if (!S.inv.includes(it)) { closeModal(); return; } S.inv = S.inv.filter(x => x !== it); S.gold += itemValue(it); invDirty = true; closeModal(); refresh(); }
-export function findItem(uid) { uid = +uid; return S.inv.find(i => i.uid === uid) || Object.values(S.eq).find(i => i && i.uid === uid) || (R.ground.find(d => d.it.uid === uid) || {}).it; }
+export function findItem(uid) { uid = +uid; return S.inv.find(i => i.uid === uid) || Object.values(S.eq).find(i => i && i.uid === uid) || Object.values((S.rw && S.rw.pet && S.rw.pet.eq) || {}).find(i => i && i.uid === uid) || (R.ground.find(d => d.it.uid === uid) || {}).it; }
 export function itemCell(it) {
   if (!it) return '';
   return `<button class="it r${it.r}${reqOk(it) ? '' : ' bad'}" data-uid="${it.uid}"${reqOk(it) ? '' : ` title="${esc('Chưa mặc được: ' + reqProblems(it).join('; '))}"`}>${it.ic ? `<img src="${esc(it.ic)}" alt="">` : ''}<i>${it.lvl}</i>${it.s >= 0 ? `<b class="s5" style="background:${SERIES_COL[it.s]}"></b>` : ''}${betterThanEquipped(it) && S.inv.includes(it) ? '<em>▲</em>' : ''}</button>`;
@@ -348,7 +349,7 @@ export function renderInv() {
     <div class="invgrid">${S.inv.map(itemCell).join('')}</div>
     <h3>Đồ rơi trên đất <small>${onGround} món · ${match} khớp bộ lọc</small></h3>
     <div class="card lootf">
-      <label><input type="checkbox" id="fAuto" ${f.auto ? 'checked' : ''}> Tự đi nhặt đồ khớp bộ lọc</label>
+      <label><input type="checkbox" id="fAuto" ${f.auto ? 'checked' : ''}> Tự đi nhặt đồ khớp bộ lọc${petActive() ? ' (Đồng hành nhặt thay khi ra trận)' : ''}</label>
       <div class="row" style="gap:16px;${f.auto ? '' : 'opacity:.5'}">
         <label><input type="radio" name="fPickup" id="fPickWait" ${!f.always ? 'checked' : ''} ${f.auto ? '' : 'disabled'}> Chờ hết quái rồi đi nhặt</label>
         <label><input type="radio" name="fPickup" id="fPickNow" ${f.always ? 'checked' : ''} ${f.auto ? '' : 'disabled'}> Luôn đi nhặt khi đồ vừa rớt ra</label>
@@ -356,7 +357,7 @@ export function renderInv() {
       <div class="row">Độ hiếm từ <select id="fRar">${rar}</select> · cấp đồ từ <select id="fLvl">${lv}</select></div>
       <div class="dim small">Có ít nhất một thuộc tính (bỏ trống = mọi thuộc tính):</div><div class="chips">${grp}</div>
       <div class="dim small">Hệ của món đồ (bỏ trống = mọi hệ):</div><div class="chips">${ser}</div>
-      <div class="dim small">Chạm vào món đồ trên sân để đi nhặt tay. Trên 40 món thì món cũ nhất tự bán. Khi vắng mặt, đồ không khớp tự bán.</div>
+      <div class="dim small">Chạm vào món đồ trên sân để đi nhặt tay. Khi Đồng hành ra trận, nó tự đi nhặt đồ auto thay nhân vật (nhân vật ở lại đánh quái); nhặt tay vẫn do nhân vật. Trên 40 món thì món cũ nhất tự bán. Khi vắng mặt, đồ không khớp tự bán.</div>
     </div>`;
   const upd = () => { save(); renderInv(); };
   $('#fAuto').onchange = e => { f.auto = e.target.checked; upd(); };
@@ -432,7 +433,7 @@ export function showTab(t) {
 export function refresh() {
   if (!S.fac) return;
   if (R.dirty) recalc();
-  ({ log: renderLog, char: renderChar, skill: renderSkill, inv: renderInv, more: renderMore })[curTab]();
+  ({ log: renderLog, char: renderChar, skill: renderSkill, inv: renderInv, more: renderMore, pet: renderPet })[curTab]();
   renderPad();
   updateDots();
 }
