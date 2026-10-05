@@ -76,6 +76,8 @@ export function RW() { // trang thai phan thuong trong file luu (tao / bo sung t
   if (!('up' in r.wb)) r.wb.up = null;
   if (!r.so || typeof r.so !== 'object') r.so = {};
   r.so.n = r.so.n || 0; r.so.pity = r.so.pity || 0; r.so.spins = r.so.spins || 0; r.so.day = r.so.day || '';
+  r.codes = Object.assign({}, r.codes || {});        // mã quà tặng đã dùng (mỗi nhân vật)
+  r.welcomeGot = r.welcomeGot || 0;                  // quà tân thủ đã nhận chưa
   return r;
 }
 
@@ -428,6 +430,42 @@ function soRingSpin(land, done, quick) {
   setTimeout(step, quick ? 30 : 90);
 }
 
+/* ---------- 11. mã quà tặng + quà tân thủ (offline: validate client-side, mỗi nhân vật 1 lần) ---------- */
+const CODES = [
+  ['TANTHU2026', { gold: 3000, fd: 5 }, 'Quà ra mắt'],
+  ['VOLAMIDLE', { so: 10 }, 'Chào mừng tới Võ Lâm Idle'],
+  ['BOSSTHEGIOI', { so: 5, mat: { g: 'ht', k: '2', n: 2 } }, 'Săn Boss Thế Giới'],
+  ['QUAYSO', { so: 3 }, 'Thử vận may quay sò'],
+  ['PHUCDUYEN', { fd: 20 }, 'Phúc Duyên'],
+];
+export function claimCode(raw) {
+  if (!S || !S.fac) return;
+  const code = String(raw || '').trim().toUpperCase().replace(/\s+/g, '');
+  if (!code) { toast('Nhập mã quà tặng'); return; }
+  const row = CODES.find(c => c[0] === code);
+  if (!row) { toast('Mã không hợp lệ'); return; }
+  const r = RW(); r.codes = r.codes || {};
+  if (r.codes[code]) { toast('Mã này đã dùng rồi'); return; }
+  r.codes[code] = 1;
+  const got = grant(row[1], `Mã quà ${code}`);
+  uiSfx('levelup');
+  toast(`Mã ${code}: ` + got.join(', ').replace(/<[^>]+>/g, ''));
+  refreshGift();
+  return got;
+}
+const WELCOME = { gold: 5000, pot: { kind: 'life', tier: 2, n: 10 }, fd: 5, so: 10, item: 4 };
+export function claimWelcome() {
+  if (!S || !S.fac) return;
+  const r = RW();
+  if (r.welcomeGot) { toast('Quà tân thủ đã nhận rồi'); return; }
+  r.welcomeGot = 1;
+  const got = grant(WELCOME, 'Quà tân thủ');
+  grant({ pot: { kind: 'mana', tier: 2, n: 10 } }, 'Quà tân thủ · nội lực');
+  uiSfx('levelup');
+  toast('Quà tân thủ: ' + got.join(', ').replace(/<[^>]+>/g, ''));
+  refreshGift();
+}
+
 /* ---------- moc noi vao tro choi ---------- */
 export function rwOnKill(e) {
   if (!S.fac) return;
@@ -441,7 +479,7 @@ export function rwOnKill(e) {
 export function giftPending() {
   if (!S || !S.fac) return false;
   const r = RW();
-  return !r.login.claimed || lvMsReady().length > 0 || dailyQuests().list.some(q => !q.done && q.have >= q.need) || weeklyQuests().list.some(q => !q.done && q.have >= q.need) || r.fd >= FD_COST;
+  return !r.welcomeGot || !r.login.claimed || lvMsReady().length > 0 || dailyQuests().list.some(q => !q.done && q.have >= q.need) || weeklyQuests().list.some(q => !q.done && q.have >= q.need) || r.fd >= FD_COST;
 }
 export function dotGift() { const b = $('#giftBtn'); if (b) b.classList.toggle('on', giftPending()); }
 
@@ -471,6 +509,19 @@ function giftBody(r) {
   if (giftTab === 'chest') return `<p class="desc">Điểm Phúc Duyên: <b>${r.fd}</b> (điểm danh, nhiệm vụ, thành tựu, trùm). Mỗi lần mở: ${FD_COST} điểm.</p>
       <div class="chips">${FD_TABLE.map(([w, g]) => `<span class="chip2">${giftText(g)} · ${w}%</span>`).join('')}</div>
       <div class="btnrow"><button class="btn" id="gChest" ${r.fd >= FD_COST ? '' : 'disabled'}>Mở rương Phúc Duyên</button></div>`;
+  if (giftTab === 'newbie') {
+    const got = !!r.welcomeGot;
+    return `<p class="desc">Quà chào sân cho nhân vật mới — nhận <b>một lần</b> cho mỗi nhân vật.</p>
+      <div class="card stats"><span>Ngân lượng</span><span>${fmt(WELCOME.gold * (1 + S.lvl / 10))}</span><span>Thuốc</span><span>10 Kim Sáng Dược + 10 Ngưng Thần đan</span><span>Phúc Duyên</span><span>${WELCOME.fd}</span><span>Vỏ Sò</span><span>${WELCOME.so} (quay sò ở tab bên cạnh)</span><span>Trang bị</span><span>1 món 4 dòng</span></div>
+      <div class="btnrow"><button class="btn" id="gWelcome" ${got ? 'disabled' : ''}>${got ? 'Đã nhận quà tân thủ' : 'Nhận quà tân thủ'}</button></div>`;
+  }
+  if (giftTab === 'code') {
+    const used = Object.keys(r.codes || {});
+    return `<p class="desc">Nhập <b>mã quà tặng</b> (không phân biệt hoa/thường). Mỗi mã dùng được một lần cho mỗi nhân vật.</p>
+      <div class="row"><input id="codeInp" class="nameinp" maxlength="24" placeholder="Nhập mã…" value=""></div>
+      <div class="btnrow"><button class="btn" id="gCode">Nhận quà</button></div>
+      ${used.length ? `<h3>Đã dùng <small>${used.length}</small></h3><p class="desc">${used.map(esc).join(' · ')}</p>` : ''}`;
+  }
   if (giftTab === 'so') {
     if (!unlocked(WB_MIN_LV)) return `<p class="desc">Quay Sò mở ở cấp ${WB_MIN_LV} — sau khi đủ sức hạ <b>Boss Thế Giới</b> (xuất hiện mỗi ${Math.round(WB_EVERY / 60)} phút chơi).</p>`;
     const so = r.so, left = Math.max(0, PITY_MAX - (so.pity || 0));
@@ -509,12 +560,15 @@ function giftBody(r) {
 }
 export function giftModal() {
   if (!S.fac) return;
-  const r = RW(), tabs = [['login', 'Điểm danh'], ['lvms', 'Mốc cấp'], ['quest', 'Nhiệm vụ'], ['ach', 'Thành tựu'], ['chest', 'Phúc Duyên'], ['so', 'Quay Sò'], ['event', 'Sự kiện'], ['tower', 'Tháp'], ['pet', 'Đồng hành'], ['reborn', 'Chuyển sinh']];
+  const r = RW(), tabs = [['newbie', 'Tân thủ'], ['code', 'Mã quà'], ['login', 'Điểm danh'], ['lvms', 'Mốc cấp'], ['quest', 'Nhiệm vụ'], ['ach', 'Thành tựu'], ['chest', 'Phúc Duyên'], ['so', 'Quay Sò'], ['event', 'Sự kiện'], ['tower', 'Tháp'], ['pet', 'Đồng hành'], ['reborn', 'Chuyển sinh']];
   modal(`<h3>Phần thưởng <small>Phúc Duyên ${r.fd}</small></h3><div class="dtabs" id="giftTabs">${tabs.map(([k, n]) => `<button data-g="${k}" class="${k === giftTab ? 'on' : ''}">${n}</button>`).join('')}</div>${giftBody(r)}`, () => {
     document.querySelectorAll('#mBody #giftTabs button').forEach(x => x.onclick = () => { giftTab = x.dataset.g; giftModal(); });
     const on = (id, fn) => { const el = $(id); if (el) el.onclick = fn; };
     on('#gLogin', () => { claimLogin(); refreshGift(); }); on('#gChest', openChest); on('#gTower', towerStart);
     on('#gSo1', () => spinSo(1)); on('#gSo10', () => spinSo(10));
+    on('#gWelcome', claimWelcome);
+    on('#gCode', () => claimCode($('#codeInp') ? $('#codeInp').value : ''));
+    { const ci = $('#codeInp'); if (ci) ci.onkeydown = e => { if (e.key === 'Enter') claimCode(ci.value); }; }
     on('#gTowerOut', () => { towerExit(false); refreshGift(); }); on('#gReborn', doReborn);
     document.querySelectorAll('#mBody [data-lv]').forEach(x => x.onclick = () => claimLvMs(+x.dataset.lv));
     document.querySelectorAll('#mBody [data-q]').forEach(x => x.onclick = () => { claimQuest(+x.dataset.q); refreshGift(); });
