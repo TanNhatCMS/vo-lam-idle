@@ -110,6 +110,8 @@ export function RW() { // trang thai phan thuong trong file luu (tao / bo sung t
   if (!r.pet || r.pets[r.pet.tid] !== r.pet) r.pet = r.team[0] ? r.pets[r.team[0]] : null;
   r.team[0] = r.pet ? r.pet.tid : null;
   if (!r.pet) { const first = Object.keys(r.pets)[0]; if (first) { r.pet = r.pets[first]; r.team[0] = first; } }
+  { const used = new Set(r.pet ? [r.pet.tid] : []);                                        // 1 loai chi dung 1 cho
+    r.team = r.team.map((t, i) => i === 0 ? r.team[0] : (t && !used.has(t) ? (used.add(t), t) : null)); }
   for (const tid in r.pets) {
     const p = r.pets[tid]; if (!p || typeof p !== 'object') { delete r.pets[tid]; continue; }
     p.lvl = Math.max(1, Math.floor(+p.lvl) || 1); p.xp = Math.max(0, +p.xp || 0);
@@ -426,6 +428,7 @@ export function teamSet(i, tid) {
   const r = RW(); tid = tid ? +tid : null;
   if (i === 0) {
     if (!tid || !r.pets[tid]) return;
+    r.team = r.team.map(t => t === tid ? null : t);          // ha loai nay khoi cho khac truoc khi ra tran
     r.team[0] = tid; r.pet = r.pets[tid]; R.petPos = null; R.petLoot = null;
   } else {
     if (r.team[i] === tid) tid = null;
