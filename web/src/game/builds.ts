@@ -1,5 +1,6 @@
 // @ts-nocheck — chuyen tu vanilla JS: bat lai check tung file dan dan (xem README muc TypeScript)
 import { $, FAC, SK, fmt, isAttack } from './core';
+import { clanPerk } from './depth';
 import { R, recalc } from './combat';
 import { fillSlots } from './control';
 import { S, save } from './save';
@@ -10,7 +11,7 @@ import { closeModal, modal, toast, updateDots } from './ui';
    ben minh khong co he do): tẩy điểm có phí vàng theo cấp, lưu 3 bộ (điểm, ô chiêu,
    chiêu chính) để đổi lối chơi nhanh; dùng bộ chỉ thu phí khi đổi phân bổ điểm. */
 'use strict';
-const BUILD_N = 3;
+export const buildN = () => 3 + clanPerk('build');   // gia toc: +1 bo moi moc danh vong
 const sumObj = o => Object.values(o || {}).reduce((a, b) => a + (+b || 0), 0);
 const skillPointCount = skills => Object.entries(skills || {}).reduce((n, [, level]) => n + (+level || 0), 0);
 const samePoints = (a, b) => { const keys = new Set([...Object.keys(a || {}), ...Object.keys(b || {})]); return [...keys].every(k => (+((a || {})[k]) || 0) === (+((b || {})[k]) || 0)); };
@@ -57,9 +58,9 @@ function respecModal(scope, rerender) {
     $('#rsNo').onclick = () => closeModal(true);
   });
 }
-function builds() { if (!Array.isArray(S.builds)) S.builds = []; while (S.builds.length < BUILD_N) S.builds.push(null); return S.builds; }
+function builds() { if (!Array.isArray(S.builds)) S.builds = []; while (S.builds.length < buildN()) S.builds.push(null); return S.builds; }
 function buildSave(i) {
-  if (!Number.isInteger(i) || i < 0 || i >= BUILD_N) return { ok: false, msg: 'Ô bộ võ học chưa mở' };
+  if (!Number.isInteger(i) || i < 0 || i >= buildN()) return { ok: false, msg: 'Ô bộ võ học chưa mở' };
   builds()[i] = { attr: Object.assign({}, S.attr), sk: Object.assign({}, S.sk), slots: (S.slots || [0, 0, 0, 0]).slice(), main: S.main, mainLock: !!S.mainLock, lvl: S.lvl, at: Date.now() };
   return { ok: true, msg: `Đã lưu bộ ${i + 1}` };
 }
@@ -69,7 +70,7 @@ function buildLoadCost(i) {
 }
 /* Dùng một bộ: chỉ thu phí khi bộ mới đổi phân bổ điểm; bộ không đủ điểm thì từ chối, không thay đổi gì. */
 function buildLoad(i) {
-  if (!Number.isInteger(i) || i < 0 || i >= BUILD_N) return { ok: false, msg: 'Ô bộ võ học chưa mở' };
+  if (!Number.isInteger(i) || i < 0 || i >= buildN()) return { ok: false, msg: 'Ô bộ võ học chưa mở' };
   const b = builds()[i]; if (!b) return { ok: false, msg: 'Bộ trống' };
   const attrs = ['str', 'dex', 'vit', 'eng'], validPoints = n => Number.isSafeInteger(n) && n >= 0;
   if (!b.attr || !b.sk || Object.entries(b.attr).some(([k, n]) => !attrs.includes(k) || !validPoints(n)) || Object.values(b.sk).some(n => !validPoints(n)))
@@ -93,7 +94,7 @@ function buildLoad(i) {
   R.dirty = true; recalc(); fillSlots(); return { ok: true, msg: `Đã dùng bộ ${i + 1}${cost ? ` · phí ${fmt(cost)} lượng` : ''}` };
 }
 export function buildsHTML() {
-  const rows = builds().slice(0, BUILD_N).map((b, i) => { const cost = b ? buildLoadCost(i) : 0; return `<div class="qrow"><span><b>Bộ ${i + 1}</b><small>${b ? `${skillPointCount(b.sk)} điểm kỹ năng · ${sumObj(b.attr)} tiềm năng · lưu ở cấp ${b.lvl}` : 'Trống'}</small></span><span></span>
+  const rows = builds().slice(0, buildN()).map((b, i) => { const cost = b ? buildLoadCost(i) : 0; return `<div class="qrow"><span><b>Bộ ${i + 1}</b><small>${b ? `${skillPointCount(b.sk)} điểm kỹ năng · ${sumObj(b.attr)} tiềm năng · lưu ở cấp ${b.lvl}` : 'Trống'}</small></span><span></span>
     <span class="pm build-actions"><button class="btn sm" data-bsave="${i}">Lưu</button><button class="btn sm" data-bload="${i}" title="${b ? cost ? `Đổi điểm tốn ${fmt(cost)} lượng` : 'Chỉ đổi ô chiêu: miễn phí' : ''}" ${b ? '' : 'disabled'}>Dùng${b && cost ? ` · ${fmt(cost)}` : ''}</button></span></div>`; }).join('');
   const qSkill = respecQuote('skill'), qAll = respecQuote('all');
   return `<h3>Bộ võ học <small>đổi lối chơi nhanh</small></h3><div class="card">${rows}<div class="btnrow"><button class="btn red" id="bRespecSkill" ${qSkill.hasSkills ? '' : 'disabled'}>Tẩy kỹ năng · ${fmt(qSkill.gold)} lượng</button><button class="btn red" id="bRespecAll" ${qAll.attrs || qAll.hasSkills ? '' : 'disabled'}>Tẩy toàn bộ · ${fmt(qAll.gold)} lượng</button></div><small class="dim">Rút từng điểm bằng nút − cũng tốn vàng (${fmt(pointRefundCost('attr'))} / ${fmt(pointRefundCost('skill'))} lượng theo cấp).</small></div>`;

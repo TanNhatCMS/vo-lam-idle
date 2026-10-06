@@ -84,6 +84,8 @@ import { obsSteer } from './mapobs';
 import { codexModal } from './guide';
 import { matAdd, matHave } from './recipes';
 import { WB_EVERY, WB_FIRST, WB_MIN_LV } from './worldboss';
+import { thanMaBind, thanMaBody } from './horse';
+import { tamPhapModal, tpPending } from './depth';
 
 /* ======================= PHAN THUONG NGOAI GAME GOC (docs/DE_XUAT.md) =======================
    1 diem danh 7/30 ngay · 2 nhiem vu ngay · 3 thanh tuu + danh hieu · 4 trum Hoang Kim dinh ky · 5 thuong offline theo moc
@@ -243,7 +245,7 @@ function weeklyQuests(reset) {
 function claimWeekQuest(i) { const q = weeklyQuests().list[i]; if (!q || q.done || q.have < q.need) return; q.done = true; grant(WQ_REWARD, `Nhiệm vụ tuần: ${q.t}`); }
 
 /* ---------- 3. thanh tuu + danh hieu (deo 1 danh hieu: cong chi so nho) ---------- */
-const ACH = [
+export const ACH = [
   ['lv30', 'Xuất sơn', () => S.lvl >= 30 || RW().stat.reborn > 0, { gold: 1000 }, ['lifemax_p', 3]],
   ['lv50', 'Thiếu hiệp', () => (RW().lvGot || {})[50], { fd: 5 }, ['lifemax_p', 4]],
   ['lv80', 'Danh chấn giang hồ', () => S.lvl >= 80 || RW().stat.reborn > 0, { gold: 5000, pts: 10 }, ['attackspeed_v', 3]],
@@ -325,11 +327,13 @@ function doReborn() {
   if (S.lvl < REBORN_LV || r.stat.reborn >= REBORN_MAX) return;
   if (!confirm('Chuyển sinh: về cấp 1, giữ trang bị và võ công. Tiếp tục?')) return;
   r.stat.reborn++;
+  r.tpPend = (r.tpPend | 0) + 1;                     // tam phap: moi lan chuyen sinh chon 1 huong (TS1-TS5)
   S.lvl = 1; S.xp = 0; S.attr = { str: 0, dex: 0, vit: 0, eng: 0 }; S.attrPts = r.stat.reborn * 50;
   S.stage = 1; S.wave = 1; S.push = true; R.tower = null; R.enemies = []; R.dirty = true; R.zoneShown = null;
   log(`<b class="up">Chuyển sinh lần ${r.stat.reborn}!</b> +${r.stat.reborn * 20}% kinh nghiệm, +${r.stat.reborn * 10}% sát thương`);
   if (S.autoPts === true) autoSpendAttrs();
   achCheck(); closeModal(true); refresh(); save();
+  if (tpPending()) tamPhapModal();                   // chon tam phap ngay sau khi chuyen sinh
 }
 
 /* ---------- 8. dong hanh (thu nuoi danh cung, len cap theo quai ha) ---------- */
@@ -926,6 +930,7 @@ function giftText(g) {
   return p.join(', ');
 }
 function giftBody(r) {
+  if (giftTab === 'tm') return thanMaBody();
   if (giftTab === 'login') {
     const L = r.login, day = ((L.streak - 1) % 7 + 7) % 7;
     return `<p class="desc">Chuỗi ${L.streak} ngày · tổng ${L.total} ngày. Mốc 10 / 20 / 30 ngày có quà lớn.</p>
@@ -994,7 +999,7 @@ function giftBody(r) {
 }
 export function giftModal() {
   if (!S.fac) return;
-  const r = RW(), tabs = [['newbie', 'Tân thủ'], ['code', 'Mã quà'], ['login', 'Điểm danh'], ['lvms', 'Mốc cấp'], ['quest', 'Nhiệm vụ'], ['ach', 'Thành tựu'], ['chest', 'Phúc Duyên'], ['so', 'Quay Sò'], ['event', 'Sự kiện'], ['tower', 'Tháp'], ['pet', 'Đồng hành'], ['reborn', 'Chuyển sinh']];
+  const r = RW(), tabs = [['newbie', 'Tân thủ'], ['code', 'Mã quà'], ['login', 'Điểm danh'], ['lvms', 'Mốc cấp'], ['quest', 'Nhiệm vụ'], ['ach', 'Thành tựu'], ['chest', 'Phúc Duyên'], ['so', 'Quay Sò'], ['event', 'Sự kiện'], ['tower', 'Tháp'], ['pet', 'Đồng hành'], ['tm', 'Thần Mã'], ['reborn', 'Chuyển sinh']];
   modal(`<h3>Phần thưởng <small>Phúc Duyên ${r.fd}</small></h3><div class="dtabs" id="giftTabs">${tabs.map(([k, n]) => `<button data-g="${k}" class="${k === giftTab ? 'on' : ''}">${n}</button>`).join('')}</div>${giftBody(r)}`, () => {
     document.querySelectorAll('#mBody #giftTabs button').forEach(x => x.onclick = () => { giftTab = x.dataset.g; giftModal(); });
     const on = (id, fn) => { const el = $(id); if (el) el.onclick = fn; };
@@ -1004,6 +1009,7 @@ export function giftModal() {
     on('#gCode', () => claimCode($('#codeInp') ? $('#codeInp').value : ''));
     { const ci = $('#codeInp'); if (ci) ci.onkeydown = e => { if (e.key === 'Enter') claimCode(ci.value); }; }
     on('#gTowerOut', () => { towerExit(false); refreshGift(); }); on('#gReborn', doReborn);
+    thanMaBind(refreshGift);
     document.querySelectorAll('#mBody [data-lv]').forEach(x => x.onclick = () => claimLvMs(+x.dataset.lv));
     document.querySelectorAll('#mBody [data-q]').forEach(x => x.onclick = () => { claimQuest(+x.dataset.q); refreshGift(); });
     document.querySelectorAll('#mBody [data-w]').forEach(x => x.onclick = () => { claimWeekQuest(+x.dataset.w); refreshGift(); });

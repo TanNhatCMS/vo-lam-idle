@@ -31,6 +31,8 @@ import {
   skVal,
 } from './core';
 import { skApplies } from './skillsys';
+import { THAN_MA_TOTAL, thanMaBaseValue, thanMaBookCount } from './horse';
+import { tpStacks } from './depth';
 import { baseRow, slotFor } from './loot';
 import { PET_BENCH_BUFF, TEAM_CHAIN_PCT } from './core';
 import { rebornBonus, teamChainOk, titleAttr } from './rewards';
@@ -101,9 +103,16 @@ export function calc(eq) {
   for (const k in eq) {
     const it = eq[k]; if (!it || !reqPass(it)) continue;
     const em = enhMul(it);                                 // cuong hoa (forge.js): nhan thuoc tinh goc
-    for (const [id, mn, mx] of it.base) addAttr(A, attrName(id), [(id === 28 || id === 29 ? mn : (mn + mx) / 2) * em, 0, 0]);
+    const isHorse = k === 'horse', noHorseSpd = isHorse && S.ride === false;   // ngua: cong toc chi hieu khi cuoi (phim M)
+    for (const [id, mn, mx] of it.base) {
+      const nm = attrName(id);
+      if (noHorseSpd && nm === 'fastwalkrun_p') continue;
+      let v = (id === 28 || id === 29 ? mn : (mn + mx) / 2) * em;
+      if (isHorse) v = thanMaBaseValue(it, nm, v);         // thuuan duong: nhan chi so goc theo cap ngua
+      addAttr(A, nm, [v, 0, 0]);
+    }
     const act = hiddenActive(it, eq);
-    (it.mag || []).forEach((m, i) => { if (i % 2 === 0 || Math.floor(i / 2) < act) addItemAttr(m); });
+    (it.mag || []).forEach((m, i) => { if (i % 2 === 0 || Math.floor(i / 2) < act) { if (noHorseSpd && attrName(m.a) === 'fastwalkrun_p') return; addItemAttr(m); } });
     if (it.set) { const ex = goldEnhance(it, eq); (it.ext || []).slice(0, ex).forEach(addItemAttr); }
   }
   /* Trang bi gan cho Dong hanh: cong thuoc tinh vao NHAN VAT — con ra tran x PET_EQ_BUFF, 2 ho menh x PET_BENCH_BUFF
@@ -119,6 +128,12 @@ export function calc(eq) {
     for (const [id, mn, mx] of it.base) addAttr(A, attrName(id), [(id === 28 || id === 29 ? mn : (mn + mx) / 2) * em * mult, 0, 0]);
     for (const m of it.mag) addItemAttr(m, mult);
   }
+  // So Than Ma: thuong thu thap danh ma (horse.ts)
+  { const tmN = thanMaBookCount();
+    if (tmN) addAttr(A, 'lifemax_p', [Math.min(10, tmN), 0, 0]);
+    if (tmN >= 5) addAttr(A, 'allres_p', [2, 0, 0]);
+    if (tmN >= 10) addAttr(A, 'fastwalkrun_p', [3, 0, 0]);
+    if (tmN >= THAN_MA_TOTAL) addAttr(A, 'lucky_v', [10, 0, 0]); }
   // ky nang bi dong
   const wc = weaponCode(eq), plus = av(A, 'allskill_v');
   const P = { A, plusSkill: plus, skAdd };
@@ -145,7 +160,7 @@ export function calc(eq) {
   // sinh luc / noi luc: goc + cap * X/cap + diem * X/diem (KPlayer::SetBaseLifeMax)
   P.life = (st.life + (lv - 1) * (add.LifePerLevel + IDLE_LIFE_PER_LEVEL) + (P.vit - st.vit) * add.LifePerVitality + av(A, 'lifemax_v')) * (1 + av(A, 'lifemax_p') / 100);
   P.mana = (st.mana + (lv - 1) * add.ManaPerLevel + (P.eng - st.eng) * add.ManaPerEnergy + av(A, 'manamax_v')) * (1 + av(A, 'manamax_p') / 100);
-  P.life = Math.max(50, P.life); P.mana = Math.max(20, P.mana);
+  P.life = Math.max(50, P.life) * (1 + tpStacks().ho * 0.06); P.mana = Math.max(20, P.mana);   // tam phap Ho The: +6% sinh luc moi cap
   P.regen = 1 + lv * 0.08 + av(A, 'lifereplenish_v') + P.life * av(A, 'lifereplenish_p') / 10000;
   P.manaRegen = 1 + lv * 0.05 + av(A, 'manareplenish_v') + P.eng * 0.02;
   // chinh xac / ne tranh (KPlayer::SetNpcAttackRating / SetNpcDefence)
@@ -178,7 +193,8 @@ export function calc(eq) {
   P.retMelee = av(A, 'meleedamagereturn_v'); P.retMeleeP = av(A, 'meleedamagereturn_p');
   P.series5 = av(A, 'five_elements_enhance_v'); P.res5 = av(A, 'five_elements_resist_v');
   P.seriesSkill = av(A, ['metalskill_v', 'woodskill_v', 'waterskill_v', 'fireskill_v', 'earthskill_v'][ser]);
-  P.lucky = av(A, 'lucky_v');
+  P.lucky = av(A, 'lucky_v') + tpStacks().bao * 3;   // tam phap Tham Bao: +3 may man moi cap
+  P.dropMul = 1 + tpStacks().bao * 0.05;             // Tham Bao: +5% ti le roi do moi cap
   P.speed = 1 + av(A, 'fastwalkrun_p') / 100;
   P.ranged = ranged;
   // ky nang chu dong + cong don addskilldamageN (tham so 1 = id ky nang duoc tang, tham so 3 = %)
@@ -291,6 +307,7 @@ export function wrongFaction(it) {
   return false;
 }
 export function reqOk(it) {
+  if (S.chal === 'white' && ((it.r || 0) >= 2 || it.set || it.vio)) return false;   // thu thach Bo y: chi do Trang/Xanh
   if (it.petOnly) return false;                           // Thu Boi: chi Dong hanh mac duoc
   if (!sexOk(it)) return false;
   for (const [id, v] of it.req || []) {
@@ -357,6 +374,7 @@ function weaponTarget() {
 /* Ly do cu the vi sao chua mac duoc mon do (hien trong chi tiet, thong bao, bang so sanh) */
 const REQ_VI = { 32: 'Sức mạnh', 33: 'Thân pháp', 34: 'Sinh khí', 35: 'Nội công' };
 export function reqProblems(it) {
+  const chalWhite = S.chal === 'white' && ((it.r || 0) >= 2 || it.set || it.vio) ? ['Thử thách Bố y chỉ mặc đồ Trắng và Xanh'] : [];
   const out = [];
   for (const [id, v] of it.req || []) {
     if (id === 36 && S.lvl < v) out.push(`Cấp ${v} (hiện ${S.lvl}, thiếu ${v - S.lvl})`);
@@ -365,7 +383,7 @@ export function reqProblems(it) {
     else if (id === 37 && v >= 0 && FAC[S.fac] && heroSeries() !== v) out.push(`Chỉ hệ ${SERIES[v]} (bạn hệ ${SERIES[heroSeries()]})`);
     else if (id === 39 && v >= 0 && FAC[S.fac] && FAC[S.fac].id !== v) out.push(`Chỉ môn phái ${(J.factions[v] || {}).n || v}`);
   }
-  return out;
+  return chalWhite.concat(out);
 }
 /* So voi mon dang mac cung o: thay doi suc manh tong, DPS chieu chinh, sinh luc, ne tranh, khang trung binh. ignoreReq: tinh nhu da du dieu kien */
 export function equipCompare(it, ignoreReq) {

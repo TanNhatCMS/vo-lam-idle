@@ -30,6 +30,7 @@ import {
 import { gamepadPoll, renderPad, bindControls } from './control';
 import { jrAdd } from './journal';
 import { renderSkBuffs } from './skillsys';
+import { clanCheck } from './depth';
 import { loginCheck, LV_MS, achCheck, dotGift } from './rewards';
 import { checkHints } from './guide';
 import { SV, svExit, svTick, svDraw, svPause } from './survival';
@@ -103,7 +104,7 @@ function frame(now) {
     guard('giao dien', uiPump);
   }
   saveT += dt;
-  if (saveT > 10 && S.fac) guard('luu', () => { saveT = 0; loginCheck(); achCheck(); dotGift(); const el = R.activeT || 0; if (el > 30) S.kps = R.kills / el; save(); });
+  if (saveT > 10 && S.fac) guard('luu', () => { saveT = 0; loginCheck(); achCheck(); dotGift(); clanCheck(); const el = R.activeT || 0; if (el > 30) S.kps = R.kills / el; save(); });
   requestAnimationFrame(frame);
 }
 function showOffline(o) {

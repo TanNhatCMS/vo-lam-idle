@@ -72,7 +72,7 @@ export function petElemOf(tid) {
 }
 
 /* ---------- thuoc tinh ma thuat ---------- */
-const ATTR_ID = Object.fromEntries((J.attr || []).map((n, i) => [n, i]));
+export const ATTR_ID = Object.fromEntries((J.attr || []).map((n, i) => [n, i]));
 export function attrText(name, p) {
   const t = J.attrDesc[name];
   if (!t) return name + ': ' + p.filter(v => v).join(' / ');
