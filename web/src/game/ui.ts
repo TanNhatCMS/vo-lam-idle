@@ -46,6 +46,7 @@ import {
 import { forgeModal } from './forge';
 import { donKhoModal } from './donkho';
 import { jrModal } from './journal';
+import { CHALLENGES, challengeModal, chalName, clanModal } from './depth';
 import { SK_KIND_VI, skKind, skillAuraHint, skillBuffHint, skillTypeLabel } from './skillsys';
 import { bindBuilds, buildsHTML, chargePointRefund } from './builds';
 import { bindTodo, codexModal, powerModal, suggestModal, todoHTML, tutorialModal } from './guide';
@@ -259,7 +260,7 @@ function renderChar() {
   const eq = SLOTS.map(([k, vi]) => `<div class="slot" data-slot="${k}">${S.eq[k] ? itemCell(S.eq[k]) : `<span>${vi}</span>`}</div>`).join('');
   const attrs = Object.keys(ATTR_VI).map(k => `<div class="attr"><span>${ATTR_VI[k]}</span><b>${Math.round(P[k])}</b><span class="pm"><button class="plus" data-a="${k}" ${S.attrPts ? '' : 'disabled'}>+</button><button class="minus" data-a="${k}" title="Rút lại 1 điểm" ${S.attr[k] > 0 ? '' : 'disabled'}>−</button></span></div>`).join('');
   const res = ELEM.map(e => `<span>Kháng ${ELEM_VI[e]}</span><span>${Math.round(P.res[e])}%</span>`).join('');
-  $('#t-char').innerHTML = `<div class="card"><b style="color:${SERIES_COL[f.series]}">${esc(f.n)}</b> · hệ ${SERIES[f.series]} · Cấp ${S.lvl}<br><small class="dim">Lực chiến ${fmt(R.power)}</small> <button class="btn sm" id="bPower">Chi tiết</button></div>
+  $('#t-char').innerHTML = `<div class="card"><b style="color:${SERIES_COL[f.series]}">${esc(f.n)}</b> · hệ ${SERIES[f.series]} · Cấp ${S.lvl}${S.chal ? ` · <b>Thử thách ${chalName()}</b>` : ''}<br><small class="dim">Lực chiến ${fmt(R.power)}</small> <button class="btn sm" id="bPower">Chi tiết</button></div>
     <div class="eqgrid">${eq}</div>
     <p class="dim small">Dòng ẩn (2, 4, 6) của mỗi món mở khi hệ nhân vật hoặc 2 món liên kết <b>tương sinh</b> với hệ món đó (Kim→Thủy→Mộc→Hỏa→Thổ→Kim). Đang mở: ${SLOTS.filter(([k]) => S.eq[k] && S.eq[k].mag.length > 1).map(([k, vi]) => `${vi} ${hiddenActive(S.eq[k])}/${Math.floor(S.eq[k].mag.length / 2)}`).join(' · ') || '—'}</p>
     <h3>Tiềm năng <small>${S.attrPts} điểm</small> <button class="btn sm" id="bSugAt">Gợi ý</button></h3><div class="card">${attrs}</div>
@@ -408,10 +409,10 @@ function renderMore() {
       <label><input type="checkbox" id="cCurse" ${S.autoCurse === false ? '' : 'checked'}> Tự hạ bùa hại lên quái (ưu tiên trùm / tinh anh, giảm khang - phòng thủ - sát thương chúng)</label><br>
       <label><input type="checkbox" id="cAura" ${(S.auraOff || {})[69] ? '' : 'checked'}> Vòng sáng độc — Vô Hình Độc (phủ độc quanh người mỗi 4 giây)</label></div>
     <h3>Độ khó và trợ giúp</h3><div class="card lootf">
-      <div class="row">Độ khó <select id="sDiff">${DIFFS.map((d, i) => `<option value="${i}" ${diffOf() === d ? 'selected' : ''}>${d.n}</option>`).join('')}</select> <small class="dim">${esc(diffOf().d)}</small></div>
+      <div class="row">Độ khó <select id="sDiff" ${S.chal === 'hard' ? 'disabled' : ''}>${DIFFS.map((d, i) => `<option value="${i}" ${diffOf() === d ? 'selected' : ''}>${d.n}</option>`).join('')}</select> <small class="dim">${esc(diffOf().d)}${S.chal === 'hard' ? ' · Thử thách Huyết chiến: khóa Khó' : ''}</small></div>
       <label><input type="checkbox" id="cForge" ${S.autoForge ? 'checked' : ''}> Tự động rèn đồ (ghép mảnh Hoàng Kim, khảm Tím, hợp và thăng cấp Huyền Tinh; mỗi 30 giây)</label>
       <label><input type="checkbox" id="cBuy" ${S.autoBuy === false ? '' : 'checked'}> Tự mua vũ khí đúng loại ở Biện Kinh khi mạnh hơn ≥ 25% (tối đa 60% ngân lượng)</label>
-      <div class="btnrow"><button class="btn" id="bStashM">Kho chung</button><button class="btn" id="bJournal">Sổ tay</button><button class="btn" id="bTut">Hướng dẫn</button><button class="btn" id="bCodex">Bách khoa</button><button class="btn" id="bSug">Gợi ý cộng điểm</button></div></div>
+      <div class="btnrow"><button class="btn" id="bStashM">Kho chung</button><button class="btn" id="bClan">Gia tộc</button><button class="btn" id="bJournal">Sổ tay</button><button class="btn" id="bTut">Hướng dẫn</button><button class="btn" id="bCodex">Bách khoa</button><button class="btn" id="bSug">Gợi ý cộng điểm</button></div></div>
     <h3>Trợ năng</h3><div class="card lootf">
       <div class="row">Cỡ chữ <select id="uFs">${UI_FS.map((v, i) => `<option value="${i}" ${uiPrefs().fs === i ? 'selected' : ''}>${UI_FS_NAME[i]}</option>`).join('')}</select> <small class="dim">áp dụng cho bảng thông tin, thẻ và hộp thoại</small></div>
       <label><input type="checkbox" id="uSaver" ${uiPrefs().saver ? 'checked' : ''}> Tiết kiệm pin (vẽ 30 khung/giây, ngừng vẽ khi ẩn tab)</label>
@@ -443,7 +444,7 @@ function renderMore() {
   $('#sDiff').onchange = e => { S.diff = +e.target.value; R.enemies = []; R.spawnT = 0.3; save(); toast('Độ khó: ' + diffOf().n); renderMore(); };
   $('#cBuy').onchange = e => { S.autoBuy = e.target.checked; save(); };
   $('#cForge').onchange = e => { S.autoForge = e.target.checked; if (S.autoForge) autoForge(); save(); };
-  $('#bStashM').onclick = () => stashModal(); $('#bJournal').onclick = () => jrModal(); $('#bTut').onclick = () => tutorialModal(0); $('#bCodex').onclick = () => codexModal(); $('#bSug').onclick = suggestModal;
+  $('#bStashM').onclick = () => stashModal(); $('#bClan').onclick = () => clanModal(); $('#bJournal').onclick = () => jrModal(); $('#bTut').onclick = () => tutorialModal(0); $('#bCodex').onclick = () => codexModal(); $('#bSug').onclick = suggestModal;
   $('#bAdmin').onclick = () => adminModal();
   $('#uFs').onchange = e => { setUiPref({ fs: +e.target.value }); }; $('#uSaver').onchange = e => setUiPref({ saver: e.target.checked });
   $('#bSwitch').onclick = () => switchCharacter();
@@ -505,7 +506,7 @@ export function slotMenu(confirmDel?) {
 export function pickFaction() {
   const cards = FACTIONS.map(f => `<button data-f="${f.key}" style="--c:${SERIES_COL[f.series]}"><img src="${(W.hero[f.key] || {}).img || ''}" alt=""><b>${esc(f.n)}</b><small>hệ ${SERIES[f.series]}</small><i class="s5b" style="background-image:url('ui/s${f.series}.png')"></i></button>`).join('');
   modal(`<h3>Chọn môn phái</h3><p class="desc">Mỗi phái thuộc một hệ ngũ hành. Kim khắc Mộc, Mộc khắc Thổ, Thổ khắc Thủy, Thủy khắc Hỏa, Hỏa khắc Kim.</p><div class="facpick">${cards}</div>`, () => {
-    document.querySelectorAll('.facpick button').forEach(b => b.onclick = () => startFaction(b.dataset.f));
+    document.querySelectorAll('.facpick button').forEach(b => b.onclick = () => challengeModal(b.dataset.f, chal => startFaction(b.dataset.f, chal)));
   }, true);
 }
 const NOTICE_TXT = 'Võ Lâm Idle - Phi thương mại, ưu tiên giải trí trên chính thiết bị của mình';
@@ -514,8 +515,10 @@ function noticeModal() {
   modal(`<h3>Võ Lâm Idle</h3><p class="desc notice">${esc(NOTICE_TXT)}</p><div class="btnrow"><button class="btn" id="bNotice">Đã hiểu</button></div>`, () => { $('#bNotice').onclick = () => { closeModal(true); if (!S.tut) tutorialModal(0); }; });
   log(`<span class="dim">${esc(NOTICE_TXT)}</span>`);
 }
-function startFaction(key) {
+function startFaction(key, chal) {
   const f = FAC[key]; S.fac = key; S.sex = ['emei', 'cuiyan'].includes(key) ? 1 : 0; S.name = f.n;
+  S.chal = CHALLENGES.some(c => c.k === chal) ? chal : '';      // thu thach nhan vat: khong doi duoc
+  if (S.chal === 'nopot') S.potOff = true;                       // Bat duoc: tat tu dong uong thuoc ngay tu dau
   if (f.starter) { S.sk[f.starter] = 1; S.skPts = Math.max(0, S.skPts - 1); S.main = f.starter; }
   starterGear();
   R.dirty = true; recalc(); R.life = R.P.life; R.mana = R.P.mana;

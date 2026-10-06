@@ -6,6 +6,7 @@ import { matAdd, matHave, mats, oreParse, oreRows } from './recipes';
 import { img } from './render';
 import { S, pack, save, unpack } from './save';
 import { reqOk } from './stats';
+import { clanPerk } from './depth';
 import { invDirty, itemCell, itemHTML, modal, refresh, toast } from './ui';
 import { setInvDirty } from './ui';
 
@@ -17,12 +18,13 @@ import { setInvDirty } from './ui';
 'use strict';
 const STASH_KEY = 'jxidle_stash', STASH_V = 1;
 export const STASH_MAX = 60;
+export const stashMax = () => STASH_MAX + 10 * clanPerk('stash');   // gia toc: +10 o moi moc danh vong
 const stashNew = () => ({ v: STASH_V, id: Math.random().toString(36).slice(2, 10), rev: 0, gold: 0, items: [], mats: { ht: {}, ore: {}, shard: {}, misc: {} } });
 function stashClean(o) {                                  // lam sach noi dung doc tu may (mat khau / file co the hong)
   const st = stashNew(); if (!o || typeof o !== 'object') return st;
   st.id = typeof o.id === 'string' ? o.id : st.id; st.rev = Math.max(0, +o.rev || 0);
   st.gold = Number.isFinite(+o.gold) ? Math.max(0, Math.floor(+o.gold)) : 0;
-  st.items = (Array.isArray(o.items) ? o.items : []).filter(it => it && typeof it === 'object' && Array.isArray(it.base) && Array.isArray(it.mag)).slice(0, STASH_MAX);
+  st.items = (Array.isArray(o.items) ? o.items : []).filter(it => it && typeof it === 'object' && Array.isArray(it.base) && Array.isArray(it.mag)).slice(0, STASH_MAX + 20);
   for (const g of ['ht', 'ore', 'shard', 'misc']) for (const k in ((o.mats || {})[g] || {})) { const n = Math.floor(+o.mats[g][k]); if (n > 0) st.mats[g][k] = n; }
   return st;
 }
@@ -61,7 +63,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 export function stashDeposit(it) {
   if (!S.inv.includes(it)) return { ok: false, msg: 'Chỉ gửi được món trong hành trang (không phải đồ đang mặc)' };
   return stashTx(st => {
-    if (st.items.length >= STASH_MAX) return { ok: false, msg: `Kho đầy (${STASH_MAX} món)` };
+    if (st.items.length >= stashMax()) return { ok: false, msg: `Kho đầy (${stashMax()} món)` };
     const copy = clone(it), i = S.inv.indexOf(it);
     S.inv.splice(i, 1); st.items.push(copy); setInvDirty(true);                     // nguon (hanh trang) truoc; ghi kho loi -> undo
     return { ok: true, from: 'char', msg: `Gửi vào kho: ${it.n}`, undo: () => { S.inv.splice(i, 0, it); setInvDirty(true); } };
@@ -128,9 +130,9 @@ export function stashModal(tab?) {
   let body = '';
   if (err) body = `<p class="reqbad">${err === 'tampered' ? 'Kho đã bị chỉnh sửa ngoài game (sai chữ ký) và không có bản sao lưu hợp lệ. Có thể nạp lại từ file kho.' : 'Không đọc được bộ nhớ trình duyệt.'}</p>`;
   if (stashTab === 'item') {
-    body += `<p class="desc">Bấm món trong <b>hành trang</b> để gửi vào kho. Bấm món trong <b>kho</b> để xem và lấy ra. Kho dùng chung cho cả 3 slot (${st.items.length}/${STASH_MAX} món).</p>
+    body += `<p class="desc">Bấm món trong <b>hành trang</b> để gửi vào kho. Bấm món trong <b>kho</b> để xem và lấy ra. Kho dùng chung cho cả 3 slot (${st.items.length}/${stashMax()} món).</p>
       <h3>Hành trang <small>${S.inv.length}/${INV_MAX}</small></h3><div class="invgrid" id="stInv">${S.inv.map(itemCell).join('') || '<small class="dim">Trống</small>'}</div>
-      <h3>Kho chung <small>${st.items.length}/${STASH_MAX}</small></h3><div class="invgrid" id="stBox">${st.items.map(stashCell).join('') || '<small class="dim">Kho trống</small>'}</div>`;
+      <h3>Kho chung <small>${st.items.length}/${stashMax()}</small></h3><div class="invgrid" id="stBox">${st.items.map(stashCell).join('') || '<small class="dim">Kho trống</small>'}</div>`;
   } else if (stashTab === 'mat') {
     const rows = []; for (const g of ['ht', 'ore', 'shard', 'misc']) for (const k of new Set([...Object.keys(mats()[g]), ...Object.keys(st.mats[g])])) rows.push([g, k]);
     body += `<p class="desc">Nguyên liệu rèn đang có / trong kho.</p>` + (rows.map(([g, k]) => `<div class="qrow"><span>${esc(matName(g, k))}<small>có ${matHave(g, k)} · kho ${st.mats[g][k] || 0}</small></span><span></span><span class="pm"><button class="btn sm" data-mi="${g}|${k}" ${matHave(g, k) ? '' : 'disabled'}>Gửi hết</button><button class="btn sm" data-mo="${g}|${k}" ${st.mats[g][k] ? '' : 'disabled'}>Rút hết</button></span></div>`).join('') || '<small class="dim">Chưa có nguyên liệu</small>');

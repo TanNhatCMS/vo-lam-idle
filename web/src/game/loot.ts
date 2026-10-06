@@ -102,7 +102,8 @@ export function makeItem(detail, particular, tier, nMagic) {
 /* Roi do khi ha quai: so luong theo loai quai, mon theo RandRate/RandRange cua tep droprate */
 export function rollDrops(e) {
   const df = dropFile(e.L), items = df.items.filter(x => x[0] === 0 && x[1] <= 9);
-  const n = e.cls === 'boss' ? 3 : e.cls === 'elite' ? (Math.random() < 0.5 ? 1 : 0) : (Math.random() < 0.1 ? 1 : 0);
+  const dm = R.P ? (R.P.dropMul || 1) : 1;   // tam phap Tham Bao cong ti le roi
+  const n = e.cls === 'boss' ? 3 : e.cls === 'elite' ? (Math.random() < Math.min(1, 0.5 * dm) ? 1 : 0) : (Math.random() < Math.min(1, 0.1 * dm) ? 1 : 0);
   const out = [];
   for (let i = 0; i < n * (e.bonusDrop || 1); i++) {
     const x = wpick(items, r => r[3]); if (!x) continue;

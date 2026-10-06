@@ -32,6 +32,7 @@ import { shopModal, stockCount, takeStock } from './shop';
 import { stashModal } from './stash';
 import { backFromBossArena } from './worldboss';
 import { SV, svPause, svUseHp } from './survival';
+import { toggleRide } from './horse';
 import { log, refresh, sellUnmatched, toast } from './ui';
 import { uiBump } from './store';
 import type { InputState } from './types';
@@ -122,6 +123,7 @@ export function pressSlot(i) {
 
 /* ---------- thuoc & Tho Dia Phu ---------- */
 export function drinkNow(kind) {
+  if (S.chal === 'nopot') { toast('Thử thách Bất dược: không dùng thuốc'); return; }
   R.potCd = R.potCd || { life: 0, mana: 0 };
   if (R.potCd[kind] > 0) return;
   const own = takeStock(kind);                                 // thuoc da mua o cua hang dung truoc
@@ -202,6 +204,7 @@ export function bindControls() {
     if ('1234'.includes(k)) pressSlot(+k - 1);
     if (k === 'q') drinkNow('life'); if (k === 'e') drinkNow('mana'); if (k === 't') R.wbArena ? backFromBossArena() : R.town ? backFromTown() : goTown();
     if (k === 'f') setCtrl(manual() ? 'auto' : 'manual');
+    if (k === 'm') toggleRide();
     if (k === 'r') toggleRot();
   });
   window.addEventListener('keyup', ev => { INPUT.keys[ev.key.length === 1 ? ev.key.toLowerCase() : ev.key] = false; });

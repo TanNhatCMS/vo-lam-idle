@@ -35,6 +35,8 @@ import {
 } from './core';
 import { checkHints } from './guide';
 import { curseMod, skillSysTick } from './skillsys';
+import { thanMaOnKill } from './horse';
+import { dexMark, tpStacks } from './depth';
 import { jrAdd, jrDeath } from './journal';
 import { onLevelUp, onStageChange, onZoneChange } from './loop';
 import { dropToGround, moneyDrop, rollDrops, updateGround } from './loot';
@@ -88,7 +90,7 @@ export const POISON_TIME = 3;
 export const CLS = { normal: { hp: 1, dmg: 1, xp: 1, r: 17 }, elite: { hp: 2.5, dmg: 1.3, xp: 3, r: 21 }, boss: { hp: 9, dmg: 1.7, xp: 20, r: 30 } };
 /* Do kho (chon o the Khac): Thuong la can bang chuan cua cac bo kiem thu. De / Kho doi mau, sat thuong quai va thuong kinh nghiem / ngan luong */
 export const DIFFS = [{ n: 'Dễ', hp: 0.75, dmg: 0.7, rew: 0.8, d: 'Quái yếu hơn (máu −25%, sát thương −30%), thưởng −20%' }, { n: 'Thường', hp: 1, dmg: 1, rew: 1, d: 'Cân bằng chuẩn' }, { n: 'Khó', hp: 1.4, dmg: 1.35, rew: 1.25, d: 'Quái mạnh hơn (máu +40%, sát thương +35%), thưởng +25%' }];
-export const diffOf = () => DIFFS[(S && [0, 1, 2].includes(S.diff)) ? S.diff : 1];
+export const diffOf = () => S && S.chal === 'hard' ? DIFFS[2] : DIFFS[(S && [0, 1, 2].includes(S.diff)) ? S.diff : 1];   // thu thach Huyet chien: Khó co dinh
 function enemyStats(L, cls) {
   const c = CLS[cls];
   return { hp: (18 + 8 * L + 0.55 * L * L) * c.hp, dmg: (2 + 1.0 * L + 0.006 * L * L) * c.dmg, ar: 30 + L * 9, def: 8 + L * 3.2 };
@@ -158,6 +160,7 @@ function heroHit(a, e) {
   }
   // ngu hanh tang cuong / khang (five_elements_enhance_v) cong tru truc tiep
   if (counters(a.series, e.series)) tot += R.P.series5;
+  if (e.cls === 'boss' || e.cls === 'elite') tot *= 1 + tpStacks().tru * 0.06;   // tam phap Pha Trum
   tot = Math.max(1, tot);
   e.hp -= tot; e.hitT = 0.12; if (e.act !== 'at') { e.act = 'hurt'; e.actT = 0; npcSfx(MON[e.tid].anim, 'hurt', 0.3); }
   if (a.stun && Math.random() * 100 < a.stun) e.stun = 0.8;
@@ -171,7 +174,7 @@ function enemyHit(e) {
   const cm = curseMod(e);   // bua hai: dich giam sat thuong va chinh xac
   if (Math.random() * 100 >= hitPercent(e.ar + (cm ? cm.ar : 0), R.P.def)) { addText(H.x, H.y - 30, 'Né', '#9cf', 11); return; }
   const el = e.series === 1 && Math.random() < 0.4 ? 'poison' : e.series === 2 && Math.random() < 0.4 ? 'cold' : e.series === 3 && Math.random() < 0.4 ? 'fire' : e.series === 4 && Math.random() < 0.3 ? 'light' : 'phys';
-  let d = e.dmg * rnd(0.8, 1.2) * (cm ? 1 + cm.dmg / 100 : 1);
+  let d = e.dmg * rnd(0.8, 1.2) * (cm ? 1 + cm.dmg / 100 : 1) * (1 - tpStacks().ho * 0.01);   // tam phap Ho The: hoa giai 1%/cap
   d = applyPart(d, el, e.series, R.P.series, R.P.res, PLAYER_RES_MAX, 10);
   if (R.P.res5 && !counters(e.series, R.P.series)) d = Math.max(1, d - R.P.res5); // ngu hanh khang (five_elements_resist_v)
   R.life -= d; R.hurtT = 0.25; if (H.act !== 'at' && Math.random() < 0.3) { H.act = 'hurt'; H.actT = 0; }
@@ -324,6 +327,8 @@ function onKill(e) {
   gainXp(gx);
   const g = Math.round(moneyDrop(e) * diffOf().rew); S.gold += g;
   jrAdd('kills', 1); jrAdd('xp', gx); jrAdd('gold', g);      // so tay: thong ke theo gio choi that
+  thanMaOnKill(e);                                         // ngua dang cuoi nhan kinh nghiem
+  dexMark(e.tid);                                          // bach khoa: quai da ha
   burst(e.x, e.y, SERIES_COL[e.series]);
   for (const it of rollDrops(e)) dropToGround(it, e);
   for (const m of allDrops(e)) log(`Nhặt được <b style="color:${RAR_COL[3]}">${esc(m)}</b>`);
