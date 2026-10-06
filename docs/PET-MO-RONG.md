@@ -24,7 +24,7 @@
 | 10 | Bách khoa Đồng hành | Tab mới **"Đồng hành"** trong Bách khoa (`codexModal`): mọi loài có anim chia theo 5 hệ, đánh dấu ✔ loài **đã từng dẫn** (`rw.petSeen`); tiến độ mỗi hệ; đủ 100% một hệ → nhận **+10 Phúc Duyên** một lần (`rw.codexPet`). |
 | 11 | Đột phá bằng tiền tệ | "Nạp linh lực" **+1 cấp** cho pet: tốn `5 + floor(lvl/10)` **Vỏ Sò** hoặc **8 Phúc Duyên** (2 nút, chọn 1 trong 2). |
 | 12 | Auto-gắn đồ pet | `S.autoPet` (mặc định **bật**): mỗi 30s quét hành trang, mỗi ô gắn món **tốt hơn 5%** món đang gắn (`petAutoEquip`, im lặng — không toast/đóng modal). |
-| 13 | Bộ lọc giữ đồ pet | `rw.petF.elemOnly`: bật thì chỉ **giữ** món cùng hệ với pet ra trận (đồ hệ khác bán như thường). |
+| 13 | Bộ lọc giữ đồ pet | `rw.petF.keep` (bật mặc định): chỉ giữ **(1)** món tốt nhất trong túi cho ô pet đang **trống**, **(2)** món tốt hơn món đang gắn; kèm `rw.petF.elemOnly` (chỉ giữ cùng hệ). Tắt `keep` = tự bán như thường. *Vá 2026-10-06: bản đầu giữ quá rộng (mọi món `d0–9` đều "phù hợp ô nào đó") làm bộ tự bán đồ thừa ngừng hoạt động — đã siết như trên + thêm toggle "Giữ trong túi món tốt hơn đồ Đồng hành đang gắn" ở thẻ Đồng hành.* |
 | 14 | QoL | Pet di chuyển bằng `obsSteer` (đi vòng vật cản như nhân vật). Nút **"Lấy hết đồ trên đất (N)"** ở thẻ Hành trang. Pet nhặt mà túi đầy → toast nhắc (throttle 30s). HUD: chip **🐾 N** (số pet sở hữu, bấm mở thẻ Đồng hành) kèm **⏳ Xs** hồi chiêu kỹ năng. |
 
 ## 1. Hằng số (`core.ts`)

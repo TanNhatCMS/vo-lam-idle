@@ -122,7 +122,7 @@ export function RW() { // trang thai phan thuong trong file luu (tao / bo sung t
   r.petSeen = r.petSeen && typeof r.petSeen === 'object' ? r.petSeen : {};
   if (r.pet) r.petSeen[r.pet.tid] = 1;
   r.realmCd = r.realmCd && typeof r.realmCd === 'object' ? r.realmCd : {};
-  r.petF = Object.assign({ elemOnly: 0 }, r.petF && typeof r.petF === 'object' ? r.petF : {});
+  r.petF = Object.assign({ elemOnly: 0, keep: 1 }, r.petF && typeof r.petF === 'object' ? r.petF : {});
   r.codexPet = r.codexPet && typeof r.codexPet === 'object' ? r.codexPet : {};
   /* Boss Thế Giới + Vỏ Sò: bổ sung TRÊN TẠI object cũ (không thay bằng bản sao như stat/login ở trên)
      vì worldboss wbVictory / spinSo giữ tham chiếu w/so qua nhiều lần gọi RW() giữa các mutation. */
@@ -500,14 +500,24 @@ export function drawPet(c, dt) {
   label(pp.x, pp.y - 42, `${MON[p.tid].n} · Lv${p.lvl}`, SERIES_COL[petElemOf(p.tid)] || NAME_COL.pet, 10, -1);
 }
 /* ---------- 8b. trang bi cho Dong hanh (gan do khong dung vao pet -> buff thuoc tinh nhan vat) ---------- */
-/* Giu lai mon dang trong tui nhung phu hop o pet (neu khong, tu ban do thua se an het do truoc khi nguoi choi kip gan) */
+/* Giu lai mon DANG THAT SU can cho pet — khac thi ban nhu thuong (neu khong, tu ban do thua bi phong toa).
+   Chi 2 truong hop duoc giu: (1) o DANG TRONG: mon tot nhat trong tui cho o do; (2) co do roi: mon tot hon mon dang gắn.
+   Tat bang toggle "Giữ đồ phù hợp cho Đồng hành" (rw.petF.keep) o the Dong hanh. */
 export function petWants(it) {
+  const r = S.rw, p = r && r.pet;
+  if (!r || !r.petF || r.petF.keep === 0) return false;         // nguoi choi tat giu do pet
   const slot = petSlotFor(it); if (!slot || !petUnlocked()) return false;
   if (S.inv.length >= INV_MAX - 6) return false;               // tui gan day: nhuong cho, ban nhu thuong
-  const r = S.rw, p = r && r.pet;
-  if (r && r.petF && r.petF.elemOnly && p && it.s !== petElemOf(p.tid)) return false;   // bo loc: chi giu do cung he pet
-  const cur = p && p.eq && p.eq[slot];
-  return !cur || itemPower(it) > itemPower(cur) * 0.9;
+  const elem = petElemOf(p.tid);
+  const okElem = x => !r.petF.elemOnly || x.s === elem;
+  if (!okElem(it)) return false;                               // bo loc: chi giu do cung he pet
+  const cur = p.eq && p.eq[slot];
+  if (!cur) {
+    let best = it;                                             // o trong: chi giu mon TOT NHAT trong tui cho o do
+    for (const x of S.inv) if (x !== it && petFits(slot, x) && okElem(x) && itemPower(x) > itemPower(best)) best = x;
+    return best === it;
+  }
+  return itemPower(it) > itemPower(cur);                       // co do: chi giu mon tot hon mon dang gan
 }
 function petEquip(slot, it, quiet) {
   const p = petCur(); if (!p || !petUnlocked() || !petFits(slot, it) || !S.inv.includes(it)) return;
@@ -699,6 +709,7 @@ export function renderPet() {
     <p class="dim small">Chạm ô trống để gắn món trong hành trang; chạm món đang gắn để xem/tháo. Đồng hành tương khắc hệ quái: +25% sát thương (⚡). Ra trận, Đồng hành tự đi nhặt đồ auto theo bộ lọc ở thẻ Hành trang thay nhân vật.</p>
     <div class="card lootf">
       <label><input type="checkbox" id="cAutoPet" ${S.autoPet === false ? '' : 'checked'}> Tự gắn đồ tốt hơn cho Đồng hành (mỗi 30 giây)</label>
+      <label><input type="checkbox" id="cPetKeep" ${r.petF.keep === 0 ? '' : 'checked'}> Giữ trong túi món tốt hơn đồ Đồng hành đang gắn (tắt = tự bán như thường)</label>
       <label><input type="checkbox" id="cPetElem" ${r.petF.elemOnly ? 'checked' : ''}> Chỉ giữ đồ cùng hệ <b style="color:${SERIES_COL[st.elem]}">${SERIES[st.elem]}</b> cho Đồng hành (bỏ chọn = giữ mọi hệ)</label></div>
     <h3>Ngũ Hành Bí Cảnh <small>hạ ${REALM_KILLS} quái đúng hệ → Huyền Tinh + lượng + Vỏ Sò</small></h3>
     <div class="btnrow">${realmBtns}</div>
@@ -721,7 +732,8 @@ export function renderPet() {
   if (q('#pForge')) q('#pForge').onclick = () => { const it = petForgeItem(); if (it) refresh(); };
   if (q('#pCodex')) q('#pCodex').onclick = () => codexModal('pet');
   if (q('#cAutoPet')) q('#cAutoPet').onchange = e => { S.autoPet = e.target.checked; if (S.autoPet) petAutoEquip(); save(); renderPet(); };
-  if (q('#cPetElem')) q('#cPetElem').onchange = e => { r.petF.elemOnly = e.target.checked ? 1 : 0; save(); renderPet(); };
+  if (q('#cPetKeep')) q('#cPetKeep').onchange = e => { r.petF.keep = e.target.checked ? 1 : 0; setInvDirty(true); save(); renderPet(); };
+  if (q('#cPetElem')) q('#cPetElem').onchange = e => { r.petF.elemOnly = e.target.checked ? 1 : 0; setInvDirty(true); save(); renderPet(); };
   el.querySelectorAll('[data-realm]').forEach(b => b.onclick = () => petRealmEnter(+b.dataset.realm));
 }
 
