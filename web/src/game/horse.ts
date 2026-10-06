@@ -1,5 +1,5 @@
 // @ts-nocheck — chuyen tu vanilla JS: bat lai check tung file dan dan (xem README muc TypeScript)
-import { ATTR_ID, INV_MAX, J, RAR_COL, attrText, clamp, esc, fmt } from './core';
+import { $, ATTR_ID, INV_MAX, J, RAR_COL, attrText, clamp, esc, fmt } from './core';
 import { addItem, log, toast } from './ui';
 import { dropToGround } from './loot';
 import { stashRead } from './stash';

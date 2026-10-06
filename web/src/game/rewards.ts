@@ -1062,13 +1062,14 @@ export function giftModal() {
     on('#gCode', () => claimCode($('#codeInp') ? $('#codeInp').value : ''));
     { const ci = $('#codeInp'); if (ci) ci.onkeydown = e => { if (e.key === 'Enter') claimCode(ci.value); }; }
     on('#gTowerOut', () => { towerExit(false); refreshGift(); }); on('#gTower2', () => { tower2Start(); refreshGift(); }); on('#gReborn', doReborn);
-    thanMaBind(refreshGift);
-    actBind(refreshGift);
     document.querySelectorAll('#mBody [data-lv]').forEach(x => x.onclick = () => claimLvMs(+x.dataset.lv));
     document.querySelectorAll('#mBody [data-q]').forEach(x => x.onclick = () => { claimQuest(+x.dataset.q); refreshGift(); });
     document.querySelectorAll('#mBody [data-w]').forEach(x => x.onclick = () => { claimWeekQuest(+x.dataset.w); refreshGift(); });
     document.querySelectorAll('#mBody [data-t]').forEach(x => x.onclick = () => { r.title = r.title === x.dataset.t ? '' : x.dataset.t; R.dirty = true; save(); refreshGift(); });
     document.querySelectorAll('#mBody [data-e]').forEach(x => x.onclick = () => eventBuy(+x.dataset.e));
     document.querySelectorAll('#mBody .petpick [data-p]').forEach(x => x.onclick = () => petAdopt(+x.dataset.p));
+    /* cac tab phu gan CUOI + boc loi: mot module loi khong duoc lam chet bind loi cua cac tab chinh */
+    try { thanMaBind(refreshGift); } catch (e) { console.error('thanMaBind', e); }
+    try { actBind(refreshGift); } catch (e) { console.error('actBind', e); }
   });
 }

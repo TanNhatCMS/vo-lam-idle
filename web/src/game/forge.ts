@@ -38,7 +38,7 @@ import {
 } from './recipes';
 import { petCanEquip, petForgeCost, petForgeItem } from './rewards';
 import { S, save } from './save';
-import { closeModal, invDirty, itemHTML, log, modal, toast } from './ui';
+import { closeModal, invDirty, itemHTML, log, modal, refresh, toast } from './ui';
 import { setInvDirty } from './ui';
 
 /* ======================= REN DO: CUONG HOA + TAY LUYEN (cho tieu ngan luong lau dai) =======================
