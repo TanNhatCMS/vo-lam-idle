@@ -47,7 +47,18 @@ for (const lvl of ['log', 'info', 'warn', 'error']) {
   const orig = console[lvl] ? console[lvl].bind(console) : () => {};
   console[lvl] = (...a) => { try { push(lvl, a); } catch (e) { /* khong de log lam chet app */ } orig(...a); };
 }
-window.addEventListener('error', e => { push('error', ['[uncaught] ' + (e.message || '?') + ' @ ' + String(e.filename || '').split('/').pop() + ':' + (e.lineno || 0)]); });
+window.addEventListener('error', e => {
+  const t = e.target;
+  /* loi TAI TAI NGUYEN (404 anh/am thanh/script): su kien error khong bubble, chi bat o capture phase */
+  if (t && t !== window && (t.tagName === 'IMG' || t.tagName === 'SCRIPT' || t.tagName === 'LINK' || t.tagName === 'AUDIO')) {
+    push('warn', ['[tải lỗi] không nạp được ' + t.tagName.toLowerCase() + ': ' + (t.currentSrc || t.src || t.href || '?') + ' (thiếu file, hoặc máy chủ đang tắt)']);
+    return;
+  }
+  push('error', ['[uncaught] ' + (e.message || '?') + ' @ ' + String(e.filename || '').split('/').pop() + ':' + (e.lineno || 0)]);
+}, true);
+/* fetch/response loi (404 JSON...) */
+const origFetch = window.fetch ? window.fetch.bind(window) : null;
+if (origFetch) window.fetch = (...a) => origFetch(...a).then(r => { if (!r.ok) push('warn', ['[http ' + r.status + '] ' + String(a[0]).split('/').slice(-1)[0]]); return r; }, e => { push('error', ['[fetch lỗi] ' + String(a[0]) + ' — ' + (e && e.message)]); throw e; });
 window.addEventListener('unhandledrejection', e => { push('error', ['[promise] ' + fmtArg(e.reason)]); });
 window.addEventListener('pagehide', persist);
 
