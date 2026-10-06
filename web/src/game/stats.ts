@@ -30,6 +30,7 @@ import {
   isAttack,
   skVal,
 } from './core';
+import { skApplies } from './skillsys';
 import { baseRow, slotFor } from './loot';
 import { PET_BENCH_BUFF, TEAM_CHAIN_PCT } from './core';
 import { rebornBonus, teamChainOk, titleAttr } from './rewards';
@@ -123,7 +124,7 @@ export function calc(eq) {
   const P = { A, plusSkill: plus, skAdd };
   const lvOf = id => S.sk[id] + plus + (skAdd[id] || 0);
   for (const id in S.sk) {
-    const s = SK[id]; if (!s || !S.sk[id] || isAttack(s)) continue;
+    const s = SK[id]; if (!s || !S.sk[id] || isAttack(s) || !skApplies(s)) continue;
     const L = lvOf(id);
     for (const name in s.attr) {
       if (SKIP_PASSIVE.test(name)) continue;

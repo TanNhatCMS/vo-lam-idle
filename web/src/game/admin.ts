@@ -15,7 +15,7 @@ import { makeRoom, slotFor } from './loot';
 import { makeSetItem } from './sets';
 import { RW } from './rewards';
 import { sexReqOk } from './stats';
-import { log, modal, refresh, toast } from './ui';
+import { closeModal, log, modal, refresh, toast } from './ui';
 
 const ADMIN_OPTS = [
   { k: 'lv', n: 'Lên thẳng cấp trần',
@@ -106,7 +106,8 @@ export function adminModal() {
     + '</select> <small class="dim">nhân vào thời gian mô phỏng, vật lý vẫn bước 1/60s</small></div></div>'
     + ADMIN_OPTS.map(o => '<div class="card"><b>' + esc(o.n) + '</b><br><small class="dim">' + esc(o.d) + '</small>'
       + '<div class="btnrow"><button class="btn" data-ad="' + o.k + '"' + (used ? ' disabled' : '') + '>Kích hoạt</button></div></div>').join('')
-    + '<div class="btnrow"><button class="btn" onclick="closeModal()">Đóng</button></div>', () => {
+    + '<div class="btnrow"><button class="btn" id="adClose">Đóng</button></div>', () => {
+      const adClose = document.getElementById('adClose'); if (adClose) adClose.onclick = () => closeModal();   // khong dung onclick inline: closeModal khong phai bien toan cuc sau khi bundle
       document.querySelectorAll('#mBody [data-ad]').forEach(b => b.onclick = () => { if (!adminDaDung()) adminApply(b.dataset.ad); });
       const sel = document.getElementById('adSpeed');
       if (sel) sel.onchange = () => { S.speed = parseFloat(sel.value); save(); refresh(); toast('Tốc độ game x' + S.speed); };

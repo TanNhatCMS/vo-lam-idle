@@ -15,7 +15,8 @@ import { setInvDirty } from './ui';
    Chong nhan doi: moi thao tac di chuyen mot lan, ghi ben "nguon" truoc roi moi ghi ben "dich"; ghi dich loi thi hoan lai nguon.
    Do vao kho giu nguyen trang thai (cuong hoa, Tim, Bach Kim, bo...); khi lay ra cap lai uid cua nhan vat hien tai. */
 'use strict';
-const STASH_KEY = 'jxidle_stash', STASH_MAX = 60, STASH_V = 1;
+const STASH_KEY = 'jxidle_stash', STASH_V = 1;
+export const STASH_MAX = 60;
 const stashNew = () => ({ v: STASH_V, id: Math.random().toString(36).slice(2, 10), rev: 0, gold: 0, items: [], mats: { ht: {}, ore: {}, shard: {}, misc: {} } });
 function stashClean(o) {                                  // lam sach noi dung doc tu may (mat khau / file co the hong)
   const st = stashNew(); if (!o || typeof o !== 'object') return st;
@@ -26,7 +27,7 @@ function stashClean(o) {                                  // lam sach noi dung d
   return st;
 }
 /* { st, err } : err = 'tampered' neu chu ky sai va khong co ban sao luu hop le */
-function stashRead() {
+export function stashRead() {
   let raw = null; try { raw = localStorage.getItem(STASH_KEY); } catch (e) { return { st: stashNew(), err: 'storage' }; }
   if (!raw) return { st: stashNew() };
   const tryUnpack = t => { try { const u = unpack(t); return u.ok ? stashClean(u.state) : null; } catch (e) { return null; } };
@@ -42,7 +43,7 @@ function stashWrite(st) {
   localStorage.setItem(STASH_KEY, pack(st));
 }
 /* Chay mot thao tac tren kho: fn(st) tra ve { ok, msg }; ghi kho neu ok. Loi doc / ghi -> thong bao, khong doi gi */
-function stashTx(fn) {
+export function stashTx(fn) {
   const { st, err } = stashRead();
   if (err === 'tampered') return { ok: false, msg: 'Kho đã bị chỉnh sửa ngoài game (sai chữ ký), không dùng được' };
   if (err) return { ok: false, msg: 'Không đọc được bộ nhớ trình duyệt' };

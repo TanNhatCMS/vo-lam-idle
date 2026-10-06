@@ -28,6 +28,8 @@ import {
   pickFaction,
 } from './ui';
 import { gamepadPoll, renderPad, bindControls } from './control';
+import { jrAdd } from './journal';
+import { renderSkBuffs } from './skillsys';
 import { loginCheck, LV_MS, achCheck, dotGift } from './rewards';
 import { checkHints } from './guide';
 import { SV, svExit, svTick, svDraw, svPause } from './survival';
@@ -85,12 +87,16 @@ export function guard(what, fn) {
 function uiPump() {
   if (R.logDirty && curTab === 'log') { R.logDirty = false; renderLogOnly(); }
   if (invDirty && curTab === 'inv') renderInv();
+  renderSkBuffs();
   uiBump();
 }
 function frame(now) {
   const dt = Math.min(0.25, (now - lastT) / 1000); lastT = now;
   guard('tay cam', gamepadPoll);
-  if (S.fac && !document.hidden) { const gdt = dt * gameSpeed(); guard('mo phong', () => simulateFrame(gdt)); if (!uiPrefs().saver || (drawTog = !drawTog)) guard('ve', () => drawLerp(gdt)); }
+  if (S.fac && !document.hidden) {
+    if (!R.town && !SV.on) jrAdd('sec', dt);              // so tay: giay choi that (khong tinh thanh / Luyen Cong)
+    const gdt = dt * gameSpeed(); guard('mo phong', () => simulateFrame(gdt)); if (!uiPrefs().saver || (drawTog = !drawTog)) guard('ve', () => drawLerp(gdt));
+  }
   uiT += dt;
   if (uiT > 0.1 && S.fac) {
     uiT = 0;

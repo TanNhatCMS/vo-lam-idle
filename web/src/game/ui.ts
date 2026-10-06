@@ -44,6 +44,10 @@ import {
   skVal,
 } from './core';
 import { forgeModal } from './forge';
+import { donKhoModal } from './donkho';
+import { jrModal } from './journal';
+import { SK_KIND_VI, skKind, skillAuraHint, skillBuffHint, skillTypeLabel } from './skillsys';
+import { bindBuilds, buildsHTML, chargePointRefund } from './builds';
 import { bindTodo, codexModal, powerModal, suggestModal, todoHTML, tutorialModal } from './guide';
 import { adminModal } from './admin';
 import { UI_FS, UI_FS_NAME, guard, setUiPref, uiPrefs } from './loop';
@@ -106,8 +110,8 @@ export let curTab = 'log', invDirty = true;
 export function setInvDirty(v) { invDirty = v; }
 export function log(h) { if (R.quiet) return; R.logs.unshift(h); if (R.logs.length > 40) R.logs.pop(); R.logDirty = true; }
 export let toastT; export function toast(t) { const el = $('#toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('on'), 1800); }
-export function modal(html, bind?, locked?) { $('#mBody').innerHTML = html; $('#modal').classList.remove('hidden'); $('#modal').dataset.locked = locked ? '1' : ''; if (bind) bind(); try { $('#modal .mbox').focus({ preventScroll: true }); } catch (e) { /* bo qua */ } }
-export function closeModal(force?) { if ($('#modal').dataset.locked && !force) return; $('#modal').classList.add('hidden'); }
+export function modal(html, bind?, locked?) { const m = $('#modal'); m.classList.remove('modal-entering'); void m.offsetWidth; m.classList.add('modal-entering'); $('#mBody').innerHTML = html; m.classList.remove('hidden'); m.dataset.locked = locked ? '1' : ''; if (bind) bind(); try { $('#modal .mbox').focus({ preventScroll: true }); } catch (e) { /* bo qua */ } }
+export function closeModal(force?) { if ($('#modal').dataset.locked && !force) return; $('#modal').classList.remove('modal-entering'); $('#modal').classList.add('hidden'); }
 
 /* ---------- tui do ---------- */
 /* Do thua: khong dung duoc va khong manh hon do dang mac cung o (tru do bo, do Tim dang kham, Bach Kim); vu khi sai loai cua phai.
@@ -275,6 +279,7 @@ function renderChar() {
 /* Rut lai 1 diem ky nang (cong nham): tra diem, bo chieu khoi o / chieu chinh khi ve 0 */
 function unlearnSkill(id) {
   const L = S.sk[id] || 0; if (!L) return false;
+  if (!chargePointRefund('skill')) return false;          // rút điểm tốn vàng theo cấp (bản vinarpg)
   if (L <= 1) delete S.sk[id]; else S.sk[id] = L - 1;
   S.skPts++;
   if (!S.sk[id] && S.main === id) S.mainLock = false;
@@ -285,6 +290,7 @@ function unlearnSkill(id) {
 /* Rut lai 1 diem tiem nang */
 function unspendAttr(k) {
   if (!(S.attr[k] > 0)) return false;
+  if (!chargePointRefund('attr')) return false;           // rút điểm tốn vàng theo cấp (bản vinarpg)
   S.attr[k]--; S.attrPts++; R.dirty = true; recalc(); renderChar(); updateDots(); save(); return true;
 }
 const SK_HIDE = /^(skill_attackradius|missle_|skill_cost_v|skill_eventskilllevel|addskilldamage|skill_)/;
@@ -309,7 +315,7 @@ function skillModal(id) {
   }
   modal(`<h3>${esc(s.n)} <small>${L}/${s.max}</small></h3>
     <p class="desc">${esc(s.d || 'Không có mô tả.')}</p>
-    <div class="idet"><span class="tag${act ? ' attack' : ''}">${act ? 'Tấn công' : 'Nội tại'}</span><small class="dim">Yêu cầu cấp ${s.req}${S.lvl < s.req ? ` (bạn cấp ${S.lvl})` : ''}</small></div>
+    <div class="idet"><span class="tag${act ? ' attack' : skKind(s) !== 'passive' && skKind(s) !== 'none' ? ' ' + skKind(s) : ''}">${skillTypeLabel(s)}</span><small class="dim">Yêu cầu cấp ${s.req}${S.lvl < s.req ? ` (bạn cấp ${S.lvl})` : ''}${skillBuffHint(s) || skillAuraHint(s) ? ' · ' + (skillBuffHint(s) || skillAuraHint(s)) : ''}</small></div>
     ${atk}
     <div class="sl"><b>${L ? 'Cấp hiện tại ' + L : 'Nếu học (cấp 1)'}</b>${lines(show)}</div>
     ${next && L ? `<div class="sl"><b>Cấp kế tiếp ${next}</b>${lines(next)}</div>` : ''}
@@ -324,13 +330,14 @@ function renderSkill() {
   const rows = f.skills.map(id => {
     const s = SK[id], L = S.sk[id] || 0, act = isAttack(s);
     const a = act && L ? activeInfo(R.P, s, L) : null;
+    const kind = skKind(s), hint = skillBuffHint(s) || skillAuraHint(s);
     return `<div class="skl${S.lvl < s.req ? ' lock' : ''}${R.P.main.id === +id ? ' main' : ''}" data-id="${id}">
-      <img class="sic" src="${esc(s.ic || '')}" alt=""><div class="info"><b>${esc(s.n)}</b> <span class="tag${act ? ' attack' : ''}">${act ? 'Tấn công' : 'Nội tại'}</span>
-      <small>Cấp yêu cầu ${s.req}${a ? ` · ${fmt(a.tot)} sát thương · ${a.targets > 1 ? 'nhiều mục tiêu' : 'đơn mục tiêu'}` : ''}</small></div>
+      <img class="sic" src="${esc(s.ic || '')}" alt=""><div class="info"><b>${esc(s.n)}</b> <span class="tag${act ? ' attack' : kind !== 'passive' && kind !== 'none' ? ' ' + kind : ''}">${skillTypeLabel(s)}</span>
+      <small>Cấp yêu cầu ${s.req}${a ? ` · ${fmt(a.tot)} sát thương · ${a.targets > 1 ? 'nhiều mục tiêu' : 'đơn mục tiêu'}` : ''}${hint ? ` · ${hint}` : ''}</small></div>
       <span class="lvl">${L}/${s.max}</span><span class="pm"><button class="plus" data-id="${id}" title="Cộng 1 điểm" ${canLearn(s) ? '' : 'disabled'}>+</button><button class="minus" data-id="${id}" title="Rút lại 1 điểm" ${L > 0 ? '' : 'disabled'}>−</button><button class="skinfo" data-id="${id}" title="Thông tin kỹ năng">i</button></span>
       ${act && L ? `<div class="slots">Ô: ${[0, 1, 2, 3].map(i => `<button data-slot="${i}" data-sid="${id}" class="${(S.slots || [])[i] === +id ? 'on' : ''}">${i + 1}</button>`).join('')}</div>` : ''}</div>`;
   }).join('');
-  $('#t-skill').innerHTML = `<h3>${esc(f.n)} <small>${S.skPts} điểm kỹ năng</small> <button class="btn sm" id="bSugSk">Gợi ý</button></h3><div class="card"><label><input type="checkbox" id="cRot" ${S.rot === false ? '' : 'checked'}> Xoay chiêu tự động khi farm: luân phiên các chiêu gán ở ô 1 đến 4 (phím R), luôn có 2 chiêu mạnh nhất, bỏ chiêu hết nội lực</label></div><p class="dim small">Chạm vào chiêu tấn công đã học để khóa làm chiêu chính${S.mainLock ? ' (<a id="bAutoMain">bỏ khóa</a>)' : ' (đang tự chọn chiêu mạnh nhất)'}.</p>${rows}`;
+  $('#t-skill').innerHTML = buildsHTML() + `<h3>${esc(f.n)} <small>${S.skPts} điểm kỹ năng</small> <button class="btn sm" id="bSugSk">Gợi ý</button></h3><div class="card"><label><input type="checkbox" id="cRot" ${S.rot === false ? '' : 'checked'}> Xoay chiêu tự động khi farm: luân phiên các chiêu gán ở ô 1 đến 4 (phím R), luôn có 2 chiêu mạnh nhất, bỏ chiêu hết nội lực</label></div><p class="dim small">Chạm vào chiêu tấn công đã học để khóa làm chiêu chính${S.mainLock ? ' (<a id="bAutoMain">bỏ khóa</a>)' : ' (đang tự chọn chiêu mạnh nhất)'}.</p>${rows}`;
   document.querySelectorAll('#t-skill .plus').forEach(b => b.onclick = e => { e.stopPropagation(); const s = SK[b.dataset.id]; if (!canLearn(s)) return; S.skPts--; S.sk[s.id] = (S.sk[s.id] || 0) + 1; uiSfx('learn'); R.dirty = true; recalc(); renderSkill(); save(); });
   document.querySelectorAll('#t-skill .minus').forEach(b => b.onclick = e => { e.stopPropagation(); unlearnSkill(+b.dataset.id); });
   document.querySelectorAll('#t-skill .skinfo').forEach(b => b.onclick = e => { e.stopPropagation(); skillModal(+b.dataset.id); });
@@ -338,6 +345,7 @@ function renderSkill() {
   $('#bSugSk').onclick = suggestModal;
   $('#cRot').onchange = () => toggleRot();
   const am = $('#bAutoMain'); if (am) am.onclick = () => { S.mainLock = false; R.dirty = true; recalc(); renderSkill(); };
+  bindBuilds(renderSkill);
   document.querySelectorAll('#t-skill .skl').forEach(r => r.onclick = () => { const s = SK[r.dataset.id]; if (isAttack(s) && S.sk[s.id]) { S.main = s.id; S.mainLock = true; R.dirty = true; recalc(); renderSkill(); toast('Chiêu chính: ' + s.n); } else skillModal(s.id); });
 }
 
@@ -350,8 +358,9 @@ export function renderInv() {
   const grp = LOOT_ATTR_GROUPS.map(([n], i) => `<label class="chip2"><input type="checkbox" data-g="${i}" ${f.groups.includes(i) ? 'checked' : ''}>${n}</label>`).join('');
   const ser = SERIES.map((n, i) => `<label class="chip2" style="color:${SERIES_COL[i]}"><input type="checkbox" data-s="${i}" ${f.series.includes(i) ? 'checked' : ''}>${n}</label>`).join('');
   const onGround = R.ground.length, match = R.ground.filter(d => lootMatch(d.it)).length;
-  $('#t-inv').innerHTML = `<div class="invbar"><span>${S.inv.length}/${INV_MAX}</span><span class="sp"></span>
-    <button class="btn sm" id="bStash">Kho chung</button><button class="btn sm" id="bBest">Mặc đồ tốt</button><button class="btn sm" id="bGrabAll" ${onGround ? '' : 'disabled'}>Lấy hết đồ (${onGround})</button><button class="btn sm red" id="bSellAll">Bán đồ không khớp lọc</button></div>
+  $('#t-inv').innerHTML = `<div class="invbar"><span class="inv-capacity"><span>${S.inv.length}/${INV_MAX}</span><span class="sp"></span>
+    <button class="btn sm" id="bDonKho">Dọn kho</button><button class="btn sm" id="bStash">Kho chung</button></span><span class="inv-actions">
+    <button class="btn sm" id="bBest">Mặc đồ tốt</button><button class="btn sm" id="bGrabAll" ${onGround ? '' : 'disabled'}>Lấy hết đồ (${onGround})</button><button class="btn sm red" id="bSellAll">Bán đồ không khớp lọc</button></span></div>
     <div class="invgrid">${S.inv.map(itemCell).join('')}</div>
     <h3>Đồ rơi trên đất <small>${onGround} món · ${match} khớp bộ lọc</small></h3>
     <div class="card lootf">
@@ -374,6 +383,7 @@ export function renderInv() {
   document.querySelectorAll('#t-inv [data-g]').forEach(b => b.onchange = () => { const g = +b.dataset.g; f.groups = b.checked ? [...new Set(f.groups.concat(g))] : f.groups.filter(x => x !== g); upd(); });
   document.querySelectorAll('#t-inv [data-s]').forEach(b => b.onchange = () => { const v = +b.dataset.s; f.series = b.checked ? [...new Set(f.series.concat(v))] : f.series.filter(x => x !== v); upd(); });
   $('#bStash').onclick = () => stashModal();
+  $('#bDonKho').onclick = () => donKhoModal('inv');
   $('#bBest').onclick = () => { for (const it of S.inv.slice()) if (betterThanEquipped(it)) equip(it, true); refresh(); };
   $('#bGrabAll').onclick = () => { const n = pickAllGround(); toast(n ? `Đã lấy ${n} món từ đất` : 'Không lấy thêm được (túi đầy?)'); refresh(); };
   $('#bSellAll').onclick = () => { const r = sellUnmatched(); toast(`Bán ${r.n} món${r.kept ? ` (giữ ${r.kept} món bộ / Tím / Bạch Kim)` : ''}`); refresh(); };
@@ -393,12 +403,15 @@ function renderMore() {
     <h3>Tự động</h3><div class="card"><label><input type="checkbox" id="cAuto" ${S.autoEquip ? 'checked' : ''}> Tự mặc đồ tốt hơn khi nhặt</label><br>
       <label><input type="checkbox" id="cPot" ${S.potOff ? '' : 'checked'}> Tự dùng thuốc (Kim Sáng Dược / Ngưng Thần đan, trừ ngân lượng) · đã dùng ${fmt(S.potUsed || 0)}</label><br>
       <label><input type="checkbox" id="cJunk" ${S.autoJunk === false ? '' : 'checked'}> Tự bán đồ thừa (yếu hơn đồ đang mặc cùng ô, vũ khí sai loại của phái, <b>đồ sai hệ / sai môn phái</b> — trừ đồ Đồng hành cần; giữ tối đa 6 nhẫn / dây chuyền / ngọc bội để hợp Huyền Tinh)</label><br>
-      <label><input type="checkbox" id="cPts" ${S.autoPts === true ? 'checked' : ''}> Tự cộng điểm tiềm năng và võ công (mặc định tắt: tự cộng ở thẻ Nhân vật và Võ công)</label></div>
+      <label><input type="checkbox" id="cPts" ${S.autoPts === true ? 'checked' : ''}> Tự cộng điểm tiềm năng và võ công (mặc định tắt: tự cộng ở thẻ Nhân vật và Võ công)</label><br>
+      <label><input type="checkbox" id="cBuff" ${S.autoBuff === false ? '' : 'checked'}> Tự duy trì bùa lợi (tốn nội lực / sinh lực theo chiêu, chỉ đánh quái mới dùng)</label><br>
+      <label><input type="checkbox" id="cCurse" ${S.autoCurse === false ? '' : 'checked'}> Tự hạ bùa hại lên quái (ưu tiên trùm / tinh anh, giảm khang - phòng thủ - sát thương chúng)</label><br>
+      <label><input type="checkbox" id="cAura" ${(S.auraOff || {})[69] ? '' : 'checked'}> Vòng sáng độc — Vô Hình Độc (phủ độc quanh người mỗi 4 giây)</label></div>
     <h3>Độ khó và trợ giúp</h3><div class="card lootf">
       <div class="row">Độ khó <select id="sDiff">${DIFFS.map((d, i) => `<option value="${i}" ${diffOf() === d ? 'selected' : ''}>${d.n}</option>`).join('')}</select> <small class="dim">${esc(diffOf().d)}</small></div>
       <label><input type="checkbox" id="cForge" ${S.autoForge ? 'checked' : ''}> Tự động rèn đồ (ghép mảnh Hoàng Kim, khảm Tím, hợp và thăng cấp Huyền Tinh; mỗi 30 giây)</label>
       <label><input type="checkbox" id="cBuy" ${S.autoBuy === false ? '' : 'checked'}> Tự mua vũ khí đúng loại ở Biện Kinh khi mạnh hơn ≥ 25% (tối đa 60% ngân lượng)</label>
-      <div class="btnrow"><button class="btn" id="bStashM">Kho chung</button><button class="btn" id="bTut">Hướng dẫn</button><button class="btn" id="bCodex">Bách khoa</button><button class="btn" id="bSug">Gợi ý cộng điểm</button></div></div>
+      <div class="btnrow"><button class="btn" id="bStashM">Kho chung</button><button class="btn" id="bJournal">Sổ tay</button><button class="btn" id="bTut">Hướng dẫn</button><button class="btn" id="bCodex">Bách khoa</button><button class="btn" id="bSug">Gợi ý cộng điểm</button></div></div>
     <h3>Trợ năng</h3><div class="card lootf">
       <div class="row">Cỡ chữ <select id="uFs">${UI_FS.map((v, i) => `<option value="${i}" ${uiPrefs().fs === i ? 'selected' : ''}>${UI_FS_NAME[i]}</option>`).join('')}</select> <small class="dim">áp dụng cho bảng thông tin, thẻ và hộp thoại</small></div>
       <label><input type="checkbox" id="uSaver" ${uiPrefs().saver ? 'checked' : ''}> Tiết kiệm pin (vẽ 30 khung/giây, ngừng vẽ khi ẩn tab)</label>
@@ -422,12 +435,15 @@ function renderMore() {
   $('#sVol').onchange = $('#mVol').onchange = () => save();
   $('#cPot').onchange = e => { S.potOff = !e.target.checked; save(); };
   $('#cPts').onchange = e => { S.autoPts = e.target.checked; if (S.autoPts) { autoSpendAttrs(); autoSpendSkills(); recalc(); } save(); };
+  $('#cBuff').onchange = e => { S.autoBuff = e.target.checked; save(); };
+  $('#cCurse').onchange = e => { S.autoCurse = e.target.checked; save(); };
+  $('#cAura').onchange = e => { S.auraOff = S.auraOff || {}; S.auraOff[69] = !e.target.checked; R.dirty = true; recalc(); save(); };
   $('#cJoy').onchange = e => { S.joy = e.target.checked ? 'fixed' : 'float'; save(); };
   $('#cLowFx').onchange = e => { S.lowFx = e.target.checked; save(); };
   $('#sDiff').onchange = e => { S.diff = +e.target.value; R.enemies = []; R.spawnT = 0.3; save(); toast('Độ khó: ' + diffOf().n); renderMore(); };
   $('#cBuy').onchange = e => { S.autoBuy = e.target.checked; save(); };
   $('#cForge').onchange = e => { S.autoForge = e.target.checked; if (S.autoForge) autoForge(); save(); };
-  $('#bStashM').onclick = () => stashModal(); $('#bTut').onclick = () => tutorialModal(0); $('#bCodex').onclick = () => codexModal(); $('#bSug').onclick = suggestModal;
+  $('#bStashM').onclick = () => stashModal(); $('#bJournal').onclick = () => jrModal(); $('#bTut').onclick = () => tutorialModal(0); $('#bCodex').onclick = () => codexModal(); $('#bSug').onclick = suggestModal;
   $('#bAdmin').onclick = () => adminModal();
   $('#uFs').onchange = e => { setUiPref({ fs: +e.target.value }); }; $('#uSaver').onchange = e => setUiPref({ saver: e.target.checked });
   $('#bSwitch').onclick = () => switchCharacter();
@@ -438,6 +454,8 @@ function renderMore() {
 export function showTab(t) {
   curTab = t;
   uiSetTab(t);                    // React doi tab qua store (ban goc: toggle class DOM)
+  const el = $('#t-' + t);        // hieu ung chuyen tab (tab-enter-wuxia cua style moi)
+  if (el) { el.classList.remove('tab-entering'); void el.offsetWidth; el.classList.add('tab-entering'); }
   refresh();
 }
 export function refresh() {
