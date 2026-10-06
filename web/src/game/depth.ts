@@ -1,5 +1,7 @@
 // @ts-nocheck — chuyen tu vanilla JS: bat lai check tung file dan dan (xem README muc TypeScript)
 import { MON, SERIES, ZONES, counters, esc, fmt } from './core';
+import { localISODay } from './journal';
+import { heroSeries } from './stats';
 import { R, recalc } from './combat';
 import { pack, S, save, unpack } from './save';
 import { closeModal, log, modal, refresh, toast } from './ui';
@@ -91,3 +93,23 @@ export function clanModal() {
 export function dexMark(tid) { S.seen = S.seen || {}; if (!S.seen[tid]) S.seen[tid] = 1; }
 const dexZoneDone = z => [...z.m, z.boss].filter(t => MON[t]).every(t => (S.seen || {})[t]);
 export const dexZones = () => ZONES.filter(dexZoneDone).length;
+
+/* ---------- biến thể tuần (port từ depth.js — áp dụng cho Tống Kim; Tháp II port sau) ---------- */
+export const WEEK_MODS = [
+  { k: 'armor', n: 'Giáp dày', d: 'quái kháng mọi nguyên tố +25%' },
+  { k: 'rage', n: 'Cuồng bạo', d: 'quái đánh đau hơn (+30%) nhưng yếu máu hơn (−20%)' },
+  { k: 'regen', n: 'Hồi huyết', d: 'quái hồi 1,2% máu tối đa mỗi giây' },
+  { k: 'elem', n: 'Hệ thịnh', d: 'toàn bộ quái cùng một hệ; hệ khắc hệ đó được thưởng ×1,25' },
+];
+export const weekKey = () => { const d = new Date(); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return localISODay(d); };   // thu Hai dau tuan, gio may
+function weekSeed() { let h = 0; for (const c of weekKey()) h = (h * 31 + c.charCodeAt(0)) >>> 0; return h; }
+export function weekMods() { const h = weekSeed(), a = h % WEEK_MODS.length, b = (a + 1 + (h >>> 3) % (WEEK_MODS.length - 1)) % WEEK_MODS.length; return { list: [WEEK_MODS[a], WEEK_MODS[b]], series: (h >>> 5) % 5 }; }
+export const weekModHas = k => weekMods().list.some(m => m.k === k);
+export function weekModsText() { const w = weekMods(); return w.list.map(m => `<b>${m.n}</b>: ${m.d}${m.k === 'elem' ? ' (hệ ' + SERIES[w.series] + ')' : ''}`).join(' · '); }
+export function weekRewardMul() { return weekModHas('elem') && counters(heroSeries(), weekMods().series) ? 1.25 : 1; }
+export function applyWeekMod(e) {
+  if (weekModHas('armor')) for (const k in e.res) e.res[k] = Math.min(85, (e.res[k] || 0) + 25);
+  if (weekModHas('rage')) { e.dmg *= 1.3; e.hp = e.max = e.max * 0.8; }
+  if (weekModHas('regen')) e.regen = 0.012;
+  if (weekModHas('elem')) e.series = weekMods().series;
+}

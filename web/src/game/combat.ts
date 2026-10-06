@@ -37,6 +37,8 @@ import { checkHints } from './guide';
 import { curseMod, skillSysTick } from './skillsys';
 import { thanMaOnKill } from './horse';
 import { dexMark, tpStacks } from './depth';
+import { guildBuff, tkCleared, tkExit, ytTick } from './activities';
+import { tower2Bonuses } from './tower2';
 import { jrAdd, jrDeath } from './journal';
 import { onLevelUp, onStageChange, onZoneChange } from './loop';
 import { dropToGround, moneyDrop, rollDrops, updateGround } from './loot';
@@ -161,6 +163,7 @@ function heroHit(a, e) {
   // ngu hanh tang cuong / khang (five_elements_enhance_v) cong tru truc tiep
   if (counters(a.series, e.series)) tot += R.P.series5;
   if (e.cls === 'boss' || e.cls === 'elite') tot *= 1 + tpStacks().tru * 0.06;   // tam phap Pha Trum
+  tot *= tower2Bonuses(e).dmg;                             // TS6 Khai Son: +dame Thap II
   tot = Math.max(1, tot);
   e.hp -= tot; e.hitT = 0.12; if (e.act !== 'at') { e.act = 'hurt'; e.actT = 0; npcSfx(MON[e.tid].anim, 'hurt', 0.3); }
   if (a.stun && Math.random() * 100 < a.stun) e.stun = 0.8;
@@ -174,7 +177,7 @@ function enemyHit(e) {
   const cm = curseMod(e);   // bua hai: dich giam sat thuong va chinh xac
   if (Math.random() * 100 >= hitPercent(e.ar + (cm ? cm.ar : 0), R.P.def)) { addText(H.x, H.y - 30, 'Né', '#9cf', 11); return; }
   const el = e.series === 1 && Math.random() < 0.4 ? 'poison' : e.series === 2 && Math.random() < 0.4 ? 'cold' : e.series === 3 && Math.random() < 0.4 ? 'fire' : e.series === 4 && Math.random() < 0.3 ? 'light' : 'phys';
-  let d = e.dmg * rnd(0.8, 1.2) * (cm ? 1 + cm.dmg / 100 : 1) * (1 - tpStacks().ho * 0.01);   // tam phap Ho The: hoa giai 1%/cap
+  let d = e.dmg * rnd(0.8, 1.2) * (cm ? 1 + cm.dmg / 100 : 1) * (1 - tpStacks().ho * 0.01) * tower2Bonuses(e).taken;   // Ho The hoa giai + TS6 Ho Thap
   d = applyPart(d, el, e.series, R.P.series, R.P.res, PLAYER_RES_MAX, 10);
   if (R.P.res5 && !counters(e.series, R.P.series)) d = Math.max(1, d - R.P.res5); // ngu hanh khang (five_elements_resist_v)
   R.life -= d; R.hurtT = 0.25; if (H.act !== 'at' && Math.random() < 0.3) { H.act = 'hurt'; H.actT = 0; }
@@ -256,6 +259,7 @@ function heroAttack() {
 }
 function enemyAI(e, dt) {
   if (e.stun > 0) { e.stun -= dt; return; }
+  if (e.regen > 0 && e.hp < e.max) e.hp = Math.min(e.max, e.hp + e.max * e.regen * dt);   // bien the tuan: Hoi huyet
   if (e.poison > 0) { e.poison -= dt; e.hp -= e.poisonDmg * dt; }
   const d = Math.hypot(H.x - e.x, H.y - e.y), reach = e.ranged ? 200 : e.r + 24;
   e.face = H.x >= e.x ? 1 : -1; e.dir = dirOf(H.x - e.x, H.y - e.y);
@@ -329,6 +333,9 @@ function onKill(e) {
   jrAdd('kills', 1); jrAdd('xp', gx); jrAdd('gold', g);      // so tay: thong ke theo gio choi that
   thanMaOnKill(e);                                         // ngua dang cuoi nhan kinh nghiem
   dexMark(e.tid);                                          // bach khoa: quai da ha
+  if (R.tk) R.tk.kills++;
+  ytTick('kills', 1);
+  if (e.cls === 'boss') ytTick('bosses', 1);
   burst(e.x, e.y, SERIES_COL[e.series]);
   for (const it of rollDrops(e)) dropToGround(it, e);
   for (const m of allDrops(e)) log(`Nhặt được <b style="color:${RAR_COL[3]}">${esc(m)}</b>`);
@@ -338,7 +345,7 @@ function onKill(e) {
 }
 export function gainXp(x) {
   if (S.lvl >= MAX_LEVEL) return;
-  S.xp += x * (1 + rebornBonus().xp) / xpSlow(S.lvl);    // chuyen sinh: +20% kinh nghiem moi lan; nhip len cap sau cap 30
+  S.xp += x * (1 + rebornBonus().xp + guildBuff().xp / 100) / xpSlow(S.lvl);    // chuyen sinh +20%/lan, bang hoi +0.5%/cap; nhip len cap sau cap 30
   while (S.lvl < MAX_LEVEL && S.xp >= J.exp[S.lvl - 1]) {
     S.xp -= J.exp[S.lvl - 1]; S.lvl++;
     S.attrPts += PTS_PER_LEVEL; S.skPts += SKILL_PTS_PER_LEVEL;
@@ -348,13 +355,14 @@ export function gainXp(x) {
 }
 function waveCleared() {
   if (R.wbArena) { wbVictory(); return; }                  // hạ Boss Thế Giới: thưởng Vỏ Sò, không cộng ải
+  if (R.tk) { tkCleared(); return; }                       // Tong Kim: dot kep tiep / chien thang
   if (R.tower) { towerCleared(); return; }                 // thap thu thach: len tang, khong doi ai
   heal(R.P.life * 0.15, true); R.mana = Math.min(R.P.mana, R.mana + R.P.mana * 0.2); // dieu tuc giua cac dot
   if (S.wave < WAVES) { S.wave++; R.spawnT = 1.2; return; }
   S.wave = 1;
   if (!S.push && ++R.farm >= 3 && R.life > R.P.life * 0.6) { S.push = true; R.farm = 0; log('Đủ mạnh, thử vượt ải tiếp.'); }
   if (S.push) {
-    S.stage++; S.maxStage = Math.max(S.maxStage, S.stage); questTick('stages');
+    S.stage++; S.maxStage = Math.max(S.maxStage, S.stage); questTick('stages'); ytTick('stages', 1);
     if (inZone(S.stage) === 1 && S.stage <= STAGES) log(`Tiến vào <b>${esc(zoneOf(S.stage).n)}</b>`);
   }
   if (typeof onStageChange === 'function') onStageChange();
@@ -365,6 +373,7 @@ function heroDeath() {
   jrDeath(R.tower ? 'Luyện Công' : R.wbArena ? 'Boss Thế Giới' : 'đánh ải');   // so tay: nhat ky lan guc
   R.deadT = 3; R.life = 0; R.enemies = [];
   log('<span class="bad">Bạn đã trọng thương.</span>');
+  if (R.tk) { tkExit(true, false); return; }               // gục ở Tống Kim: kết thúc trận, vẫn nhận lệnh
   if (R.tower) { towerExit(true); return; }               // gục trong thap: roi thap, khong lui ai
   if (R.wbArena) { log('<span class="dim">Boss Thế Giới vẫn chờ ở bí cảnh — hồi sức rồi vào lại.</span>'); return; }
   if (S.stage > 1) { S.stage--; S.push = false; R.farm = 0; log(`Lùi về ải ${S.stage} để luyện công.`); }

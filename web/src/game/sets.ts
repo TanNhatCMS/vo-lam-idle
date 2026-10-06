@@ -63,4 +63,7 @@ export function goldEnhance(it, eq) {
   if (slot === 'horse' || enoughToActive(eq)) return GOLD_EXT;
   return Math.min(GOLD_EXT, Math.floor((setCounts(eq)[it.set.grp] || 0) / Math.max(1, it.set.n1)));
 }
-export function setMembers(it) { return J.sets[it.set.kind].filter(r => r.grp === it.set.grp); }
+/* Thien Cuc: bo do rieng Thap II — dong mau "Dang Long" yeu cau cap 180, doi ten + grp 10000+ (row ao) */
+export const TOWER2_SET_ROWS = J.sets.gold.filter(r => r.n.startsWith("Đằng Long") && r.req.some(([id, v]) => id === 36 && v === 180))
+  .map(r => Object.assign({}, r, { n: r.n.replace(/^Đằng Long/, "Thiên Cực"), grp: 10000 + r.grp, tower2: true }));
+export function setMembers(it) { return it.set.grp >= 10000 ? TOWER2_SET_ROWS.filter(r => r.grp === it.set.grp) : J.sets[it.set.kind].filter(r => r.grp === it.set.grp); }
