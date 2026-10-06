@@ -37,7 +37,7 @@ import { checkHints } from './guide';
 import { curseMod, skillSysTick } from './skillsys';
 import { thanMaOnKill } from './horse';
 import { dexMark, tpStacks } from './depth';
-import { guildBuff, tkCleared, tkExit, ytTick } from './activities';
+import { guildBuff, tkCleared, tkExit, tkSpawn, ytTick } from './activities';
 import { tower2Bonuses } from './tower2';
 import { jrAdd, jrDeath } from './journal';
 import { onLevelUp, onStageChange, onZoneChange } from './loop';
@@ -289,7 +289,7 @@ export function tick(dt) {
     if (R.spawnT > 0) { R.spawnT -= dt; return; }
     R.lootWait = 0;
     if (R.wbArena) return;                                 // bí cảnh boss: không sinh đợt quái thường
-    if (R.tower) towerSpawn(); else { spawnWave(); if (goldBossDue()) spawnGoldBoss(); }
+    if (R.tower) towerSpawn(); else if (R.tk) tkSpawn(); else { spawnWave(); if (goldBossDue()) spawnGoldBoss(); }
     return;
   }
   if (manual()) moveManual(dt);                             // tu dieu khien: joystick / phim / diem cham

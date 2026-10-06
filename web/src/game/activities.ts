@@ -89,7 +89,7 @@ export function tkStart() {
   t.used = 1; save(); R.pickTarget = null; R.tk = { wave: 1, score: 0, kills: 0 }; R.enemies = []; R.corpses = []; R.spawnT = 0.5;
   toast(`Chiến trường Tống Kim: ${TK_WAVES} đợt, đợt cuối có Tướng Kim · gục là kết thúc`); R.logDirty = true;
 }
-function tkSpawn() {
+export function tkSpawn() {
   const w = R.tk.wave, L = Math.max(10, S.lvl), boss = w === TK_WAVES; R.enemies = []; R.stall = 0;
   const z = ZONES[Math.min(ZONES.length - 1, Math.floor(L / 12))], n = boss ? 1 : 3 + w;
   for (let i = 0; i < n; i++) {

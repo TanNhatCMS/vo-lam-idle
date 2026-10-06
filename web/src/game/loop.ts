@@ -76,7 +76,7 @@ let loopErr = 0, loopLast = '';
 export function guard(what, fn) {
   try { fn(); loopErr = Math.max(0, loopErr - 0.02); }
   catch (e) {
-    loopErr++; const k = what + ': ' + (e && e.message);
+    loopErr++; const k = what + ': ' + (e && e.message) + (e && e.stack ? ' — ' + String(e.stack).split(String.fromCharCode(10)).slice(1, 4).map(x => x.trim()).join(' ← ') : '');
     if (k !== loopLast) { loopLast = k; console.error('[loi vong lap]', what, e); }
     if (loopErr > 30) {
       loopErr = 0; R.fx = []; R.txt = []; R.enemies = []; if (typeof SV !== 'undefined' && SV.on) { try { svExit(); } catch (x) { SV.on = false; } }

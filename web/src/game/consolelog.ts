@@ -54,7 +54,8 @@ window.addEventListener('error', e => {
     push('warn', ['[tải lỗi] không nạp được ' + t.tagName.toLowerCase() + ': ' + (t.currentSrc || t.src || t.href || '?') + ' (thiếu file, hoặc máy chủ đang tắt)']);
     return;
   }
-  push('error', ['[uncaught] ' + (e.message || '?') + ' @ ' + String(e.filename || '').split('/').pop() + ':' + (e.lineno || 0)]);
+  const st = (e.error && e.error.stack) ? String(e.error.stack).split(String.fromCharCode(10)).slice(0, 4).map(x => x.trim()).join(' ← ') : '';
+  push('error', ['[uncaught] ' + (e.message || '?') + ' @ ' + String(e.filename || '').split('/').pop() + ':' + (e.lineno || 0) + (st ? ' — ' + st : '')]);
 }, true);
 /* fetch/response loi (404 JSON...) */
 const origFetch = window.fetch ? window.fetch.bind(window) : null;
