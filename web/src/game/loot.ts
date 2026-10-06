@@ -1,6 +1,7 @@
 // @ts-nocheck — chuyen tu vanilla JS: bat lai check tung file dan dan (xem README muc TypeScript)
 import { uiSfx } from './audio';
 import { H, R } from './combat';
+import { jrDrop } from './journal';
 import { manual } from './control';
 import {
   $,
@@ -200,6 +201,7 @@ function pickUp(drop, quiet) {
   const i = R.ground.indexOf(drop); if (i < 0) return false;
   if (S.inv.length >= INV_MAX && !makeRoom(drop.it)) { if (!quiet) toast('Hành trang đầy'); return false; }
   R.ground.splice(i, 1);
+  jrDrop(drop.it);                                          // so tay: do rot theo do hiem
   addItem(drop.it, quiet, true, R.pickTarget === drop); questTick('picked');   // cham tay chon nhat: giu, khong coi la do thua
   if (R.pickTarget === drop) R.pickTarget = null;
   if (R.autoPick === drop) R.autoPick = null;

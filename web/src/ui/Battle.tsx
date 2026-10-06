@@ -1,6 +1,6 @@
 import React from 'react';
 import { useGameTick } from './useGameTick';
-import { SK, W, fmt, clamp } from '../game/core';
+import { SK, W, clamp } from '../game/core';
 import { R } from '../game/combat';
 import { S, save } from '../game/save';
 import {
@@ -32,17 +32,8 @@ export default function Battle() {
     <section id="battle">
       <div id="bg" />
       <canvas id="arena" />
-      <div id="hud">
-        <div className="bar hp">
-          <i id="hpBar" style={{ width: (P ? clamp(R.life / P.life, 0, 1) * 100 : 0) + '%' }} />
-          <span id="hpTxt">{P ? `${fmt(R.life)} / ${fmt(P.life)}` : ''}</span>
-        </div>
-        <div className="bar mp">
-          <i id="mpBar" style={{ width: (P ? clamp(R.mana / P.mana, 0, 1) * 100 : 0) + '%' }} />
-          <span id="mpTxt">{P ? `${fmt(R.mana)} / ${fmt(P.mana)}` : ''}</span>
-        </div>
-        <div id="mainSk">{P ? P.main.n : ''}</div>
-      </div>
+      <div id="mainSk">{P ? P.main.n : ''}</div>
+      <div id="skBuffs" />
       {(() => { const h = wbHudState(); if (!h.on) return null;
         const mmss = (v: number) => `${Math.floor(v / 60)}:${String(v % 60).padStart(2, '0')}`;
         return (
