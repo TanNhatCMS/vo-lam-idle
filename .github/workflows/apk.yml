@@ -31,7 +31,7 @@ jobs:
           ./gradlew assembleRelease --no-daemon
 
       - name: Tải artifact APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: apk-release
           path: app/build/outputs/apk/release/*.apk
