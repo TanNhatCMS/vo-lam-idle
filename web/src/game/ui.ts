@@ -97,6 +97,7 @@ import {
   reqProblems,
   sexOk,
   weaponCode,
+  wrongFaction,
 } from './stats';
 
 /* ======================= GIAO DIEN (5 the) ======================= */
@@ -116,6 +117,7 @@ function isJunk(it) {
   if (it.set || it.vio || it.plv || it.petOnly) return false;
   if (petWants(it)) return false;                      // mon phu hop o trang bi Dong hanh: giu lai, khong tu ban
   if (!sexOk(it)) return true;                         // trang phuc khac gioi tinh: khong bao gio mac duoc
+  if (wrongFaction(it)) return true;                   // do sai he / mon phai: khong mac duoc -> ban (pet van giu duoc qua petWants)
   const f = FAC[S.fac];
   if (DETAIL_SLOT[it.d] === 'weapon' && f && f.wcode >= 0 && weaponCode({ weapon: it }) !== f.wcode) return true;
   const eq = S.eq[slotFor(it)]; if (!eq || betterThanEquipped(it) || itemPower(it) > itemPower(eq) * 0.85) return false;
@@ -390,7 +392,7 @@ function renderMore() {
       <div class="row">Nhạc <input type="range" id="mVol" min="0" max="1" step="0.05" value="${sndCfg().mvol}"></div></div>
     <h3>Tự động</h3><div class="card"><label><input type="checkbox" id="cAuto" ${S.autoEquip ? 'checked' : ''}> Tự mặc đồ tốt hơn khi nhặt</label><br>
       <label><input type="checkbox" id="cPot" ${S.potOff ? '' : 'checked'}> Tự dùng thuốc (Kim Sáng Dược / Ngưng Thần đan, trừ ngân lượng) · đã dùng ${fmt(S.potUsed || 0)}</label><br>
-      <label><input type="checkbox" id="cJunk" ${S.autoJunk === false ? '' : 'checked'}> Tự bán đồ thừa (yếu hơn đồ đang mặc cùng ô, vũ khí sai loại của phái; giữ tối đa 6 nhẫn / dây chuyền / ngọc bội để hợp Huyền Tinh)</label><br>
+      <label><input type="checkbox" id="cJunk" ${S.autoJunk === false ? '' : 'checked'}> Tự bán đồ thừa (yếu hơn đồ đang mặc cùng ô, vũ khí sai loại của phái, <b>đồ sai hệ / sai môn phái</b> — trừ đồ Đồng hành cần; giữ tối đa 6 nhẫn / dây chuyền / ngọc bội để hợp Huyền Tinh)</label><br>
       <label><input type="checkbox" id="cPts" ${S.autoPts === true ? 'checked' : ''}> Tự cộng điểm tiềm năng và võ công (mặc định tắt: tự cộng ở thẻ Nhân vật và Võ công)</label></div>
     <h3>Độ khó và trợ giúp</h3><div class="card lootf">
       <div class="row">Độ khó <select id="sDiff">${DIFFS.map((d, i) => `<option value="${i}" ${diffOf() === d ? 'selected' : ''}>${d.n}</option>`).join('')}</select> <small class="dim">${esc(diffOf().d)}</small></div>

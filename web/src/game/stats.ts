@@ -278,6 +278,17 @@ function weaponTierMul(it) {
 export const sexReqOkFor = (it, sex) => { const r = (it.req || []).find(q => q[0] === 38); return !r || r[1] < 0 || r[1] === (sex || 0); };
 export const sexReqOk = req => sexReqOkFor({ req }, S.sex);
 export const sexOk = it => sexReqOk(it.req);
+/* Do SAI he (req 37) / sai mon phai (req 39) so voi nhan vat — khong bao gio mac duoc -> auto-ban.
+   Dong hanh van mac duoc (pet khong can req) nen isJunk van cho petWants quyet truoc. */
+export function wrongFaction(it) {
+  if (!it || !Array.isArray(it.req)) return false;
+  const f = FAC[S.fac]; if (!f) return false;
+  for (const [id, v] of it.req) {
+    if (id === 37 && v >= 0 && heroSeries() !== v) return true;
+    if (id === 39 && v >= 0 && f.id !== v) return true;
+  }
+  return false;
+}
 export function reqOk(it) {
   if (it.petOnly) return false;                           // Thu Boi: chi Dong hanh mac duoc
   if (!sexOk(it)) return false;
