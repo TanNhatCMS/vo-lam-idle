@@ -130,6 +130,7 @@ export function toggleRide() {
   const it = S.eq && S.eq.horse;
   if (!it) { toast('Chưa trang bị ngựa'); return; }
   S.ride = S.ride === false;
+  R.dirty = true;   // recalc lai de bo hinh nhan vat cap nhat tu the cuoi/khong cuoi
   toast(S.ride !== false ? `Đã lên ngựa: ${it.n}` : 'Đã xuống ngựa');
   save();
 }

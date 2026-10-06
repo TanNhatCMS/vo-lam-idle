@@ -39,6 +39,7 @@ import { thanMaOnKill } from './horse';
 import { dexMark, tpStacks } from './depth';
 import { guildBuff, tkCleared, tkExit, tkSpawn, ytTick } from './activities';
 import { tower2Bonuses } from './tower2';
+import { jxSync } from './look';
 import { jrAdd, jrDeath } from './journal';
 import { onLevelUp, onStageChange, onZoneChange } from './loop';
 import { dropToGround, moneyDrop, rollDrops, updateGround } from './loot';
@@ -380,6 +381,7 @@ function heroDeath() {
   if (typeof onStageChange === 'function') onStageChange();
 }
 export function recalc() {
+  try { jxSync(); } catch (e) { /* look: loi thi bo qua, ve hinh cu */ }
   const fl = R.P ? R.life / R.P.life : 1, fm = R.P ? R.mana / R.P.mana : 1;
   R.P = calc();
   R.life = Math.min(R.P.life, R.P.life * fl); R.mana = Math.min(R.P.mana, R.P.mana * fm);

@@ -17,6 +17,7 @@ import { JFX } from './jdata';
 import { lootMatch } from './loot';
 import { OBS } from './mapobs';
 import { drawPet } from './rewards';
+import { drawJxHero } from './look';
 import { S } from './save';
 import { heroSeries } from './stats';
 
@@ -165,7 +166,7 @@ function drawSprite(im, sz, x, y, scale, flip, alpha = 1) {
    huong 0 = quay mat ve nguoi xem, tang theo chieu kim dong ho: N(am), TN, T, TB, B, DB, D, DN */
 export const dirOf = (vx, vy) => (((Math.round(Math.atan2(-vx, vy) / (Math.PI / 4)) % 8) + 8) % 8);
 const ONCE = { at: 1, hurt: 1, die: 1 };
-function animLen(key, act) { const m = W.anim && W.anim[key] && W.anim[key][act]; return m ? m.n * m.ms / 1000 : 0; }
+export function animLen(key, act) { const m = W.anim && W.anim[key] && W.anim[key][act]; return m ? m.n * m.ms / 1000 : 0; }
 export function drawAnim(key, act, dir, t, x, y, sc, alpha = 1) {
   const set = W.anim && W.anim[key]; if (!set) return false;
   const m = set[act] || set.st; if (!m) return false;
@@ -249,7 +250,9 @@ export function draw(dt) {
       H.moving = Math.hypot(mvx, mvy) > 0.4; if (H.moving && H.act !== 'at') H.dir = dirOf(mvx, mvy);
       stepAct(H, dt, H.moving ? 'run' : 'st');
       if (R.deadT > 0) setAct(H, 'die'); else if (H.act !== 'at' && H.act !== 'hurt') setAct(H, H.moving ? 'run' : 'st');
-      const drawn = hw && hw.anim && drawAnim(hw.anim, H.act || 'st', H.dir || 0, H.actT || 0, H.x, H.y, HERO_SCALE);
+      // nhan vat ghep bo phan (look.ts, du lieu img/jx): co thi ve truoc, thieu thi roi ve hinh mon phai cu
+      const jxH = R.jx ? drawJxHero(H.act || 'st', H.dir || 0, H.actT || 0, H.x, H.y, HERO_SCALE * 0.6, R.deadT > 0 ? 0.35 : 1, H.animKey) : false;
+      const drawn = jxH !== false ? jxH : (hw && hw.anim && drawAnim(hw.anim, H.act || 'st', H.dir || 0, H.actT || 0, H.x, H.y, HERO_SCALE));
       label(H.x, H.y - (drawn ? Math.min(drawn, 90) * 0.9 : 52) - 6, `${S.name || (FAC[S.fac] && FAC[S.fac].n) || ''} · Lv${S.lvl}`, NAME_COL.hero, 12, R.life / Math.max(1, R.P.life), '#4fd04f');
       if (!drawn && !(hw && drawSprite(img(hw.img), hw.sz, H.x, H.y, 0.9, H.face < 0, R.deadT > 0 ? 0.35 : 1))) { c.fillStyle = SERIES_COL[heroSeries()]; c.beginPath(); c.arc(H.x, H.y - 20, 14, 0, 7); c.fill(); }
       if (R.hurtT > 0) { c.fillStyle = '#f004'; c.beginPath(); c.arc(H.x, H.y - 24, 20, 0, 7); c.fill(); }
