@@ -59,7 +59,7 @@ window.addEventListener('error', e => {
 }, true);
 /* fetch/response loi (404 JSON...) */
 const origFetch = window.fetch ? window.fetch.bind(window) : null;
-if (origFetch) window.fetch = (...a) => origFetch(...a).then(r => { if (!r.ok) push('warn', ['[http ' + r.status + '] ' + String(a[0]).split('/').slice(-1)[0]]); return r; }, e => { push('error', ['[fetch lỗi] ' + String(a[0]) + ' — ' + (e && e.message)]); throw e; });
+if (origFetch) window.fetch = (...a) => origFetch(...a).then(r => { if (!r.ok) push('warn', ['[tải lỗi ' + r.status + '] ' + String(a[0]).split('/').slice(-1)[0] + ' — file thiếu hoặc tên sai']); return r; }, e => { push('warn', ['[tải lỗi] ' + String(a[0]).split('/').slice(-1)[0] + ' — máy chủ không phản hồi (tắt/đứt mạng) hoặc file thiếu']); throw e; });
 window.addEventListener('unhandledrejection', e => { push('error', ['[promise] ' + fmtArg(e.reason)]); });
 window.addEventListener('pagehide', persist);
 
