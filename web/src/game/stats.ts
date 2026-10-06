@@ -33,6 +33,7 @@ import {
 import { skApplies } from './skillsys';
 import { THAN_MA_TOTAL, thanMaBaseValue, thanMaBookCount } from './horse';
 import { tpStacks } from './depth';
+import { guildBuff } from './activities';
 import { baseRow, slotFor } from './loot';
 import { PET_BENCH_BUFF, TEAM_CHAIN_PCT } from './core';
 import { rebornBonus, teamChainOk, titleAttr } from './rewards';
@@ -149,7 +150,7 @@ export function calc(eq) {
   }
   titleAttr(A);                                            // danh hieu dang deo (rewards.js)
   P.rebDmg = 1 + rebornBonus().dmg;                        // chuyen sinh: +10% sat thuong moi lan
-  P.dmgMul = P.rebDmg * facNorm(S.fac, lv);                // + can bang theo phai / cap (FAC_DMG_NORM)
+  P.dmgMul = P.rebDmg * (1 + guildBuff().dmg / 100) * facNorm(S.fac, lv);                // bang hoi +0.25%/cap; + can bang theo phai / cap (FAC_DMG_NORM)
   if (teamChainOk()) P.dmgMul *= 1 + TEAM_CHAIN_PCT / 100; // tran phap Tam Tuong Sinh: +5% sat thuong
   // thuoc tinh co ban: diem goc cua he + diem phan phoi + trang bi
   P.str = st.str + S.attr.str + av(A, 'strength_v');
@@ -160,7 +161,7 @@ export function calc(eq) {
   // sinh luc / noi luc: goc + cap * X/cap + diem * X/diem (KPlayer::SetBaseLifeMax)
   P.life = (st.life + (lv - 1) * (add.LifePerLevel + IDLE_LIFE_PER_LEVEL) + (P.vit - st.vit) * add.LifePerVitality + av(A, 'lifemax_v')) * (1 + av(A, 'lifemax_p') / 100);
   P.mana = (st.mana + (lv - 1) * add.ManaPerLevel + (P.eng - st.eng) * add.ManaPerEnergy + av(A, 'manamax_v')) * (1 + av(A, 'manamax_p') / 100);
-  P.life = Math.max(50, P.life) * (1 + tpStacks().ho * 0.06); P.mana = Math.max(20, P.mana);   // tam phap Ho The: +6% sinh luc moi cap
+  P.life = Math.max(50, P.life) * (1 + guildBuff().life / 100 + tpStacks().ho * 0.06); P.mana = Math.max(20, P.mana);   // Ho The +6%/cap, bang hoi +0.5%/cap
   P.regen = 1 + lv * 0.08 + av(A, 'lifereplenish_v') + P.life * av(A, 'lifereplenish_p') / 10000;
   P.manaRegen = 1 + lv * 0.05 + av(A, 'manareplenish_v') + P.eng * 0.02;
   // chinh xac / ne tranh (KPlayer::SetNpcAttackRating / SetNpcDefence)
@@ -193,7 +194,7 @@ export function calc(eq) {
   P.retMelee = av(A, 'meleedamagereturn_v'); P.retMeleeP = av(A, 'meleedamagereturn_p');
   P.series5 = av(A, 'five_elements_enhance_v'); P.res5 = av(A, 'five_elements_resist_v');
   P.seriesSkill = av(A, ['metalskill_v', 'woodskill_v', 'waterskill_v', 'fireskill_v', 'earthskill_v'][ser]);
-  P.lucky = av(A, 'lucky_v') + tpStacks().bao * 3;   // tam phap Tham Bao: +3 may man moi cap
+  P.lucky = av(A, 'lucky_v') + tpStacks().bao * 3 + guildBuff().lucky;   // Tham Bao +3/cap, bang hoi +0.25/cap
   P.dropMul = 1 + tpStacks().bao * 0.05;             // Tham Bao: +5% ti le roi do moi cap
   P.speed = 1 + av(A, 'fastwalkrun_p') / 100;
   P.ranged = ranged;

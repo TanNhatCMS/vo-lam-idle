@@ -85,7 +85,10 @@ import { codexModal } from './guide';
 import { matAdd, matHave } from './recipes';
 import { WB_EVERY, WB_FIRST, WB_MIN_LV } from './worldboss';
 import { thanMaBind, thanMaBody } from './horse';
-import { tamPhapModal, tpPending } from './depth';
+import { tamPhapModal, tpPending, applyWeekMod } from './depth';
+import { TOWER2, t2mul, tp2Pending, tower2Bonuses, tower2Floor, tower2Level, tower2OptionModal, tower2Unlocked } from './tower2';
+import { TOWER2_SET_ROWS } from './sets';
+import { actBind, actBody } from './activities';
 
 /* ======================= PHAN THUONG NGOAI GAME GOC (docs/DE_XUAT.md) =======================
    1 diem danh 7/30 ngay · 2 nhiem vu ngay · 3 thanh tuu + danh hieu · 4 trum Hoang Kim dinh ky · 5 thuong offline theo moc
@@ -95,7 +98,7 @@ const dayKey = d => `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
 const today = () => dayKey(new Date());
 const weekKey = d => { const t = new Date(d.getFullYear(), d.getMonth(), d.getDate()); t.setDate(t.getDate() - (t.getDay() + 6) % 7); return dayKey(t); };   // Thu Hai cua tuan: doi tuan -> key doi
 export const GB_EVERY = 1800, GB_RETRY = 300;     // trum Hoang Kim: moi 30 phut choi; thua thi 5 phut sau quay lai
-const REBORN_LV = MAX_LEVEL, REBORN_MAX = 5;   // chuyen sinh o cap toi da (99)
+const REBORN_LV = MAX_LEVEL, REBORN_MAX = 10;  // chuyen sinh toi da 10 lan (TS1-TS5 tam phap, TS6-TS10 diem Thap II — theo ban vinarpg)
 const FD_COST = 10;
 export function RW() { // trang thai phan thuong trong file luu (tao / bo sung truong khi nap file cu)
   const r = S.rw || (S.rw = {});
@@ -201,7 +204,7 @@ export const LV_MS = [
   [99, { set: 1, fd: 30, pts: 5 }, 'Danh hiệu «Tông sư» · mở khóa chuyển sinh'],
 ];
 const TOWER_LV = 10;
-const unlocked = lv => S.lvl >= lv || RW().stat.reborn > 0;
+export const unlocked = lv => S.lvl >= lv || RW().stat.reborn > 0;
 function lvMsReady() { const g = RW().lvGot || {}; return LV_MS.filter(([lv]) => S.lvl >= lv && !g[lv]); }
 function claimLvMs(lv) {
   const r = RW(), m = LV_MS.find(x => x[0] === lv); r.lvGot = r.lvGot || {};
@@ -302,13 +305,37 @@ function towerStart() {
 }
 const towerLevel = f => Math.min(MAX_LEVEL, 10 + f * 4);
 export function towerSpawn() {
-  const f = R.tower.floor, L = towerLevel(f), z = ZONES[Math.min(ZONES.length - 1, Math.floor(f / 3))], boss = f % 5 === 0;
+  const f = R.tower.floor, is2 = R.tower.id === 2, L = is2 ? tower2Level(f) : towerLevel(f), z = ZONES[Math.min(ZONES.length - 1, Math.floor(f / (is2 ? 12 : 3)))], boss = f % 5 === 0;
   R.enemies = []; R.stall = 0;
   const n = boss ? 1 : 3 + (f % 3);
-  for (let i = 0; i < n; i++) { const [x, y] = inWorld(H.x + rnd(-260, 260), H.y + rnd(-220, 220)); R.enemies.push(makeEnemy(boss ? z.boss : pick(z.m), L, boss ? 'boss' : 'elite', x, y)); }
+  for (let i = 0; i < n; i++) {
+    const [x, y] = inWorld(H.x + rnd(-260, 260), H.y + rnd(-220, 220)), e = makeEnemy(boss ? z.boss : pick(z.m), L, boss ? 'boss' : 'elite', x, y);
+    if (is2) { const m = t2mul(f, e.cls); e.hp = e.max = e.max * m.hp; e.dmg *= m.dmg; e.towerId = 2; e.towerFloor = f; applyWeekMod(e); }
+    R.enemies.push(e);
+  }
 }
 export function towerCleared() {
-  const r = RW(), f = R.tower.floor;
+  const r = RW(), f = R.tower.floor, is2 = R.tower.id === 2;
+  if (is2) {
+    if (f > (r.stat.tower2Best || 0)) {
+      r.stat.tower2Best = f;
+      if (f % 10 === 0) {
+        const fid = FAC[S.fac] ? FAC[S.fac].id : -1, reqOf = (r, id) => (r.req.find(q => q[0] === id) || [0, -1])[1];
+        let pool = TOWER2_SET_ROWS.filter(r => reqOf(r, 36) <= S.lvl + 15 && sexReqOk(r.req));
+        const mine = pool.filter(r => reqOf(r, 39) === fid);
+        if (mine.length && Math.random() < 0.7) pool = mine;
+        if (!pool.length) pool = TOWER2_SET_ROWS;
+        const row = pick(pool), it = row && makeSetItem('gold', row, 8);
+        grant({ fd: 50, gold: 2000 * f }, `Tháp II tầng ${f}`);
+        if (it) { addItem(it, true, true, true); log(`Tháp II tầng ${f}: nhận <b style="color:#eaf6ff">${esc(it.n)}</b>`); }
+      } else grant({ fd: f % 5 === 0 ? 50 : 5, gold: 2000 * f }, `Tháp II tầng ${f}`);
+    }
+    questTick('tower'); achCheck();
+    const b = tower2Bonuses();
+    heal(R.P.life * (0.3 + b.heal), true); R.mana = Math.min(R.P.mana, R.mana + R.P.mana * 0.3);
+    R.tower.floor++; R.spawnT = 1.5;
+    return;
+  }
   if (f > r.stat.towerBest) { r.stat.towerBest = f; grant(f % 5 === 0 ? { set: 1, fd: 10 } : { gold: 200 * f, fd: 2 }, `Tháp tầng ${f}`); }
   questTick('tower'); achCheck();
   heal(R.P.life * 0.3, true); R.mana = Math.min(R.P.mana, R.mana + R.P.mana * 0.3);
@@ -316,8 +343,27 @@ export function towerCleared() {
 }
 export function towerExit(dead) {
   if (!R.tower) return;
+  if (R.tower.id === 2) {
+    const f = R.tower.floor, r = RW();
+    if (dead) r.tower2Floor = tower2Floor(Math.max(1, f - TOWER2.lossFloors));   // guc: lui 10 tang
+    else r.tower2Floor = tower2Floor(Math.max(1, f - 1));                          // roi chieu: lam lai tang nay
+    r.stat.tower2Best = Math.max(r.stat.tower2Best || 0, f - 1);
+    log(`${dead ? 'Gục ở' : 'Rời'} Tháp II tầng ${f}. Sẽ vào lại từ tầng ${r.tower2Floor}. Kỷ lục: tầng ${r.stat.tower2Best}`);
+    R.tower = null; R.enemies = []; S.wave = 1; R.spawnT = 0.5; R.zoneShown = null; save(); refresh();
+    return;
+  }
   log(`${dead ? 'Gục ở' : 'Rời'} tháp thử thách tầng ${R.tower.floor}. Kỷ lục: ${RW().stat.towerBest}`);
   R.tower = null; R.enemies = []; S.wave = 1; R.spawnT = 0.5; R.zoneShown = null;
+}
+/* Vao Thap II: can chuyen sinh 5, vao tu con tro tower2Floor (mac dinh ky luc + 1) */
+export function tower2Start() {
+  if (R.town) backFromTown();
+  petRealmAbort(true);
+  if (!tower2Unlocked()) { toast(`Tháp II mở ở chuyển sinh ${TOWER2.reborn}`); return; }
+  const r = RW(), f = tower2Floor(r.tower2Floor == null ? (r.stat.tower2Best || 0) + 1 : r.tower2Floor);
+  r.tower2Floor = f;
+  R.tower = { id: 2, floor: f }; R.enemies = []; R.corpses = []; R.spawnT = 0.5;
+  closeModal(true); refresh();
 }
 
 /* ---------- 7. chuyen sinh (level_exp.txt co 5 cot chuyen sinh -> toi da 5 lan) ---------- */
@@ -327,13 +373,15 @@ function doReborn() {
   if (S.lvl < REBORN_LV || r.stat.reborn >= REBORN_MAX) return;
   if (!confirm('Chuyển sinh: về cấp 1, giữ trang bị và võ công. Tiếp tục?')) return;
   r.stat.reborn++;
-  r.tpPend = (r.tpPend | 0) + 1;                     // tam phap: moi lan chuyen sinh chon 1 huong (TS1-TS5)
+  if (r.stat.reborn <= 5) r.tpPend = (r.tpPend | 0) + 1;      // TS1-TS5: tam phap
+  else r.tp2Pend = (r.tp2Pend | 0) + 1;                        // TS6-TS10: diem Thap II
   S.lvl = 1; S.xp = 0; S.attr = { str: 0, dex: 0, vit: 0, eng: 0 }; S.attrPts = r.stat.reborn * 50;
   S.stage = 1; S.wave = 1; S.push = true; R.tower = null; R.enemies = []; R.dirty = true; R.zoneShown = null;
   log(`<b class="up">Chuyển sinh lần ${r.stat.reborn}!</b> +${r.stat.reborn * 20}% kinh nghiệm, +${r.stat.reborn * 10}% sát thương`);
   if (S.autoPts === true) autoSpendAttrs();
   achCheck(); closeModal(true); refresh(); save();
   if (tpPending()) tamPhapModal();                   // chon tam phap ngay sau khi chuyen sinh
+  if (tp2Pending()) tower2OptionModal();
 }
 
 /* ---------- 8. dong hanh (thu nuoi danh cung, len cap theo quai ha) ---------- */
@@ -923,7 +971,7 @@ export function dotGift() { const b = $('#giftBtn'); if (b) b.classList.toggle('
 /* ---------- giao dien: nut 🎁 ---------- */
 let giftTab = 'login';
 function refreshGift() { if (!$('#modal').classList.contains('hidden') && $('#giftTabs')) giftModal(); dotGift(); }
-function giftText(g) {
+export function giftText(g) {
   const p = [];
   if (g.gold) p.push(`${fmt(g.gold * (1 + S.lvl / 10))} lượng`); if (g.pot) p.push(`${g.pot.n} bình thuốc`); if (g.fd) p.push(`${g.fd} Phúc Duyên`);
   if (g.item) p.push(`đồ ${g.item} dòng`); if (g.set) p.push('đồ Hoàng Kim'); if (g.pts) p.push(`${g.pts} tiềm năng`);
@@ -931,6 +979,7 @@ function giftText(g) {
 }
 function giftBody(r) {
   if (giftTab === 'tm') return thanMaBody();
+  const act = actBody(giftTab); if (act) return act;
   if (giftTab === 'login') {
     const L = r.login, day = ((L.streak - 1) % 7 + 7) % 7;
     return `<p class="desc">Chuỗi ${L.streak} ngày · tổng ${L.total} ngày. Mốc 10 / 20 / 30 ngày có quà lớn.</p>
@@ -984,7 +1033,11 @@ function giftBody(r) {
   }
   if (giftTab === 'tower') return `<p class="desc">Mỗi tầng một đợt tinh anh; tầng chia hết cho 5 là trùm (lần đầu qua được đồ Hoàng Kim). Quái cấp 10 + 4 × tầng. Gục ngã là rời tháp.</p>
       <p>Kỷ lục: <b>tầng ${r.stat.towerBest}</b>${R.tower ? ` · đang ở tầng ${R.tower.floor}` : ''}</p>
-      <div class="btnrow">${R.tower ? '<button class="btn red" id="gTowerOut">Rời tháp</button>' : !unlocked(TOWER_LV) ? `<button class="btn" disabled>Cần cấp ${TOWER_LV}</button>` : `<button class="btn" id="gTower">Vào tháp (từ tầng ${Math.max(1, r.stat.towerBest - 4)})</button>`}</div>`;
+      <div class="btnrow">${R.tower ? '<button class="btn red" id="gTowerOut">Rời tháp</button>' : !unlocked(TOWER_LV) ? `<button class="btn" disabled>Cần cấp ${TOWER_LV}</button>` : `<button class="btn" id="gTower">Vào tháp (từ tầng ${Math.max(1, r.stat.towerBest - 4)})</button>`}</div>
+      <h3>Tháp II <small>siêu khó · 2.000 tầng</small></h3>
+      <p class="desc">Mở ở chuyển sinh 5. Quái mạnh gấp nhiều lần theo tầng, gục lùi 10 tầng; mỗi 10 tầng lần đầu nhận 1 món bộ <b>Thiên Cực</b>. Điểm chuyển sinh TS6–TS10 chỉ tác dụng ở đây.</p>
+      <p>Kỷ lục: <b>tầng ${r.stat.tower2Best || 0}</b>${R.tower && R.tower.id === 2 ? ` · đang ở tầng ${R.tower.floor}` : ''}</p>
+      <div class="btnrow">${R.tower && R.tower.id === 2 ? '<button class="btn red" id="gTowerOut">Rời tháp</button>' : !tower2Unlocked() ? `<button class="btn" disabled>Cần chuyển sinh ${TOWER2.reborn}</button>` : `<button class="btn" id="gTower2">Vào Tháp II (tầng ${tower2Floor(r.tower2Floor == null ? (r.stat.tower2Best || 0) + 1 : r.tower2Floor)})</button>`}</div>`;
   if (giftTab === 'pet') {
     const p = r.pet;
     if (!unlocked(PET_LV)) return `<p class="desc">Đồng hành mở khóa ở cấp ${PET_LV}.</p>`;
@@ -999,7 +1052,7 @@ function giftBody(r) {
 }
 export function giftModal() {
   if (!S.fac) return;
-  const r = RW(), tabs = [['newbie', 'Tân thủ'], ['code', 'Mã quà'], ['login', 'Điểm danh'], ['lvms', 'Mốc cấp'], ['quest', 'Nhiệm vụ'], ['ach', 'Thành tựu'], ['chest', 'Phúc Duyên'], ['so', 'Quay Sò'], ['event', 'Sự kiện'], ['tower', 'Tháp'], ['pet', 'Đồng hành'], ['tm', 'Thần Mã'], ['reborn', 'Chuyển sinh']];
+  const r = RW(), tabs = [['newbie', 'Tân thủ'], ['code', 'Mã quà'], ['login', 'Điểm danh'], ['lvms', 'Mốc cấp'], ['quest', 'Nhiệm vụ'], ['ach', 'Thành tựu'], ['chest', 'Phúc Duyên'], ['so', 'Quay Sò'], ['event', 'Sự kiện'], ['tower', 'Tháp'], ['pet', 'Đồng hành'], ['tm', 'Thần Mã'], ['yt', 'Dã Tẩu'], ['guild', 'Bang hội'], ['tk', 'Tống Kim'], ['reborn', 'Chuyển sinh']];
   modal(`<h3>Phần thưởng <small>Phúc Duyên ${r.fd}</small></h3><div class="dtabs" id="giftTabs">${tabs.map(([k, n]) => `<button data-g="${k}" class="${k === giftTab ? 'on' : ''}">${n}</button>`).join('')}</div>${giftBody(r)}`, () => {
     document.querySelectorAll('#mBody #giftTabs button').forEach(x => x.onclick = () => { giftTab = x.dataset.g; giftModal(); });
     const on = (id, fn) => { const el = $(id); if (el) el.onclick = fn; };
@@ -1008,8 +1061,9 @@ export function giftModal() {
     on('#gWelcome', claimWelcome);
     on('#gCode', () => claimCode($('#codeInp') ? $('#codeInp').value : ''));
     { const ci = $('#codeInp'); if (ci) ci.onkeydown = e => { if (e.key === 'Enter') claimCode(ci.value); }; }
-    on('#gTowerOut', () => { towerExit(false); refreshGift(); }); on('#gReborn', doReborn);
+    on('#gTowerOut', () => { towerExit(false); refreshGift(); }); on('#gTower2', () => { tower2Start(); refreshGift(); }); on('#gReborn', doReborn);
     thanMaBind(refreshGift);
+    actBind(refreshGift);
     document.querySelectorAll('#mBody [data-lv]').forEach(x => x.onclick = () => claimLvMs(+x.dataset.lv));
     document.querySelectorAll('#mBody [data-q]').forEach(x => x.onclick = () => { claimQuest(+x.dataset.q); refreshGift(); });
     document.querySelectorAll('#mBody [data-w]').forEach(x => x.onclick = () => { claimWeekQuest(+x.dataset.w); refreshGift(); });
