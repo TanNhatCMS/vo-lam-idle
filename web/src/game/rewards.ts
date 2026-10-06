@@ -558,6 +558,7 @@ export function drawPet(c, dt) {
 export function petWants(it) {
   const r = S.rw, p = r && r.pet;
   if (!r || !r.petF || r.petF.keep === 0) return false;         // nguoi choi tat giu do pet
+  if (!p) return false;                                         // chua dan pet nao: khong giu do cho pet (truoc day doc p.tid -> crash null)
   const slot = petSlotFor(it); if (!slot || !petUnlocked()) return false;
   if (S.inv.length >= INV_MAX - 6) return false;               // tui gan day: nhuong cho, ban nhu thuong
   const elem = petElemOf(p.tid);
@@ -701,7 +702,7 @@ export function petForgeItem() {
   for (let k = 0; k < 8 && !it; k++) it = makeItem(detail, irnd(0, 5), clamp(Math.round(S.lvl / 12) + 1, 1, 10), 4);
   if (!it) { toast('Đúc thất bại (không có mẫu đồ phù hợp)'); return null; }
   matAdd('ht', c.tier, -c.ht); S.gold -= c.gold;
-  it.s = petElemOf(p.tid); it.petOnly = 1; it.n = 'Thú Bội · ' + it.n;
+  it.s = petElemOf(p && p.tid); it.petOnly = 1; it.n = 'Thú Bội · ' + it.n;
   const rq = (it.req || []).find(q => q[0] === 37); if (rq && rq[1] >= 0) rq[1] = it.s;   // dong bo yeu cau he theo he pet
   addItem(it, true, true, true);
   log(`Đúc <b style="color:${RAR_COL[it.r]}">${esc(it.n)}</b> (hệ ${SERIES[it.s]}) — chỉ Đồng hành mặc được`);
@@ -739,7 +740,7 @@ export function renderPet() {
   const c = STAR_COST[star] || null;
   const evoOk = p && star < STAR_MAX && (p.lvl || 1) >= STAR_REQ_LV[star] && matHave('ht', c.ht) >= c.n && S.gold >= c.gold;
   const evoTxt = star >= STAR_MAX ? 'Đã Hoàn Mỹ' : `Cần cấp ${STAR_REQ_LV[star]} · ${c.n} Huyền Tinh ${c.ht} (có ${matHave('ht', c.ht)}) · ${fmt(c.gold)} lượng`;
-  const skName = PET_SKILL_NAMES[petElemOf(p.tid)] || '';
+  const skName = PET_SKILL_NAMES[petElemOf(p && p.tid)] || '';
   const groups = petGrouped().map((list, e) => list.length ? `<div class="peGroup"><h4 style="color:${SERIES_COL[e]}">Hệ ${SERIES[e]}</h4><div class="petpick">${list.map(t => `<button data-p="${t}" class="${p && p.tid === t ? 'on' : ''}">${MON[t].img ? `<img src="${esc(MON[t].img)}" alt="">` : ''}<b>${esc(MON[t].n)}</b></button>`).join('')}</div></div>` : '').join('');
   const body = p && st ? `<div class="card stats">
       <span>Đang dẫn</span><span><b style="color:${SERIES_COL[st.elem]}">${esc(MON[p.tid].n)}</b></span>
