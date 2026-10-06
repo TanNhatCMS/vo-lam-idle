@@ -39,13 +39,13 @@ jobs:
         working-directory: web
 
       - name: Tải artifact web-out
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: web-out
           path: web/out
 
       - name: Tải artifact web đầy đủ (kèm media, deploy được ngay)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: web-full
           path: .gh-webtest
