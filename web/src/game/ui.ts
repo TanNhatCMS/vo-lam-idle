@@ -45,6 +45,7 @@ import {
 } from './core';
 import { forgeModal } from './forge';
 import { donKhoModal } from './donkho';
+import { logModal } from './consolelog';
 import { jrModal } from './journal';
 import { CHALLENGES, challengeModal, chalName, clanModal } from './depth';
 import { SK_KIND_VI, skKind, skillAuraHint, skillBuffHint, skillTypeLabel } from './skillsys';
@@ -412,7 +413,7 @@ function renderMore() {
       <div class="row">Độ khó <select id="sDiff" ${S.chal === 'hard' ? 'disabled' : ''}>${DIFFS.map((d, i) => `<option value="${i}" ${diffOf() === d ? 'selected' : ''}>${d.n}</option>`).join('')}</select> <small class="dim">${esc(diffOf().d)}${S.chal === 'hard' ? ' · Thử thách Huyết chiến: khóa Khó' : ''}</small></div>
       <label><input type="checkbox" id="cForge" ${S.autoForge ? 'checked' : ''}> Tự động rèn đồ (ghép mảnh Hoàng Kim, khảm Tím, hợp và thăng cấp Huyền Tinh; mỗi 30 giây)</label>
       <label><input type="checkbox" id="cBuy" ${S.autoBuy === false ? '' : 'checked'}> Tự mua vũ khí đúng loại ở Biện Kinh khi mạnh hơn ≥ 25% (tối đa 60% ngân lượng)</label>
-      <div class="btnrow"><button class="btn" id="bStashM">Kho chung</button><button class="btn" id="bClan">Gia tộc</button><button class="btn" id="bJournal">Sổ tay</button><button class="btn" id="bTut">Hướng dẫn</button><button class="btn" id="bCodex">Bách khoa</button><button class="btn" id="bSug">Gợi ý cộng điểm</button></div></div>
+      <div class="btnrow"><button class="btn" id="bStashM">Kho chung</button><button class="btn" id="bClan">Gia tộc</button><button class="btn" id="bJournal">Sổ tay</button><button class="btn" id="bLog">Nhật ký</button><button class="btn" id="bTut">Hướng dẫn</button><button class="btn" id="bCodex">Bách khoa</button><button class="btn" id="bSug">Gợi ý cộng điểm</button></div></div>
     <h3>Trợ năng</h3><div class="card lootf">
       <div class="row">Cỡ chữ <select id="uFs">${UI_FS.map((v, i) => `<option value="${i}" ${uiPrefs().fs === i ? 'selected' : ''}>${UI_FS_NAME[i]}</option>`).join('')}</select> <small class="dim">áp dụng cho bảng thông tin, thẻ và hộp thoại</small></div>
       <label><input type="checkbox" id="uSaver" ${uiPrefs().saver ? 'checked' : ''}> Tiết kiệm pin (vẽ 30 khung/giây, ngừng vẽ khi ẩn tab)</label>
@@ -444,7 +445,7 @@ function renderMore() {
   $('#sDiff').onchange = e => { S.diff = +e.target.value; R.enemies = []; R.spawnT = 0.3; save(); toast('Độ khó: ' + diffOf().n); renderMore(); };
   $('#cBuy').onchange = e => { S.autoBuy = e.target.checked; save(); };
   $('#cForge').onchange = e => { S.autoForge = e.target.checked; if (S.autoForge) autoForge(); save(); };
-  $('#bStashM').onclick = () => stashModal(); $('#bClan').onclick = () => clanModal(); $('#bJournal').onclick = () => jrModal(); $('#bTut').onclick = () => tutorialModal(0); $('#bCodex').onclick = () => codexModal(); $('#bSug').onclick = suggestModal;
+  $('#bStashM').onclick = () => stashModal(); $('#bClan').onclick = () => clanModal(); $('#bJournal').onclick = () => jrModal(); $('#bLog').onclick = () => logModal(); $('#bTut').onclick = () => tutorialModal(0); $('#bCodex').onclick = () => codexModal(); $('#bSug').onclick = suggestModal;
   $('#bAdmin').onclick = () => adminModal();
   $('#uFs').onchange = e => { setUiPref({ fs: +e.target.value }); }; $('#uSaver').onchange = e => setUiPref({ saver: e.target.checked });
   $('#bSwitch').onclick = () => switchCharacter();
