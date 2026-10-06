@@ -857,3 +857,8 @@ body.sv #rotBtn{display:none!important}
 /* Thu thach nhan vat (depth.ts): cac the chon luat khi tao nhan vat */
 .challenges{display:grid;gap:6px}
 .challenges .btn{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left}
+
+/* Nhật ký console (consolelog.ts) */
+.lg-view{max-height:52vh;overflow:auto;margin:8px 0;padding:8px 10px;border:1px solid var(--line2);border-radius:6px;background:#070b09;font:11px/1.5 var(--font);white-space:pre-wrap;word-break:break-word}
+.lg-line{padding:1px 0;border-bottom:1px solid #121a15}
+.lg-t{color:#6d756f}

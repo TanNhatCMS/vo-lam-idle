@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect } from 'react';
+import './game/consolelog';   // hook nhat ky console — phai import TRUOC moi module game khac
 import { boot } from './game/loop';
 import TopBar from './ui/TopBar';
 import Battle from './ui/Battle';
