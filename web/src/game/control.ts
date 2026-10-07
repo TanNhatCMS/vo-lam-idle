@@ -26,7 +26,7 @@ import { onZoneChange } from './loop';
 import { groundAt } from './loot';
 import { petRealmAbort } from './rewards';
 import { obsLoad, obsMove } from './mapobs';
-import { CAM, CV, img, minimapPointerDown, minimapPointerMove, minimapPointerUp, snapCamera, uiScale } from './render';
+import { CAM, CV, img, minimapPointerDown, minimapPointerMove, minimapPointerUp, minimapSetTap, snapCamera, uiScale } from './render';
 import { S, save } from './save';
 import { shopModal, stockCount, takeStock } from './shop';
 import { stashModal } from './stash';
@@ -206,6 +206,13 @@ export function bindControls() {
       mf.addEventListener('pointerdown', ev => { const [x, y] = mpos(ev); if (minimapPointerDown(x, y, ev.pointerId)) { ev.preventDefault(); ev.stopPropagation(); mf.setPointerCapture && mf.setPointerCapture(ev.pointerId); } });
       mf.addEventListener('pointermove', ev => { const [x, y] = mpos(ev); if (minimapPointerMove(x, y, ev.pointerId)) { ev.preventDefault(); ev.stopPropagation(); } });
       const mup = ev => { minimapPointerUp(ev.pointerId); };
+      /* bam vao than ban do -> nhan vat di toi diem do (toa do the gioi) */
+      minimapSetTap((wx, wy) => {
+        const [nx, ny] = inWorld(wx, wy);
+        INPUT.target = { x: nx, y: ny }; R.pickTarget = null;
+        if (!manual()) setCtrl('manual', true);
+        toast('Đi tới điểm đã chọn trên bản đồ');
+      });
       mf.addEventListener('pointerup', mup); mf.addEventListener('pointercancel', mup); mf.addEventListener('lostpointercapture', mup);
     }
   }
