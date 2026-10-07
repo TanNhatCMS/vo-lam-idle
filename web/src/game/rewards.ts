@@ -1053,6 +1053,28 @@ function giftBody(r) {
 }
 /* Mo hop qua tang dung the chi dinh (hang nut nhanh the Giang ho) */
 export function openGiftTab(tab) { giftTab = tab; giftModal(); }
+
+/* Danh hieu tren the Nhan vat: tien do + bang chon danh hieu (cach rieng so voi tab Thanh tuu) */
+export function titleProgress() {
+  const r = RW(), withTitle = ACH.filter(a => a[4]);
+  return { owned: withTitle.filter(([id]) => r.ach[id]).length, total: withTitle.length };
+}
+export function titleWorn() {
+  const r = RW(), t = r.title && ACH.find(a => a[0] === r.title && a[4]);
+  return t ? { id: t[0], n: t[1], attr: t[4] } : null;
+}
+export function titleModal() {
+  const r = RW();
+  const rows = ACH.filter(a => a[4]).map(([id, n, , , t]) => {
+    const got = !!r.ach[id], worn = r.title === id;
+    return `<div class="qrow${got ? '' : ' lock'}"><span><b>${n}</b><small>danh hiệu: ${escRich(attrText(t[0], [t[1], 0, 0]))}</small></span><small></small><button class="btn sm" data-tt="${id}" ${got ? '' : 'disabled'}>${worn ? 'Tháo' : 'Đeo'}</button></div>`;
+  }).join('');
+  const pr = titleProgress();
+  modal(`<h3>Danh hiệu <small>${pr.owned}/${pr.total}</small></h3><p class="desc">Đeo một danh hiệu để cộng chỉ số. Danh hiệu nhận từ thành tựu và thử thách nhân vật.</p>${rows || '<small class="dim">Chưa có danh hiệu nào</small>'}<div class="btnrow"><button class="btn" id="ttClose">Đóng</button></div>`, () => {
+    document.querySelectorAll('#mBody [data-tt]').forEach(x => x.onclick = () => { r.title = r.title === x.dataset.tt ? '' : x.dataset.tt; R.dirty = true; save(); refresh(); titleModal(); });
+    $('#ttClose').onclick = () => closeModal(true);
+  });
+}
 export function giftModal() {
   if (!S.fac) return;
   const r = RW(), tabs = [['newbie', 'Tân thủ'], ['code', 'Mã quà'], ['login', 'Điểm danh'], ['lvms', 'Mốc cấp'], ['quest', 'Nhiệm vụ'], ['ach', 'Thành tựu'], ['chest', 'Phúc Duyên'], ['so', 'Quay Sò'], ['event', 'Sự kiện'], ['tower', 'Tháp'], ['pet', 'Đồng hành'], ['tm', 'Thần Mã'], ['yt', 'Dã Tẩu'], ['guild', 'Bang hội'], ['tk', 'Tống Kim'], ['reborn', 'Chuyển sinh']];

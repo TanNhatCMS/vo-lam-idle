@@ -47,6 +47,7 @@ import { forgeModal } from './forge';
 import { donKhoModal } from './donkho';
 import { logModal } from './consolelog';
 import { bindQuickBar, jrModal, quickBarHTML } from './journal';
+import { titleModal, titleProgress, titleWorn } from './rewards';
 import { CHALLENGES, challengeModal, chalName, clanModal } from './depth';
 import { SK_KIND_VI, skKind, skillAuraHint, skillBuffHint, skillTypeLabel } from './skillsys';
 import { bindBuilds, buildsHTML, chargePointRefund } from './builds';
@@ -261,7 +262,11 @@ function renderChar() {
   const eq = SLOTS.map(([k, vi]) => `<div class="slot" data-slot="${k}">${S.eq[k] ? itemCell(S.eq[k]) : `<span>${vi}</span>`}</div>`).join('');
   const attrs = Object.keys(ATTR_VI).map(k => `<div class="attr"><span>${ATTR_VI[k]}</span><b>${Math.round(P[k])}</b><span class="pm"><button class="plus" data-a="${k}" ${S.attrPts ? '' : 'disabled'}>+</button><button class="minus" data-a="${k}" title="Rút lại 1 điểm" ${S.attr[k] > 0 ? '' : 'disabled'}>−</button></span></div>`).join('');
   const res = ELEM.map(e => `<span>Kháng ${ELEM_VI[e]}</span><span>${Math.round(P.res[e])}%</span>`).join('');
-  $('#t-char').innerHTML = `<div class="card"><b style="color:${SERIES_COL[f.series]}">${esc(f.n)}</b> · hệ ${SERIES[f.series]} · Cấp ${S.lvl}${S.chal ? ` · <b>Thử thách ${chalName()}</b>` : ''}<br><small class="dim">Lực chiến ${fmt(R.power)}</small> <button class="btn sm" id="bPower">Chi tiết</button></div>
+  const tp = titleProgress(), tw = titleWorn();
+  $('#t-char').innerHTML = `<div class="card"><b style="color:${SERIES_COL[f.series]}">${esc(f.n)}</b> · hệ ${SERIES[f.series]} · Cấp ${S.lvl}${S.chal ? ` · <b>Thử thách ${chalName()}</b>` : ''}<br>
+    <div class="char-power-row"><small class="dim">Lực chiến ${fmt(R.power)}</small></div>
+    <div class="char-title-row"><small class="char-title-worn dim">Tên danh hiệu: ${tw ? `<b style="color:#f3d88a">«${esc(tw.n)}»</b>` : 'Chưa đeo'}</small></div>
+    <div class="char-actions-row"><button class="btn sm title-count-btn" id="bTitle">Danh hiệu ${tp.owned}/${tp.total}</button><button class="btn sm detail-count-btn" id="bPower">Chi tiết</button></div></div>
     <div class="eqgrid">${eq}</div>
     <p class="dim small">Dòng ẩn (2, 4, 6) của mỗi món mở khi hệ nhân vật hoặc 2 món liên kết <b>tương sinh</b> với hệ món đó (Kim→Thủy→Mộc→Hỏa→Thổ→Kim). Đang mở: ${SLOTS.filter(([k]) => S.eq[k] && S.eq[k].mag.length > 1).map(([k, vi]) => `${vi} ${hiddenActive(S.eq[k])}/${Math.floor(S.eq[k].mag.length / 2)}`).join(' · ') || '—'}</p>
     <h3>Tiềm năng <small>${S.attrPts} điểm</small> <button class="btn sm" id="bSugAt">Gợi ý</button></h3><div class="card">${attrs}</div>
@@ -272,7 +277,7 @@ function renderChar() {
       <span>Chính xác</span><span>${Math.round(P.ar)}</span><span>Né tránh</span><span>${Math.round(P.def)}</span>
       <span>Chí mạng</span><span>${Math.round(P.main.crit)}%</span><span>Tốc độ đánh</span><span>${P.aspd.toFixed(2)}</span>${res}</div>`;
   document.querySelectorAll('#t-char .plus').forEach(b => b.onclick = () => { if (!S.attrPts) return; S.attrPts--; S.attr[b.dataset.a]++; R.dirty = true; recalc(); renderChar(); });
-  $('#bPower').onclick = powerModal; $('#bSugAt').onclick = suggestModal;
+  $('#bTitle').onclick = () => titleModal(); $('#bPower').onclick = powerModal; $('#bSugAt').onclick = suggestModal;
   document.querySelectorAll('#t-char .minus').forEach(b => b.onclick = () => unspendAttr(b.dataset.a));
   document.querySelectorAll('#t-char .slot .it').forEach(b => b.onclick = () => itemModal(findItem(b.dataset.uid), b.parentNode.dataset.slot));
 }
