@@ -18,3 +18,6 @@ pick_*.png
 inv_*.png
 fast_*.png
 .port/
+
+# Thu muc media noi qua junction tu game/ (nguon that nam o game/)
+web/public/ui/quick/
