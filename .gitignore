@@ -21,3 +21,7 @@ fast_*.png
 
 # Thu muc media noi qua junction tu game/ (nguon that nam o game/)
 web/public/ui/quick/
+web/public/ui/horse-saddle.png
+web/public/ui/input-joystick.svg
+web/public/ui/input-mouse.svg
+web/public/ui/wrench.svg
