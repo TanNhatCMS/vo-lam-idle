@@ -13,7 +13,7 @@ import {
   zoneIdx,
   zoneOf,
 } from './combat';
-import { assignSlot, fillSlots, joyFixed, renderPad, toggleRot } from './control';
+import { assignSlot, fillSlots, joyFixed, manual, renderPad, setCtrl, toggleRot } from './control';
 import {
   $,
   DETAIL_SLOT,
@@ -392,6 +392,49 @@ export function renderInv() {
   document.querySelectorAll('#t-inv .it').forEach(b => b.onclick = () => itemModal(findItem(b.dataset.uid)));
 }
 
+/* ---------- Cai dat Auto (nut banh rang tren san dau) ----------
+   Gon cac tuy chon tu dong cua ban minh vao mot modal dung kieu bang tham chieu
+   (.auto-config/.auto-section/.ios-switch-row co san trong style.css). */
+export function autoSettingsModal() {
+  if (!S.fac) return;
+  const sw = (id, label, on, note = '') => `<label class="ios-switch-row"><span>${label}${note ? `<br><small class="dim">${note}</small>` : ''}</span><input type="checkbox" id="${id}" ${on ? 'checked' : ''}><span class="ios-switch" aria-hidden="true"></span></label>`;
+  modal(`<h3>Cài đặt Auto</h3><p class="desc">Các việc nhân vật tự làm khi treo máy. Bộ lọc nhặt đồ nằm ở thẻ Hành trang.</p>
+    <div class="auto-config">
+      <section class="auto-section"><h4>Chiến đấu</h4>
+        ${sw('cAuto2', 'Auto đánh &amp; tự đi nhặt đồ', !manual(), 'Tắt: bấm ô kỹ năng để đánh tay, joystick để đi (phím F)')}
+        ${sw('cRot2', 'Xoay chiêu khi farm', S.rot !== false, 'Luân phiên các chiêu gán ô 1–4, luôn có 2 chiêu mạnh nhất, bỏ chiêu hết nội lực (phím R)')}
+        ${sw('cBuff2', 'Tự duy trì bùa lợi', S.autoBuff !== false, 'Tốn nội lực / sinh lực theo chiêu, chỉ dùng khi có quái')}
+        ${sw('cCurse2', 'Tự hạ bùa hại', S.autoCurse !== false, 'Ưu tiên trùm / tinh anh; giảm kháng – phòng thủ – sát thương – tốc đánh của chúng')}
+        ${sw('cAura2', 'Vòng sáng độc (Vô Hình Độc)', !(S.auraOff || {})[69], 'Phủ độc quanh người mỗi 4 giây')}
+      </section>
+      <section class="auto-section"><h4>Trang bị &amp; túi đồ</h4>
+        ${sw('cEquip2', 'Tự mặc đồ tốt hơn khi nhặt', !!S.autoEquip, 'So theo lực chiến thật sau khi mặc')}
+        ${sw('cJunk2', 'Tự bán đồ thừa', S.autoJunk !== false, 'Yếu hơn đồ đang mặc cùng ô, vũ khí sai loại, đồ sai hệ / sai môn phái — trừ đồ Đồng hành cần; giữ 6 nhẫn / dây chuyền / ngọc bội để hợp Huyền Tinh')}
+        ${sw('cPts2', 'Tự cộng điểm tiềm năng &amp; võ công', S.autoPts === true, 'Mặc định tắt; bật thì tự cộng theo gợi ý mỗi lần lên cấp')}
+      </section>
+      <section class="auto-section"><h4>Rèn, mua, thuốc</h4>
+        ${sw('cPot2', 'Tự dùng thuốc', S.potOff !== true, `Kim Sáng Dược / Ngưng Thần đan, trừ ngân lượng · đã dùng ${fmt(S.potUsed || 0)}`)}
+        ${sw('cForge2', 'Tự động rèn đồ', !!S.autoForge, 'Ghép mảnh Hoàng Kim, khảm Tím, hợp và thăng cấp Huyền Tinh (mỗi 30 giây)')}
+        ${sw('cBuy2', 'Tự mua vũ khí ở Biện Kinh', S.autoBuy !== false, 'Khi mạnh hơn ≥ 25%, tối đa 60% ngân lượng')}
+      </section>
+    </div>
+    <div class="btnrow"><button class="btn" id="asLoot">Lọc đồ tự nhặt</button><button class="btn" id="asClose">Đóng</button></div>`, () => {
+    const on = (id, fn) => { const el = $(id); if (el) el.onchange = fn; };
+    on('#cAuto2', e => setCtrl(e.target.checked ? 'auto' : 'manual'));
+    on('#cRot2', e => { S.rot = e.target.checked; save(); });
+    on('#cBuff2', e => { S.autoBuff = e.target.checked; save(); });
+    on('#cCurse2', e => { S.autoCurse = e.target.checked; save(); });
+    on('#cAura2', e => { S.auraOff = S.auraOff || {}; S.auraOff[69] = !e.target.checked; R.dirty = true; recalc(); save(); });
+    on('#cEquip2', e => { S.autoEquip = e.target.checked; save(); });
+    on('#cJunk2', e => { S.autoJunk = e.target.checked; save(); });
+    on('#cPts2', e => { S.autoPts = e.target.checked; if (S.autoPts) { autoSpendAttrs(); autoSpendSkills(); recalc(); } save(); });
+    on('#cPot2', e => { S.potOff = !e.target.checked; save(); });
+    on('#cForge2', e => { S.autoForge = e.target.checked; if (S.autoForge) autoForge(); save(); });
+    on('#cBuy2', e => { S.autoBuy = e.target.checked; save(); });
+    $('#asLoot').onclick = () => { showTab('inv'); closeModal(true); };
+    $('#asClose').onclick = () => closeModal(true);
+  });
+}
 /* ---------- the: khac ---------- */
 function renderMore() {
   $('#t-more').innerHTML = `<h3>Lưu game</h3><div class="card"><p class="dim small">Nhân vật lưu trong trình duyệt của từng thiết bị (3 slot). Để chơi trên thiết bị khác: bấm <b>Tải file lưu</b>, chuyển file <code>.jxsave</code> sang thiết bị kia (Zalo, Drive, cáp…), rồi mở game ở đó và bấm <b>Nạp từ file</b>. File có chữ ký, sửa tay sẽ bị từ chối. Nên tải file định kỳ để sao lưu.</p>
@@ -402,13 +445,8 @@ function renderMore() {
       <div class="row">Âm lượng <input type="range" id="sVol" min="0" max="1" step="0.05" value="${sndCfg().vol}"></div>
       <label><input type="checkbox" id="mOn" ${sndCfg().music ? 'checked' : ''}> Nhạc nền theo bản đồ</label>
       <div class="row">Nhạc <input type="range" id="mVol" min="0" max="1" step="0.05" value="${sndCfg().mvol}"></div></div>
-    <h3>Tự động</h3><div class="card"><label><input type="checkbox" id="cAuto" ${S.autoEquip ? 'checked' : ''}> Tự mặc đồ tốt hơn khi nhặt</label><br>
-      <label><input type="checkbox" id="cPot" ${S.potOff ? '' : 'checked'}> Tự dùng thuốc (Kim Sáng Dược / Ngưng Thần đan, trừ ngân lượng) · đã dùng ${fmt(S.potUsed || 0)}</label><br>
-      <label><input type="checkbox" id="cJunk" ${S.autoJunk === false ? '' : 'checked'}> Tự bán đồ thừa (yếu hơn đồ đang mặc cùng ô, vũ khí sai loại của phái, <b>đồ sai hệ / sai môn phái</b> — trừ đồ Đồng hành cần; giữ tối đa 6 nhẫn / dây chuyền / ngọc bội để hợp Huyền Tinh)</label><br>
-      <label><input type="checkbox" id="cPts" ${S.autoPts === true ? 'checked' : ''}> Tự cộng điểm tiềm năng và võ công (mặc định tắt: tự cộng ở thẻ Nhân vật và Võ công)</label><br>
-      <label><input type="checkbox" id="cBuff" ${S.autoBuff === false ? '' : 'checked'}> Tự duy trì bùa lợi (tốn nội lực / sinh lực theo chiêu, chỉ đánh quái mới dùng)</label><br>
-      <label><input type="checkbox" id="cCurse" ${S.autoCurse === false ? '' : 'checked'}> Tự hạ bùa hại lên quái (ưu tiên trùm / tinh anh, giảm khang - phòng thủ - sát thương chúng)</label><br>
-      <label><input type="checkbox" id="cAura" ${(S.auraOff || {})[69] ? '' : 'checked'}> Vòng sáng độc — Vô Hình Độc (phủ độc quanh người mỗi 4 giây)</label></div>
+    <h3>Tự động</h3><div class="card"><p class="dim small">Tự đánh, tự mặc đồ, tự bán đồ thừa, tự rèn, tự dùng thuốc, xoay chiêu, bùa lợi / bùa hại… đã gom vào một chỗ.</p>
+      <div class="btnrow"><button class="btn" id="bAutoSet">Cài đặt Auto</button><button class="btn" id="bLootF">Lọc đồ tự nhặt</button></div></div>
     <h3>Độ khó và trợ giúp</h3><div class="card lootf">
       <div class="row">Độ khó <select id="sDiff" ${S.chal === 'hard' ? 'disabled' : ''}>${DIFFS.map((d, i) => `<option value="${i}" ${diffOf() === d ? 'selected' : ''}>${d.n}</option>`).join('')}</select> <small class="dim">${esc(diffOf().d)}${S.chal === 'hard' ? ' · Thử thách Huyết chiến: khóa Khó' : ''}</small></div>
       <label><input type="checkbox" id="cForge" ${S.autoForge ? 'checked' : ''}> Tự động rèn đồ (ghép mảnh Hoàng Kim, khảm Tím, hợp và thăng cấp Huyền Tinh; mỗi 30 giây)</label>
@@ -428,18 +466,8 @@ function renderMore() {
   $('#bFile').onclick = () => pickSaveFile(null);
   $('#bExp').onclick = () => { $('#saveTxt').value = exportSave(); toast('Đã xuất mã'); };
   $('#bImp').onclick = () => importFlow($('#saveTxt').value, null);
-  $('#cAuto').onchange = e => { S.autoEquip = e.target.checked; save(); };
-  $('#cJunk').onchange = e => { S.autoJunk = e.target.checked; save(); };
-  $('#sOn').onchange = e => { audInit(); sndCfg().on = e.target.checked; audApply(); save(); };
-  $('#mOn').onchange = e => { audInit(); sndCfg().music = e.target.checked; audApply(); if (sndCfg().music) playMusic(R.town ? W.town.id : zoneOf(Math.min(S.stage, STAGES)).id); save(); };
-  $('#sVol').oninput = e => { sndCfg().vol = +e.target.value; audApply(); };
-  $('#mVol').oninput = e => { sndCfg().mvol = +e.target.value; audApply(); };
-  $('#sVol').onchange = $('#mVol').onchange = () => save();
-  $('#cPot').onchange = e => { S.potOff = !e.target.checked; save(); };
-  $('#cPts').onchange = e => { S.autoPts = e.target.checked; if (S.autoPts) { autoSpendAttrs(); autoSpendSkills(); recalc(); } save(); };
-  $('#cBuff').onchange = e => { S.autoBuff = e.target.checked; save(); };
-  $('#cCurse').onchange = e => { S.autoCurse = e.target.checked; save(); };
-  $('#cAura').onchange = e => { S.auraOff = S.auraOff || {}; S.auraOff[69] = !e.target.checked; R.dirty = true; recalc(); save(); };
+  $('#bAutoSet').onclick = () => autoSettingsModal();
+  $('#bLootF').onclick = () => { showTab('inv'); closeModal(); };
   $('#cJoy').onchange = e => { S.joy = e.target.checked ? 'fixed' : 'float'; save(); };
   $('#cLowFx').onchange = e => { S.lowFx = e.target.checked; save(); };
   $('#sDiff').onchange = e => { S.diff = +e.target.value; R.enemies = []; R.spawnT = 0.3; save(); toast('Độ khó: ' + diffOf().n); renderMore(); };
