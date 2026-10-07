@@ -77,7 +77,8 @@ export function guildDonate(amount) {
 }
 
 /* ---------- Tống Kim (1 trận / tuần) ---------- */
-const TK_ELITE_WAVES = 5, TK_WAVES = TK_ELITE_WAVES + 1;
+const TK_ELITE_WAVES = 5;
+export const TK_WAVES = TK_ELITE_WAVES + 1;
 function tkState() { const r = RW(); if (!r.tk || r.tk.week !== weekKey()) r.tk = { week: weekKey(), used: 0, best: 0 }; return r.tk; }
 function tkTokens() { const r = RW(); r.tkTok = r.tkTok || 0; return r.tkTok; }
 export function tkStart() {

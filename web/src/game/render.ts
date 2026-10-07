@@ -18,6 +18,7 @@ import { lootMatch } from './loot';
 import { OBS } from './mapobs';
 import { drawPet } from './rewards';
 import { drawJxHero } from './look';
+import { TK_WAVES } from './activities';
 import { S } from './save';
 import { heroSeries } from './stats';
 
@@ -120,12 +121,50 @@ export function drawTiledBg(c, bg) {
     c.save(); c.translate(i * T + (fx ? T : 0), j * T + (fy ? T : 0)); c.scale(fx ? -1 : 1, fy ? -1 : 1); c.drawImage(bg, 0, 0, T, T); c.restore();
   }
 }
-/* ---------- ban do nho: anh ban do that thu nho, quai = cham theo ngu hanh / trum, nhan vat = mui ten, khung = tam nhin ---------- */
-const MINI = { s: 92, m: 8, top: 62 };
-function drawMinimap(c) {
-  if (R.town || S.miniMap === false) return;
-  const s = MINI.s, x0 = AR.w - s - MINI.m, y0 = MINI.top, k = s / WORLD.w;
-  c.save(); c.globalAlpha = 0.9; c.fillStyle = '#000c'; c.fillRect(x0 - 2, y0 - 2, s + 4, s + 4);
+/* ---------- ban do nho: anh ban do that thu nho, quai = cham theo ngu hanh / trum, nhan vat = mui ten, khung = tam nhin.
+   Bam vao ban do nho de bung to thanh khung noi keo duoc (port tu render.js ban vinarpg). ---------- */
+const MINI = { s: 92, m: 8, top: 62, open: false, x: 0, y: 0, pointer: null, dragging: false, dx: 0, dy: 0 };
+const miniOpenSize = () => Math.max(120, Math.min(240, AR.w - 24, AR.h - 76));
+/* debug (nho, vo hai): xem trang thai ban do nho tu console */
+try { (window as any).__mini = () => ({ ...MINI, AR: [AR.w, AR.h] }); } catch (e) { /* bo qua */ }
+function miniRect() {
+  if (!MINI.open) return { x: AR.w - MINI.s - MINI.m, y: MINI.top, s: MINI.s };
+  const s = miniOpenSize(); return { x: MINI.x, y: MINI.y, s };
+}
+function miniClamp() {
+  const s = miniOpenSize(); MINI.x = clamp(MINI.x, 6, Math.max(6, AR.w - s - 6)); MINI.y = clamp(MINI.y, 34, Math.max(34, AR.h - s - 8));
+}
+/* Bam / keo tren khung ban do noi (control.ts goi) */
+export function minimapPointerDown(x, y, id) {
+  if (!MINI.open) {
+    const r = miniRect();
+    if (x < r.x - 2 || x > r.x + r.s + 2 || y < r.y - 2 || y > r.y + r.s + 14) return false;
+    const s = miniOpenSize(); MINI.open = true; MINI.x = (AR.w - s) / 2; MINI.y = Math.max(42, (AR.h - s) / 2); miniClamp();
+    MINI.pointer = id; MINI.dragging = false; return true;
+  }
+  const r = miniRect(), inPanel = x >= r.x - 4 && x <= r.x + r.s + 4 && y >= r.y - 28 && y <= r.y + r.s + 4;
+  if (!inPanel) return false;
+  if (y < r.y && x >= r.x + r.s - 30) { MINI.open = false; MINI.pointer = null; MINI.dragging = false; return true; }
+  MINI.pointer = id; MINI.dragging = y < r.y; MINI.dx = x - r.x; MINI.dy = y - (r.y - 28); return true;
+}
+export function minimapPointerMove(x, y, id) {
+  if (MINI.pointer !== id) return false;
+  if (MINI.dragging) { MINI.x = x - MINI.dx; MINI.y = y - MINI.dy + 28; miniClamp(); }
+  return true;
+}
+export function minimapPointerUp(id) {
+  if (MINI.pointer !== id) return false;
+  MINI.pointer = null; MINI.dragging = false; return true;
+}
+function drawMinimapLayer(c, x0, y0, s, expanded) {
+  const k = s / WORLD.w;
+  c.save();
+  if (expanded) {
+    c.fillStyle = '#07100ff2'; c.strokeStyle = '#c8a45a'; c.lineWidth = 1;
+    c.fillRect(x0 - 4, y0 - 28, s + 8, s + 34); c.strokeRect(x0 - 4, y0 - 28, s + 8, s + 34);
+    c.font = '12px "IBM Plex Mono", monospace'; c.textAlign = 'left'; c.fillStyle = '#f3d88a'; c.fillText('Bản đồ · kéo để di chuyển', x0 + 4, y0 - 11);
+    c.font = '18px "IBM Plex Mono", monospace'; c.textAlign = 'center'; c.fillStyle = '#e9e2d0'; c.fillText('×', x0 + s - 12, y0 - 10);
+  } else { c.globalAlpha = 0.9; c.fillStyle = '#000c'; c.fillRect(x0 - 2, y0 - 2, s + 4, s + 4); }
   const bg = R.bgImg;
   if (bg && bg.complete && bg.naturalWidth) {
     if (OBS.g) c.drawImage(bg, x0, y0, s, s);
@@ -137,8 +176,8 @@ function drawMinimap(c) {
   for (const d of R.ground) if (lootMatch(d.it)) { c.fillStyle = RAR_COL[d.it.r]; c.fillRect(x0 + d.x * k - 1, y0 + d.y * k - 1, 2, 2); }
   for (const e of R.enemies) {
     if (e.dead) continue;
-    const r = e.cls === 'boss' ? 3.2 : e.cls === 'elite' ? 2.4 : 1.8;
-    c.fillStyle = e.goldBoss ? '#ffd24a' : e.cls === 'boss' ? '#ff4a3a' : SERIES_COL[e.series];
+    const r = (e.cls === 'boss' ? 3.2 : e.cls === 'elite' ? 2.4 : 1.8) * (expanded ? Math.max(1.4, s / MINI.s) : 1);
+    c.fillStyle = e.goldBoss ? '#ffd24a' : e.cls === 'boss' ? '#ff4a3a' : e.cls === 'elite' ? '#ff9a5a' : SERIES_COL[e.series];
     c.beginPath(); c.arc(x0 + e.x * k, y0 + e.y * k, r, 0, 7); c.fill();
   }
   if (R.petPos) { c.fillStyle = '#9fe36a'; c.fillRect(x0 + R.petPos.x * k - 1.5, y0 + R.petPos.y * k - 1.5, 3, 3); }
@@ -147,9 +186,30 @@ function drawMinimap(c) {
   c.moveTo(hx + Math.cos(a) * 5, hy + Math.sin(a) * 5); c.lineTo(hx + Math.cos(a + 2.5) * 4, hy + Math.sin(a + 2.5) * 4); c.lineTo(hx + Math.cos(a - 2.5) * 4, hy + Math.sin(a - 2.5) * 4);
   c.closePath(); c.fill(); c.stroke();
   c.strokeStyle = '#c8a45a'; c.strokeRect(x0 - 2, y0 - 2, s + 4, s + 4);
-  c.font = '9px "IBM Plex Mono", monospace'; c.textAlign = 'center'; c.fillStyle = '#f3d88a';
-  c.fillText(R.tower ? `Tháp · tầng ${R.tower.floor}` : zoneOf(Math.min(S.stage, STAGES)).n, x0 + s / 2, y0 + s + 11);
+  if (!expanded) {
+    c.font = '9px "IBM Plex Mono", monospace'; c.textAlign = 'center'; c.fillStyle = '#f3d88a';
+    const t2 = R.tower && R.tower.id === 2;
+    c.fillText(R.tk ? `Tống Kim · ${R.tk.wave}/${TK_WAVES}` : t2 ? `Tháp II · tầng ${R.tower.floor}` : R.tower ? `Tháp · tầng ${R.tower.floor}` : zoneOf(Math.min(S.stage, STAGES)).n, x0 + s / 2, y0 + s + 11);
+  }
   c.restore();
+}
+function drawMinimap(c) {
+  const el = $('#miniFloat'), cv = $('#miniCanvas');
+  if (R.town || S.miniMap === false) { MINI.open = false; MINI.pointer = null; if (el) el.classList.remove('open'); return; }
+  if (!MINI.open) {
+    if (el) el.classList.remove('open');
+    const r = miniRect(); drawMinimapLayer(c, r.x, r.y, r.s, false); return;
+  }
+  const r = miniRect(), left = r.x - 4, top = r.y - 28, w = r.s + 8, h = r.s + 34;
+  if (!el || !cv) return;
+  // MINI lam viec bang don vi AR (pixel canvas); DOM dat vi tri bang CSS px -> doi qua ty le
+  const ratio = CV && CV.width ? CV.getBoundingClientRect().width / CV.width : 1;
+  el.style.left = `${left * ratio}px`; el.style.top = `${top * ratio}px`; el.classList.add('open');
+  cv.style.width = `${w * ratio}px`; cv.style.height = `${h * ratio}px`;
+  const scale = Math.min(2, window.devicePixelRatio || 1) * ratio, pw = Math.round(w * scale), ph = Math.round(h * scale);
+  if (cv.width !== pw || cv.height !== ph) { cv.width = pw; cv.height = ph; }
+  const c2 = cv.getContext('2d'); c2.setTransform(scale, 0, 0, scale, 0, 0); c2.clearRect(0, 0, w, h);
+  c2.save(); c2.translate(4 - r.x, 28 - r.y); drawMinimapLayer(c2, r.x, r.y, r.s, true); c2.restore();
 }
 export const onScreen = (x, y, m = 120) => x > CAM.x - m && x < CAM.x + AR.w + m && y > CAM.y - m && y < CAM.y + AR.h + m;
 function drawSprite(im, sz, x, y, scale, flip, alpha = 1) {

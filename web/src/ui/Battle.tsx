@@ -34,6 +34,8 @@ export default function Battle() {
       <canvas id="arena" />
       <div id="mainSk">{P ? P.main.n : ''}</div>
       <div id="skBuffs" />
+      {/* Ban do nho bung to (engine ve vao #miniCanvas) */}
+      <div id="miniFloat" aria-label="Bản đồ phóng to"><canvas id="miniCanvas" /></div>
       {(() => { const h = wbHudState(); if (!h.on) return null;
         const mmss = (v: number) => `${Math.floor(v / 60)}:${String(v % 60).padStart(2, '0')}`;
         return (

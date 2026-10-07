@@ -26,7 +26,7 @@ import { onZoneChange } from './loop';
 import { groundAt } from './loot';
 import { petRealmAbort } from './rewards';
 import { obsLoad, obsMove } from './mapobs';
-import { CAM, CV, img, snapCamera, uiScale } from './render';
+import { CAM, CV, img, minimapPointerDown, minimapPointerMove, minimapPointerUp, snapCamera, uiScale } from './render';
 import { S, save } from './save';
 import { shopModal, stockCount, takeStock } from './shop';
 import { stashModal } from './stash';
@@ -193,6 +193,17 @@ export function bindControls() {
     if (d) { R.pickTarget = R.pickTarget === d ? null : d; if (R.pickTarget) toast(`Đi nhặt: ${d.it.n}`); return; }
     if (manual()) { const [wx, wy] = inWorld(x + CAM.x, y + CAM.y); INPUT.target = { x: wx, y: wy }; }   // cham dat: di toi do
   };
+  /* ban do nho: bam de bung to, keo khung, bam x de dong */
+  {
+    const mf = $('#miniFloat');
+    const mpos = ev => { const r = $('#battle').getBoundingClientRect(), k = CV.width / Math.max(1, r.width); return [(ev.clientX - r.left) * k, (ev.clientY - r.top) * k]; };   // -> don vi AR (pixel canvas) khop MINI
+    if (mf) {
+      mf.addEventListener('pointerdown', ev => { const [x, y] = mpos(ev); if (minimapPointerDown(x, y, ev.pointerId)) { ev.preventDefault(); ev.stopPropagation(); mf.setPointerCapture && mf.setPointerCapture(ev.pointerId); } });
+      mf.addEventListener('pointermove', ev => { const [x, y] = mpos(ev); if (minimapPointerMove(x, y, ev.pointerId)) { ev.preventDefault(); ev.stopPropagation(); } });
+      const mup = ev => { minimapPointerUp(ev.pointerId); };
+      mf.addEventListener('pointerup', mup); mf.addEventListener('pointercancel', mup); mf.addEventListener('lostpointercapture', mup);
+    }
+  }
   CV.addEventListener('pointerup', up);
   CV.addEventListener('pointercancel', ev => { if (ev.pointerId === INPUT.id) { INPUT.active = false; INPUT.id = null; INPUT.moved = false; } });
   window.addEventListener('keydown', ev => {
