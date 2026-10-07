@@ -1,7 +1,14 @@
 // @ts-nocheck — chuyen tu vanilla JS: bat lai check tung file dan dan (xem README muc TypeScript)
-import { esc, fmt } from './core';
+import { $, esc, fmt } from './core';
 import { S } from './save';
-import { modal } from './ui';
+import { modal, toast } from './ui';
+import { openGiftTab, unlocked } from './rewards';
+import { clanModal } from './depth';
+import { codexModal } from './guide';
+import { stashModal } from './stash';
+import { svIntro } from './survival';
+import { forgeModal } from './forge';
+import { tkBadge, ytBadge } from './activities';
 
 /* ======================= SO TAY: thong ke 7 ngay gan nhat (luu trong save) =======================
    Port tu js/journal.js ban vinarpg. Kinh nghiem / vang moi gio choi that, do rot theo do hiem,
@@ -42,4 +49,30 @@ export function jrModal() {
   const dead = keys.flatMap(k => j.days[k].deaths).slice(0, JR_DEATHS).map(x => `<div class="row"><small>${new Date(x.at).toLocaleString('vi-VN')} · cấp ${x.lvl}, ải ${x.stage}: ${esc(x.why)}</small></div>`).join('');
   modal(`<h3>Sổ tay <small>7 ngày gần nhất</small></h3><p class="desc">Thống kê theo thời gian chiến đấu thật (không tính lúc ở thành / Luyện Công / offline).</p>${rows || '<small class="dim">Chưa có dữ liệu</small>'}
     <h3>Lần gục gần đây</h3><div class="card">${dead || '<small class="dim">Chưa gục lần nào</small>'}</div>`);
+}
+
+/* ---------- hàng nút nhanh thẻ Giang hồ (port từ journal.js gốc) ----------
+   Đưa các chức năng hay dùng ra ngoài, khỏi phải mở menu lồng nhau. Badge '!' khi có việc làm được. */
+function quickBarItems() {
+  return [
+    ['ui/quick/tower.png', 'Tháp I', () => openGiftTab('tower'), ''],
+    ['ui/quick/tower.png', 'Tháp II', () => openGiftTab('tower2'), ''],
+    ['ui/quick/tong-kim.png', 'Tống Kim', () => openGiftTab('tk'), tkBadge()],
+    ['ui/quick/quest.png', 'Dã Tẩu', () => openGiftTab('yt'), ytBadge()],
+    ['ui/quick/guild.png', 'Bang hội', () => openGiftTab('guild'), ''],
+    ['ui/quick/journal.png', 'Sổ tay', () => jrModal(), ''],
+    ['ui/quick/forge.png', 'Lò rèn', () => { const w = S.eq && S.eq.weapon; if (w) forgeModal(w); else toast('Chưa có vũ khí để rèn'); }, ''],
+    ['ui/quick/storage.png', 'Kho', () => stashModal(), ''],
+    ['ui/quick/encyclopedia.png', 'Bách khoa', () => codexModal(), ''],
+    ['ui/quick/clan.png', 'Gia tộc', () => clanModal(), ''],
+    ['ui/quick/spare.png', 'Đồng hành', () => openGiftTab('pet'), ''],
+    ['ui/quick/training.png', 'Luyện Công', () => svIntro(), ''],
+  ];
+}
+export function quickBarHTML() {
+  return `<div class="qbar" id="qBar">${quickBarItems().map(([ic, n, , b], i) => `<button class="qb" data-q="${i}"><span class="qb-icon"><img src="${esc(ic)}" alt=""></span><small>${n}</small>${b ? `<em>${b}</em>` : ''}</button>`).join('')}</div>`;
+}
+export function bindQuickBar() {
+  const list = quickBarItems();
+  document.querySelectorAll('#qBar .qb').forEach(b => b.onclick = () => list[+b.dataset.q][2]());
 }

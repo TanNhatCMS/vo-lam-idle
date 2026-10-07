@@ -161,3 +161,7 @@ export function actBind(refreshGift) {
   document.querySelectorAll('#mBody [data-gd]').forEach(x => x.onclick = () => { const r = guildDonate(+x.dataset.gd); toast(r.msg); save(); refreshGift(); });
   document.querySelectorAll('#mBody [data-tk]').forEach(x => x.onclick = () => { tkBuy(+x.dataset.tk); refreshGift(); });
 }
+
+/* Badge cho hang nut nhanh the Giang ho: '!' khi co viec lam duoc */
+export function tkBadge() { try { const t = tkState(); return unlocked(30) && !t.used ? '!' : ''; } catch (e) { return ''; } }
+export function ytBadge() { try { const y = ytState(); return y.done || ytDeliverable() ? '!' : ''; } catch (e) { return ''; } }
