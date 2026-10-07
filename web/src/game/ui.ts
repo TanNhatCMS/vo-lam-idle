@@ -46,7 +46,7 @@ import {
 import { forgeModal } from './forge';
 import { donKhoModal } from './donkho';
 import { logModal } from './consolelog';
-import { jrModal } from './journal';
+import { bindQuickBar, jrModal, quickBarHTML } from './journal';
 import { CHALLENGES, challengeModal, chalName, clanModal } from './depth';
 import { SK_KIND_VI, skKind, skillAuraHint, skillBuffHint, skillTypeLabel } from './skillsys';
 import { bindBuilds, buildsHTML, chargePointRefund } from './builds';
@@ -241,11 +241,11 @@ function renderLog() {
     const first = i * ZONE_STAGES + 1, open = S.maxStage >= first, cur = zoneIdx(Math.min(S.stage, STAGES)) === i;
     return `<button class="zrow${cur ? ' cur' : ''}${open ? '' : ' lock'}" data-z="${i}" ${open ? '' : 'disabled'}><b>${esc(q.n)}</b><span>Cấp ${q.lo}–${q.hi}</span></button>`;
   }).join('');
-  $('#t-log').innerHTML = `${todoHTML()}<div class="card stagectl"><div><b>${esc(z.n)}</b> · Ải ${inZone(S.stage)}/${ZONE_STAGES}${isBossStage(S.stage) ? ' <span class="boss">(Trùm)</span>' : ''}<br><small class="dim">Quái cấp ${stageLevel(S.stage)} · ngũ hành: ${z.sw.map((w, i) => w ? `<span style="color:${SERIES_COL[i]}">${SERIES[i]}</span>` : '').filter(Boolean).join(' ')}</small></div>
+  $('#t-log').innerHTML = `${quickBarHTML()}${todoHTML()}<div class="card stagectl"><div><b>${esc(z.n)}</b> · Ải ${inZone(S.stage)}/${ZONE_STAGES}${isBossStage(S.stage) ? ' <span class="boss">(Trùm)</span>' : ''}<br><small class="dim">Quái cấp ${stageLevel(S.stage)} · ngũ hành: ${z.sw.map((w, i) => w ? `<span style="color:${SERIES_COL[i]}">${SERIES[i]}</span>` : '').filter(Boolean).join(' ')}</small></div>
     <div class="row"><button class="btn sm" id="bPrev">◀</button><button class="btn sm ${S.push ? 'on' : ''}" id="bPush">${S.push ? 'Vượt ải' : 'Luyện công'}</button><button class="btn sm" id="bNext" ${S.stage < S.maxStage ? '' : 'disabled'}>▶</button></div></div>
     <div class="log" id="logBox">${R.logs.map(l => `<div>${l}</div>`).join('')}</div>
     <h3>Bản đồ luyện công</h3><div class="zlist">${zl}</div>`;
-  bindTodo();
+  bindTodo(); bindQuickBar();
   $('#bPrev').onclick = () => gotoStage(S.stage - 1);
   $('#bNext').onclick = () => gotoStage(S.stage + 1);
   $('#bPush').onclick = () => { S.push = !S.push; renderLog(); };
