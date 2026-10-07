@@ -161,9 +161,13 @@ export function renderPad() {
 }
 export function updatePadCd() { uiBump(); }   // hoi chieu thuoc do React ve theo tick
 export function bindControls() {
-  const pos = ev => { const r = CV.getBoundingClientRect(), k = uiScale(); return [(ev.clientX - r.left) / k, (ev.clientY - r.top) / k]; }; // toa do man hinh
+  const pos = ev => { const r = CV.getBoundingClientRect(), k = uiScale(); return [(ev.clientX - r.left) / k, (ev.clientY - r.top) / k]; }; // toa do man hinh (CSS logic)
+  // toa do AR (pixel canvas) cho ban do nho — luc CHUA mo, #miniFloat la display:none nen phai bat o canvas
+  const mpos = ev => { const r = CV.getBoundingClientRect(), k = CV.width / Math.max(1, r.width); return [(ev.clientX - r.left) * k, (ev.clientY - r.top) * k]; };
   CV.addEventListener('pointerdown', ev => {
+    
     if (INPUT.active) return;
+    { const [mx, my] = mpos(ev); const r = minimapPointerDown(mx, my, ev.pointerId); if (r) { ev.preventDefault(); CV.setPointerCapture && CV.setPointerCapture(ev.pointerId); return; } }
     if (mouseMode() && ev.pointerType !== 'touch') {              // che do chuot: bam / giu chuot de di toi do, bam do tren dat de nhat
       const [x, y] = pos(ev), d = groundAt(x + CAM.x, y + CAM.y);
       Object.assign(INPUT, { active: true, id: ev.pointerId, fromJoy: false, mouse: true, moved: false, x, y });
@@ -178,6 +182,7 @@ export function bindControls() {
     CV.setPointerCapture && CV.setPointerCapture(ev.pointerId);
   });
   CV.addEventListener('pointermove', ev => {
+    { const [mx, my] = mpos(ev); if (minimapPointerMove(mx, my, ev.pointerId)) return; }
     if (!INPUT.active || ev.pointerId !== INPUT.id) return;
     const [x, y] = pos(ev); INPUT.x = x; INPUT.y = y;
     if (INPUT.mouse) { const [wx, wy] = inWorld(x + CAM.x, y + CAM.y); INPUT.target = { x: wx, y: wy }; return; }   // giu chuot: di theo con tro
@@ -185,6 +190,7 @@ export function bindControls() {
     if (!INPUT.moved && Math.hypot(x - INPUT.ox, y - INPUT.oy) > TAP_MOVE) { INPUT.moved = true; INPUT.target = null; if (!manual()) setCtrl('manual'); }
   });
   const up = ev => {
+    { const [mx, my] = mpos(ev); if (minimapPointerUp(ev.pointerId)) return; }
     if (ev.pointerId !== INPUT.id) return;
     const [x, y] = pos(ev), tap = !INPUT.moved && !INPUT.mouse;
     INPUT.mouse = false; INPUT.active = false; INPUT.id = null; INPUT.moved = false;
@@ -196,7 +202,6 @@ export function bindControls() {
   /* ban do nho: bam de bung to, keo khung, bam x de dong */
   {
     const mf = $('#miniFloat');
-    const mpos = ev => { const r = $('#battle').getBoundingClientRect(), k = CV.width / Math.max(1, r.width); return [(ev.clientX - r.left) * k, (ev.clientY - r.top) * k]; };   // -> don vi AR (pixel canvas) khop MINI
     if (mf) {
       mf.addEventListener('pointerdown', ev => { const [x, y] = mpos(ev); if (minimapPointerDown(x, y, ev.pointerId)) { ev.preventDefault(); ev.stopPropagation(); mf.setPointerCapture && mf.setPointerCapture(ev.pointerId); } });
       mf.addEventListener('pointermove', ev => { const [x, y] = mpos(ev); if (minimapPointerMove(x, y, ev.pointerId)) { ev.preventDefault(); ev.stopPropagation(); } });
