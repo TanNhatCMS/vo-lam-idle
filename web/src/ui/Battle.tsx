@@ -4,16 +4,27 @@ import { SK, W, clamp } from '../game/core';
 import { R } from '../game/combat';
 import { S, save } from '../game/save';
 import {
-  INPUT, manual, setCtrl, pressSlot, drinkNow, goTown, backFromTown, toggleRot,
+  INPUT, manual, setCtrl, pressSlot, drinkNow, goTown, backFromTown,
   mouseMode, isDesktopLandscape, refreshInputBtn, POT_CD, TP_CD,
 } from '../game/control';
-import { SV, svIntro, svPause, svCastUlt, svUseBomb, svUseHp } from '../game/survival';
+import { SV, svPause, svCastUlt, svUseBomb, svUseHp } from '../game/survival';
 import { shopModal } from '../game/shop';
 import { stashModal } from '../game/stash';
 import { backFromBossArena, goBossArena, wbHudState, wbUiState } from '../game/worldboss';
-import { sellUnmatched, refresh, toast } from '../game/ui';
+import { autoSettingsModal, sellUnmatched, refresh, toast } from '../game/ui';
+import { toggleRide } from '../game/horse';
 import { uiSfx } from '../game/audio';
 
+/* binh thuoc: anh theo cap cao nhat dang co, badge = tong so binh con lai */
+const POT_ICON_BY_TIER = [0, 0, 2, 4, 5, 7, 9, 9, 9, 9, 9];
+/* doc thang tu save (khong import shop: island nap som, import cheo lam undefined luc khoi tao) */
+const potStockOf = (kind: string): Record<string, number> => { const s: any = S; if (!s || !s.potStock) return {}; return s.potStock[kind] || {}; };
+const potCount = (kind: string): number => { const st = potStockOf(kind); return Object.keys(st).reduce((n, t) => n + (st[t] || 0), 0); };
+const potIcon = (kind: string): string => {
+  const st = potStockOf(kind); let best = 0;
+  for (const t of Object.keys(st)) if ((st[t] || 0) > 0 && +t > best) best = +t;
+  return `img/i/pot${POT_ICON_BY_TIER[Math.min(best, POT_ICON_BY_TIER.length - 1)]}.png`;
+};
 const cdStyle = (v: number, max: number): React.CSSProperties => ({ '--p': `${clamp(v / max, 0, 1) * 100}%` } as React.CSSProperties);
 const sellTown = () => { const r = sellUnmatched(); toast(`Bán ${r.n} món`); refresh(); };
 const switchInput = () => {
@@ -51,17 +62,20 @@ export default function Battle() {
           </div>
         );
       })()}
-      <button id="ctrlBtn" className={'chip' + (fac && manual() ? ' on' : '')}
-        onClick={() => setCtrl(manual() ? 'auto' : 'manual')}>
-        {fac && manual() ? '🕹 Tự điều khiển' : '⚙ Tự động'}
+      <div id="autoControls" role="group" aria-label="Điều khiển tự động">
+        <button id="autoSettingsBtn" title="Cài đặt Auto" aria-label="Cài đặt Auto"
+          onClick={() => { uiSfx('click'); autoSettingsModal(); }}><img src="ui/wrench.svg" alt="" aria-hidden="true" /></button>
+        <button id="ctrlBtn" className="chip autotoggle" role="switch" aria-label="Auto"
+          aria-checked={fac ? !manual() : false}
+          title="Bật: tự đánh và đi nhặt đồ khớp bộ lọc. Tắt: bấm ô kỹ năng để đánh thủ công. Phím F bật/tắt Auto."
+          onClick={() => setCtrl(manual() ? 'auto' : 'manual')}>
+          <span>Auto</span><span className="ios-switch" aria-hidden="true"><i /></span>
+        </button>
+      </div>
+      <button id="inBtn" className="chip" onClick={switchInput} aria-label={`Đổi chế độ điều khiển · hiện tại: ${mouseMode() ? 'Chuột' : 'Joystick'}`}>
+        <img className="input-mode-icon" src={mouseMode() ? 'ui/input-mouse.svg' : 'ui/input-joystick.svg'} alt="" />
+        <span>{mouseMode() ? 'Chuột' : 'Joystick'}</span>
       </button>
-      <button id="inBtn" className="chip" onClick={switchInput}>
-        {mouseMode() ? '🖱 Chuột' : '🕹 Joystick'}
-      </button>
-      <button id="rotBtn" className={'chip' + (fac && S.rot !== false ? ' on' : '')} onClick={() => toggleRot()}>
-        ⟳ Xoay chiêu: {fac && S.rot !== false ? 'Bật' : 'Tắt'}
-      </button>
-      <button id="svBtn" className="chip" onClick={() => { uiSfx('click'); svIntro(); }}>⚔ Luyện Công</button>
       {(() => { const wb = wbUiState(); if (wb.mode === 'hidden') return null;
         return (
           <button id="wbBtn" className={'chip' + (wb.mode === 'ready' ? ' on pulse' : '')}
@@ -85,10 +99,12 @@ export default function Battle() {
           <button id="svUlt" className="pbtn ult" onClick={() => svCastUlt()}>
             <div className="cd" /><span className="lbl">Tuyệt kỹ</span><small className="lock" />
           </button>
-          <button id="svBomb" className="pbtn bomb" onClick={() => svUseBomb()}>
-            <span className="lbl">💣 <b id="svBombCnt">0</b></span>
+          <button id="svBomb" className="pbtn bomb" aria-label="Bom" onClick={() => svUseBomb()}>
+            <img className="bomb-icon" src="img/i/bomb-training.png" alt="" draggable={false} />
+            <span className="bomb-count" id="svBombCnt">0</span>
           </button>
           <button id="svHpBtn" className="pbtn pot hp" onClick={() => svUseHp()}>
+            <img className="potion-icon" src="img/i/pot0.png" alt="" draggable={false} />
             <div className="cd" /><span>HP</span>
           </button>
         </div>
@@ -116,11 +132,19 @@ export default function Battle() {
         })}
         <button className="pbtn pot hp" id="bHp" title="Uống thuốc HP (Q)"
           onPointerDown={e => { e.preventDefault(); e.stopPropagation(); drinkNow('life'); }}>
-          <div className="cd" style={cdStyle(potCd.life || 0, POT_CD)} /><span>HP</span>
+          <img className="potion-icon" src={potIcon('life')} alt="" draggable={false} hidden={potCount('life') <= 0} />
+          <div className="cd" style={cdStyle(potCd.life || 0, POT_CD)} />
+          <b className="potion-count" hidden={potCount('life') <= 0}>{potCount('life')}</b><span>HP</span>
         </button>
         <button className="pbtn pot mp" id="bMp" title="Uống thuốc MP (E)"
           onPointerDown={e => { e.preventDefault(); e.stopPropagation(); drinkNow('mana'); }}>
-          <div className="cd" style={cdStyle(potCd.mana || 0, POT_CD)} /><span>MP</span>
+          <img className="potion-icon" src={potIcon('mana')} alt="" draggable={false} hidden={potCount('mana') <= 0} />
+          <div className="cd" style={cdStyle(potCd.mana || 0, POT_CD)} />
+          <b className="potion-count" hidden={potCount('mana') <= 0}>{potCount('mana')}</b><span>MP</span>
+        </button>
+        <button className="pbtn ride" id="bRide" type="button" aria-label="Lên hoặc xuống ngựa" title="Lên hoặc xuống ngựa"
+          onClick={() => { uiSfx('click'); toggleRide(); }}>
+          <img src="ui/horse-saddle.png" alt="" draggable={false} />
         </button>
         <button className="pbtn pot tp" id="bTp" title="Về thành (T)"
           onPointerDown={e => { e.preventDefault(); e.stopPropagation(); if (R.wbArena) backFromBossArena(); else R.town ? backFromTown() : goTown(); }}>
