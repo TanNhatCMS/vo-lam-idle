@@ -202,11 +202,12 @@ function drawMinimap(c) {
   }
   const r = miniRect(), left = r.x - 4, top = r.y - 28, w = r.s + 8, h = r.s + 34;
   if (!el || !cv) return;
-  // MINI lam viec bang don vi AR (pixel canvas); DOM dat vi tri bang CSS px -> doi qua ty le
-  const ratio = CV && CV.width ? CV.getBoundingClientRect().width / CV.width : 1;
+  // MINI lam viec bang don vi AR (pixel canvas). style.left/top tinh bang pixel LOCAL cua khung app
+  // (clientWidth khong bi transform scale .8 cua body.mob anh huong), khong dung rect visual keo bi lech.
+  const ratio = CV && CV.width ? (CV.clientWidth || CV.width) / CV.width : 1;
   el.style.left = `${left * ratio}px`; el.style.top = `${top * ratio}px`; el.classList.add('open');
   cv.style.width = `${w * ratio}px`; cv.style.height = `${h * ratio}px`;
-  const scale = Math.min(2, window.devicePixelRatio || 1) * ratio, pw = Math.round(w * scale), ph = Math.round(h * scale);
+  const scale = Math.min(2, window.devicePixelRatio || 1), pw = Math.round(w * ratio * scale), ph = Math.round(h * ratio * scale);
   if (cv.width !== pw || cv.height !== ph) { cv.width = pw; cv.height = ph; }
   const c2 = cv.getContext('2d'); c2.setTransform(scale, 0, 0, scale, 0, 0); c2.clearRect(0, 0, w, h);
   c2.save(); c2.translate(4 - r.x, 28 - r.y); drawMinimapLayer(c2, r.x, r.y, r.s, true); c2.restore();
