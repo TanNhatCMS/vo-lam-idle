@@ -123,10 +123,13 @@ export function drawTiledBg(c, bg) {
 }
 /* ---------- ban do nho: anh ban do that thu nho, quai = cham theo ngu hanh / trum, nhan vat = mui ten, khung = tam nhin.
    Bam vao ban do nho de bung to thanh khung noi keo duoc (port tu render.js ban vinarpg). ---------- */
-const MINI = { s: 92, m: 8, top: 62, open: false, x: 0, y: 0, pointer: null, dragging: false, dx: 0, dy: 0 };
+const MINI = { s: 92, m: 8, top: 62, open: false, x: 0, y: 0, pointer: null, dragging: false, dx: 0, dy: 0, bodyDown: false };
+let miniTapFn = null;
+/* control.ts dang ky: bam vao than ban do -> cho nhan vat di toi diem do (toa do the gioi) */
+export function minimapSetTap(fn) { miniTapFn = fn; }
 const miniOpenSize = () => Math.max(120, Math.min(240, AR.w - 24, AR.h - 76));
 /* debug (nho, vo hai): xem trang thai ban do nho tu console */
-try { (window as any).__mini = () => ({ ...MINI, AR: [AR.w, AR.h] }); } catch (e) { /* bo qua */ }
+try { (window as any).__mini = () => ({ ...MINI, AR: [AR.w, AR.h], H: [Math.round(H.x), Math.round(H.y)] }); } catch (e) { /* bo qua */ }
 function miniRect() {
   if (!MINI.open) return { x: AR.w - MINI.s - MINI.m, y: MINI.top, s: MINI.s };
   const s = miniOpenSize(); return { x: MINI.x, y: MINI.y, s };
@@ -145,7 +148,7 @@ export function minimapPointerDown(x, y, id) {
   const r = miniRect(), inPanel = x >= r.x - 4 && x <= r.x + r.s + 4 && y >= r.y - 28 && y <= r.y + r.s + 4;
   if (!inPanel) return false;
   if (y < r.y && x >= r.x + r.s - 30) { MINI.open = false; MINI.pointer = null; MINI.dragging = false; return true; }
-  MINI.pointer = id; MINI.dragging = y < r.y; MINI.dx = x - r.x; MINI.dy = y - (r.y - 28); return true;
+  MINI.pointer = id; MINI.dragging = y < r.y; MINI.bodyDown = !MINI.dragging; MINI.dx = x - r.x; MINI.dy = y - (r.y - 28); return true;
 }
 export function minimapPointerMove(x, y, id) {
   if (MINI.pointer !== id) return false;
@@ -154,7 +157,12 @@ export function minimapPointerMove(x, y, id) {
 }
 export function minimapPointerUp(id) {
   if (MINI.pointer !== id) return false;
-  MINI.pointer = null; MINI.dragging = false; return true;
+  if (MINI.bodyDown && !MINI.dragging && miniTapFn) {
+    const r = miniRect(), k = r.s / WORLD.w;
+    const wx = clamp((MINI.dx) / k, 0, WORLD.w), wy = clamp((MINI.dy - 28) / k, 0, WORLD.h);
+    try { miniTapFn(wx, wy); } catch (e) { /* bo qua */ }
+  }
+  MINI.pointer = null; MINI.dragging = false; MINI.bodyDown = false; return true;
 }
 function drawMinimapLayer(c, x0, y0, s, expanded) {
   const k = s / WORLD.w;
