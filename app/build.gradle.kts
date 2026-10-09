@@ -90,7 +90,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     implementation("androidx.webkit:webkit:1.17.1")
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.squareup.okhttp3:okhttp:5.5.0")
 }
 
 // Dong bo phan "code" cua game tu thu muc game/ cua project vao assets cua APK
