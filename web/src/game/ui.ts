@@ -13,7 +13,7 @@ import {
   zoneIdx,
   zoneOf,
 } from './combat';
-import { assignSlot, fillSlots, joyFixed, manual, renderPad, setCtrl, toggleRot } from './control';
+import { INPUT, TP_CD, assignSlot, fillSlots, joyFixed, manual, renderPad, setCtrl, toggleRot } from './control';
 import {
   $,
   DETAIL_SLOT,
@@ -53,7 +53,7 @@ import { SK_KIND_VI, skKind, skillAuraHint, skillBuffHint, skillTypeLabel } from
 import { bindBuilds, buildsHTML, chargePointRefund } from './builds';
 import { bindTodo, codexModal, powerModal, suggestModal, todoHTML, tutorialModal } from './guide';
 import { adminModal } from './admin';
-import { UI_FS, UI_FS_NAME, guard, setCompact, setUiPref, uiPrefs } from './loop';
+import { UI_FS, UI_FS_NAME, guard, onZoneChange, setCompact, setUiPref, uiPrefs } from './loop';
 import { uiBump, uiSetTab } from './store';
 import { pickAllGround } from './loot';
 import {
@@ -88,6 +88,7 @@ import {
   writeSlot,
 } from './save';
 import { stashDeposit, stashModal } from './stash';
+import { SV } from './survival';
 import {
   activeInfo,
   autoSpendAttrs,
@@ -238,22 +239,39 @@ function itemModal(it, slot) {
 /* ---------- the: chien truong ---------- */
 function renderLog() {
   const z = zoneOf(Math.min(S.stage, STAGES));
+  const inActivity = !!(R.tower || R.tk || SV.on);
   const zl = ZONES.map((q, i) => {
     const first = i * ZONE_STAGES + 1, open = S.maxStage >= first, cur = zoneIdx(Math.min(S.stage, STAGES)) === i;
-    return `<button class="zrow${cur ? ' cur' : ''}${open ? '' : ' lock'}" data-z="${i}" ${open ? '' : 'disabled'}><b>${esc(q.n)}</b><span>Cấp ${q.lo}–${q.hi}</span></button>`;
+    return `<button class="zrow${cur ? ' cur' : ''}${open ? '' : ' lock'}" data-z="${i}" ${open && !inActivity ? '' : 'disabled'}><b>${esc(q.n)}</b><span>Cấp ${q.lo}–${q.hi}</span></button>`;
   }).join('');
   $('#t-log').innerHTML = `${quickBarHTML()}${todoHTML()}<div class="card stagectl"><div><b>${esc(z.n)}</b> · Ải ${inZone(S.stage)}/${ZONE_STAGES}${isBossStage(S.stage) ? ' <span class="boss">(Trùm)</span>' : ''}<br><small class="dim">Quái cấp ${stageLevel(S.stage)} · ngũ hành: ${z.sw.map((w, i) => w ? `<span style="color:${SERIES_COL[i]}">${SERIES[i]}</span>` : '').filter(Boolean).join(' ')}</small></div>
-    <div class="row"><button class="btn sm" id="bPrev">◀</button><button class="btn sm ${S.push ? 'on' : ''}" id="bPush">${S.push ? 'Vượt ải' : 'Luyện công'}</button><button class="btn sm" id="bNext" ${S.stage < S.maxStage ? '' : 'disabled'}>▶</button></div></div>
+    <div class="row"><button class="btn sm" id="bPrev" ${inActivity ? 'disabled' : ''}>◀</button><button class="btn sm ${S.push ? 'on' : ''}" id="bPush" ${inActivity ? 'disabled' : ''}>${S.push ? 'Vượt ải' : 'Luyện công'}</button><button class="btn sm" id="bNext" ${!inActivity && S.stage < S.maxStage ? '' : 'disabled'}>▶</button><button class="btn sm" id="bMax" title="Đến ải cao nhất đã mở" ${!inActivity && S.stage < S.maxStage ? '' : 'disabled'}>Ải max</button></div></div>
     <div class="log" id="logBox">${R.logs.map(l => `<div>${l}</div>`).join('')}</div>
     <h3>Bản đồ luyện công</h3><div class="zlist">${zl}</div>`;
   bindTodo(); bindQuickBar();
   $('#bPrev').onclick = () => gotoStage(S.stage - 1);
   $('#bNext').onclick = () => gotoStage(S.stage + 1);
+  $('#bMax').onclick = () => gotoStage(S.maxStage);
   $('#bPush').onclick = () => { S.push = !S.push; renderLog(); };
   document.querySelectorAll('.zrow').forEach(b => b.onclick = () => gotoStage(+b.dataset.z * ZONE_STAGES + 1));
 }
 export function renderLogOnly() { const b = $('#logBox'); if (b) b.innerHTML = R.logs.map(l => `<div>${l}</div>`).join(''); }
-function gotoStage(st) { st = clamp(st, 1, S.maxStage); if (st === S.stage) return; petRealmAbort(true); S.stage = st; S.wave = 1; S.push = false; R.enemies = []; R.field = null; R.spawnT = 0.3; refresh(); }
+function gotoStage(st) {
+  if (R.tower || R.tk || SV.on) { toast('Hãy rời trận trước khi đổi bản đồ'); return; }
+  st = clamp(st, 1, S.maxStage); if (st === S.stage && !R.town) return;
+  const prevZone = zoneOf(Math.min(S.stage, STAGES)), wasTown = R.town;
+  petRealmAbort(true);
+  S.stage = st; S.wave = 1; S.push = false;
+  R.enemies = []; R.corpses = []; R.field = null; R.moveTo = null; R.pickTarget = null; INPUT.target = null; R.spawnT = 0.3;
+  const z = zoneOf(Math.min(S.stage, STAGES));
+  if (wasTown) { R.town = false; R.tpCd = TP_CD; uiBump(); }
+  if (wasTown || z.id !== prevZone.id) {
+    onZoneChange(z); R.zoneShown = z.id;
+    R.banner = { t: 2.4, text: z.n, sub: 'Đã dịch chuyển đến bản đồ' };
+  }
+  log(`Dịch chuyển đến <b>${esc(z.n)}</b> · Ải ${inZone(S.stage)}.`); save(); refresh();
+  toast(`Đã dịch chuyển đến ${z.n}`);
+}
 
 /* ---------- the: nhan vat ---------- */
 export const ATTR_VI = { str: 'Sức mạnh', dex: 'Thân pháp', vit: 'Sinh khí', eng: 'Nội công' };
