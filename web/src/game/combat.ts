@@ -34,6 +34,7 @@ import {
   wpick,
 } from './core';
 import { checkHints } from './guide';
+import { FIELD_MOBS, fieldActive, fieldIdle, fieldKilled, fieldTick, fieldWaveCleared, fieldMode, populateField, startFieldWave } from './field';
 import { curseMod, skillSysTick } from './skillsys';
 import { thanMaOnKill } from './horse';
 import { dexMark, tpStacks } from './depth';
@@ -117,6 +118,9 @@ function spawnWave() {
   if (R.petRealm) { petRealmSpawn(); return; }             // Bi canh Ngu Hanh: quai ep he, khong sinh theo vung
   R.enemies = []; R.stall = 0;
   const z = zoneOf(S.stage), L = stageLevel(S.stage);
+  if (fieldMode() && !R.wbArena) { populateField(); }      // bãi quái ngoài bản đồ (field.ts)
+  else {
+  R.field = null;
   // quai xuat hien quanh nhan vat (ngoai tam nhin mot chut) roi tien lai
   const around = (r0, r1) => { const a = rnd(0, Math.PI * 2), r = rnd(r0, r1); return inWorld(H.x + Math.cos(a) * r, H.y + Math.sin(a) * r); };
   const sx = () => (R.sp = around(140, 240))[0], sy = () => R.sp[1];
@@ -127,6 +131,7 @@ function spawnWave() {
   } else {
     const n = 2 + irnd(0, 2) + (inZone(S.stage) > 5 ? 1 : 0);
     for (let i = 0; i < n; i++) R.enemies.push(makeEnemy(pick(z.m), L, S.wave === WAVES && i === 0 ? 'elite' : 'normal', sx(), sy()));
+  }
   }
   if (z.id !== R.zoneShown) { R.zoneShown = z.id; R.banner = { t: 2.4, text: z.n, sub: `Cấp ${z.lo}–${z.hi}` }; if (typeof onZoneChange === 'function') onZoneChange(z); }
 }
@@ -148,6 +153,7 @@ export function applyPart(dmg, e, attackerSeries, targetSeries, targetRes, targe
 }
 function heroHit(a, e) {
   const cm = curseMod(e);   // bua hai: giam phong thu / khang / chinh xac cua dich
+  if (e.homeX !== undefined) e.aggro = true;   // bãi quái: bị đánh là chú ý (field.ts)
   const resCm = cm ? Object.fromEntries(ELEM.map(x => [x, (e.res[x] || 0) + (cm.res[x] || 0)])) : e.res;
   if (a.useAR && Math.random() * 100 >= hitPercent(R.P.ar, e.def + (cm ? cm.def : 0), a.ignore)) { addText(e.x, e.y - e.r - 8, 'Trượt', '#aaa', 11); return 0; }
   const crit = Math.random() * 100 < a.crit;
@@ -262,6 +268,7 @@ function enemyAI(e, dt) {
   if (e.stun > 0) { e.stun -= dt; return; }
   if (e.regen > 0 && e.hp < e.max) e.hp = Math.min(e.max, e.hp + e.max * e.regen * dt);   // bien the tuan: Hoi huyet
   if (e.poison > 0) { e.poison -= dt; e.hp -= e.poisonDmg * dt; }
+  if (e.homeX !== undefined && fieldIdle(e, dt)) return;   // bãi quái rãnh: đi tuần / truy thu (field.ts)
   const d = Math.hypot(H.x - e.x, H.y - e.y), reach = e.ranged ? 200 : e.r + 24;
   e.face = H.x >= e.x ? 1 : -1; e.dir = dirOf(H.x - e.x, H.y - e.y);
   e.moving = d > reach;
@@ -283,9 +290,10 @@ export function tick(dt) {
   if (R.potCd) { R.potCd.life = Math.max(0, R.potCd.life - dt); R.potCd.mana = Math.max(0, R.potCd.mana - dt); }
   goldBossTick(dt); petTick(dt); wbTick(dt);                              // phan thuong: trum Hoang Kim, dong hanh, Boss The Gioi (rewards/worldboss)
   if (R.town) { townTick(dt); return; }                                // trong thanh (Tho Dia Phu)
-  R.activeT = (R.activeT || 0) + dt;                                    // thoi gian danh quai thuc (khong tinh tab an, trong thanh, Luyen Cong) -> S.kps
+  if (fieldActive()) fieldTick(dt);                                    // bãi quái: sinh lai o trống (field.ts)
+  R.activeT = (R.activeT || 0) + dt;                                    // thoi gian danh quai thuc (không tinh tab an, trong thanh, Luyen Công) -> S.kps
   const looting = updateGround(dt);                       // di nhat do (cham tay, hoac het quai + khop bo loc)
-  if (!R.enemies.length) {
+  if (!R.enemies.length && !fieldActive()) {
     if (looting && R.lootWait < 8) { R.lootWait += dt; return; }   // doi nhat xong (toi da 8 giay) moi goi dot moi
     if (R.spawnT > 0) { R.spawnT -= dt; return; }
     R.lootWait = 0;
@@ -303,7 +311,10 @@ export function tick(dt) {
   }
   for (const e of alive()) enemyAI(e, dt);
   killCheck();
-  R.stall += dt; if (R.stall > 45) stallOut();
+  // Bãi quái: thời gian chỉ tính lúc giao tranh (đi xa quái không bị coi là đánh quá lâu).
+  if (R.tower || !fieldActive() || alive().some(e => e.aggro && Math.hypot(e.x - H.x, e.y - H.y) < FIELD_MOBS.leash)) {
+    R.stall += dt; if (R.stall > 45) stallOut();
+  }
   if (R.life <= 0) heroDeath();
 }
 /* Dot quai qua lau (danh khong noi): truoc day chi goi lai dot moi -> o ai trum, nhan vat yeu danh lai trum mai mai, khong
@@ -322,7 +333,15 @@ function stallOut() {
   spawnWave();
 }
 function killCheck() {
-  for (const e of R.enemies) if (e.hp <= 0 && !e.dead) { e.dead = true; onKill(e); npcSfx(MON[e.tid].anim, 'die', 0.5); if (!R.quiet) { e.act = 'die'; e.actT = 0; R.corpses.push(e); } }
+  for (const e of R.enemies) if (e.hp <= 0 && !e.dead) { e.dead = true; onKill(e); if (fieldActive()) fieldKilled(e); npcSfx(MON[e.tid].anim, 'die', 0.5); if (!R.quiet) { e.act = 'die'; e.actT = 0; R.corpses.push(e); } }
+  if (fieldActive()) {
+    R.enemies = R.enemies.filter(e => !e.dead);
+    if (fieldWaveCleared()) {
+      waveCleared();
+      if (zoneOf(S.stage).id !== R.field.key) spawnWave(); else startFieldWave();
+    }
+    return;
+  }
   if (R.enemies.length && R.enemies.every(e => e.dead)) { R.enemies = []; waveCleared(); }
 }
 function onKill(e) {

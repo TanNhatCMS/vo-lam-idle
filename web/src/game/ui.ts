@@ -253,7 +253,7 @@ function renderLog() {
   document.querySelectorAll('.zrow').forEach(b => b.onclick = () => gotoStage(+b.dataset.z * ZONE_STAGES + 1));
 }
 export function renderLogOnly() { const b = $('#logBox'); if (b) b.innerHTML = R.logs.map(l => `<div>${l}</div>`).join(''); }
-function gotoStage(st) { st = clamp(st, 1, S.maxStage); if (st === S.stage) return; petRealmAbort(true); S.stage = st; S.wave = 1; S.push = false; R.enemies = []; R.spawnT = 0.3; refresh(); }
+function gotoStage(st) { st = clamp(st, 1, S.maxStage); if (st === S.stage) return; petRealmAbort(true); S.stage = st; S.wave = 1; S.push = false; R.enemies = []; R.field = null; R.spawnT = 0.3; refresh(); }
 
 /* ---------- the: nhan vat ---------- */
 export const ATTR_VI = { str: 'Sức mạnh', dex: 'Thân pháp', vit: 'Sinh khí', eng: 'Nội công' };
@@ -411,6 +411,7 @@ export function autoSettingsModal() {
         ${sw('cBuff2', 'Tự duy trì bùa lợi', S.autoBuff !== false, 'Tốn nội lực / sinh lực theo chiêu, chỉ dùng khi có quái')}
         ${sw('cCurse2', 'Tự hạ bùa hại', S.autoCurse !== false, 'Ưu tiên trùm / tinh anh; giảm kháng – phòng thủ – sát thương – tốc đánh của chúng')}
         ${sw('cAura2', 'Vòng sáng độc (Vô Hình Độc)', !(S.auraOff || {})[69], 'Phủ độc quanh người mỗi 4 giây')}
+        ${sw('cField2', 'Bãi quái ngoài bản đồ', S.fieldMode === true, 'Thử nghiệm: quái đi tuần khắp bản đồ — đi gần để chúng chú ý, thay đợt quái quanh người')}
       </section>
       <section class="auto-section"><h4>Trang bị &amp; túi đồ</h4>
         ${sw('cEquip2', 'Tự mặc đồ tốt hơn khi nhặt', !!S.autoEquip, 'So theo lực chiến thật sau khi mặc')}
@@ -430,6 +431,7 @@ export function autoSettingsModal() {
     on('#cBuff2', e => { S.autoBuff = e.target.checked; save(); });
     on('#cCurse2', e => { S.autoCurse = e.target.checked; save(); });
     on('#cAura2', e => { S.auraOff = S.auraOff || {}; S.auraOff[69] = !e.target.checked; R.dirty = true; recalc(); save(); });
+    on('#cField2', e => { S.fieldMode = e.target.checked; R.field = null; R.enemies = []; R.spawnT = 0.3; save(); toast(e.target.checked ? 'Bãi quái ngoài bản đồ: bật' : 'Bãi quái ngoài bản đồ: tắt'); });
     on('#cEquip2', e => { S.autoEquip = e.target.checked; save(); });
     on('#cJunk2', e => { S.autoJunk = e.target.checked; save(); });
     on('#cPts2', e => { S.autoPts = e.target.checked; if (S.autoPts) { autoSpendAttrs(); autoSpendSkills(); recalc(); } save(); });

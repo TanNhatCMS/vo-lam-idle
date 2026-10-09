@@ -49,7 +49,7 @@ function obsAt(x, y) {                                    // diem co di duoc kho
   return cx >= 0 && cy >= 0 && cx < g.gw && cy < g.gh && g.ok[cy * g.gw + cx] === 1;
 }
 const OBS_R = 9;                                           // ban kinh chan: kiem tra tam + trai / phai
-const obsWalk = (x, y) => obsAt(x, y) && obsAt(x - OBS_R, y) && obsAt(x + OBS_R, y);
+export const obsWalk = (x, y) => obsAt(x, y) && obsAt(x - OBS_R, y) && obsAt(x + OBS_R, y);
 /* điểm (x,y) thoáng cho vật bán kính r: tâm + 8 hướng quanh thân đều đi được (tránh sinh chẹt vào cây/nhà) */
 export function obsOpen(x, y, r) {
   if (!OBS.g) return true;
@@ -91,7 +91,7 @@ export function obsMove(o, nx, ny) {
   return false;
 }
 /* tam nhin thang giua hai diem (lay mau moi 8 diem) */
-function obsLine(x0, y0, x1, y1) {
+export function obsLine(x0, y0, x1, y1) {
   if (!OBS.g) return true;
   const d = Math.hypot(x1 - x0, y1 - y0), n = Math.ceil(d / 8);
   for (let i = 1; i <= n; i++) { const t = i / n; if (!obsWalk(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t)) return false; }
