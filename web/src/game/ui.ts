@@ -48,12 +48,12 @@ import { donKhoModal } from './donkho';
 import { logModal } from './consolelog';
 import { bindQuickBar, jrModal, quickBarHTML } from './journal';
 import { titleModal, titleProgress, titleWorn } from './rewards';
-import { CHALLENGES, challengeModal, chalName, clanModal } from './depth';
+import { CHALLENGES, chalName, clanModal } from './depth';
 import { SK_KIND_VI, skKind, skillAuraHint, skillBuffHint, skillTypeLabel } from './skillsys';
 import { bindBuilds, buildsHTML, chargePointRefund } from './builds';
 import { bindTodo, codexModal, powerModal, suggestModal, todoHTML, tutorialModal } from './guide';
 import { adminModal } from './admin';
-import { UI_FS, UI_FS_NAME, guard, setUiPref, uiPrefs } from './loop';
+import { UI_FS, UI_FS_NAME, guard, setCompact, setUiPref, uiPrefs } from './loop';
 import { uiBump, uiSetTab } from './store';
 import { pickAllGround } from './loot';
 import {
@@ -359,17 +359,122 @@ function renderSkill() {
 /* ---------- the: tui do ---------- */
 export function renderInv() {
   invDirty = false;
+  const onGround = R.ground.length;
+  $('#t-inv').innerHTML = `<div class="invbar"><span class="inv-capacity"><span>${S.inv.length}/${INV_MAX}</span><span class="sp"></span>
+    <button class="btn sm" id="bDonKho">Dọn kho</button><button class="btn sm" id="bStash">Kho chung</button></span><span class="inv-actions">
+    <button class="btn sm" id="bBest">Mặc đồ tốt</button><button class="btn sm" id="bGrabAll" ${onGround ? '' : 'disabled'}>Lấy hết đồ (${onGround})</button><button class="btn sm red" id="bSellAll">Bán đồ không khớp lọc</button></span></div>
+    <div class="invgrid">${S.inv.map(itemCell).join('')}</div>` + lootPanelHTML();
+  $('#bStash').onclick = () => stashModal();
+  $('#bDonKho').onclick = () => donKhoModal('inv');
+  $('#bBest').onclick = () => { for (const it of S.inv.slice()) if (betterThanEquipped(it)) equip(it, true); refresh(); };
+  $('#bGrabAll').onclick = () => { const n = pickAllGround(); toast(n ? `Đã lấy ${n} món từ đất` : 'Không lấy thêm được (túi đầy?)'); refresh(); };
+  $('#bSellAll').onclick = () => { const r = sellUnmatched(); toast(`Bán ${r.n} món${r.kept ? ` (giữ ${r.kept} món bộ / Tím / Bạch Kim)` : ''}`); refresh(); };
+  document.querySelectorAll('#t-inv .it').forEach(b => b.onclick = () => itemModal(findItem(b.dataset.uid)));
+  bindLootPanel($('#t-inv'));
+}
+
+/* ---------- Thiết lập Auto (trang #t-auto — giống bản nguồn) ---------- */
+let autoReturnTab = 'more';
+export function openAutoSettings() {
+  if (curTab !== 'auto') autoReturnTab = curTab;
+  if (document.body.classList.contains('compact')) setCompact(false);
+  showTab('auto');
+}
+export function renderAutoPanel() {
+  if (!S.fac) return;
+  fillSlots();
+  const noPot = S.chal === 'nopot';
+  const row = (label, id, checked, disabled = false) => `<label class="ios-switch-row"><span>${label}</span><input type="checkbox" id="${id}" ${checked ? 'checked' : ''} ${disabled ? 'disabled' : ''}><span class="ios-switch" aria-hidden="true"></span></label>`;
+  const hpMpRow = (label, toggle, valueKey) => {
+    const key = toggle === 'cAutoHp' ? 'autoHpPotion' : toggle === 'cAutoMp' ? 'autoMpPotion' : 'autoTownHp';
+    return `<div class="auto-threshold"><label class="ios-switch-row"><span>${label}</span><input type="checkbox" id="${toggle}" ${S[key] ? 'checked' : ''} ${noPot && toggle !== 'cAutoTown' ? 'disabled' : ''}><span class="ios-switch" aria-hidden="true"></span></label><div class="auto-stepper"><button type="button" data-step="${valueKey}" data-delta="-1" aria-label="Giảm ngưỡng">‹</button><span id="${valueKey}Value">${S[valueKey]}%</span><button type="button" data-step="${valueKey}" data-delta="1" aria-label="Tăng ngưỡng">›</button></div></div>`;
+  };
+  const range = ['near', 'medium', 'far'].map((v, i) => `<button type="button" data-auto-range="${v}" aria-pressed="${S.autoRange === v}">${['Gần', 'Vừa', 'Xa'][i]}</button>`).join('');
+  const skills = (S.slots || [0, 0, 0, 0]).map((id, i) => {
+    const s = SK[id], enabled = (S.autoSkillSlots || [true, true, true, true])[i] !== false;
+    return `<label class="auto-skill ${s ? '' : 'empty'}" title="${s ? esc(s.n) : `Ô kỹ năng ${i + 1} trống`}">${s && s.ic ? `<img src="${esc(s.ic)}" alt="">` : `<span class="auto-skill-empty">${i + 1}</span>`}<small>${s ? esc(s.n) : 'Trống'}</small><input type="checkbox" data-auto-skill="${i}" ${enabled ? 'checked' : ''} ${s ? '' : 'disabled'} aria-label="Tự dùng ${s ? esc(s.n) : `ô ${i + 1}`}"><i class="auto-mini-switch" aria-hidden="true"></i></label>`;
+  }).join('');
+  $('#t-auto').innerHTML = `<div class="auto-panel-head"><button type="button" class="btn sm" id="bAutoBack">‹ Quay lại</button><h3>Thiết lập Auto</h3></div><div class="auto-config">
+    <section class="auto-section"><h4>Chiến đấu</h4>
+      ${row('Tự tìm và đuổi theo mục tiêu', 'cAutoFind', S.autoFind !== false)}
+      ${row('Tự đánh quái', 'cAutoAttack', !manual())}
+      ${row('Ưu tiên Boss / Tinh anh', 'cBossPrio', S.autoBossPriority !== false)}
+      <div class="auto-range"><span>Phạm vi tìm</span><div id="autoRange" role="group" aria-label="Phạm vi tìm mục tiêu">${range}</div></div>
+      <small class="dim">Ưu tiên quái trong phạm vi đã chọn; hết quái gần thì tự tìm bãi tiếp theo. Tắt tìm mục tiêu thì nhân vật chỉ đánh quái đang ở trong tầm chiêu.</small>
+    </section>
+    <section class="auto-section"><h4>Kỹ năng</h4>
+      ${row('Xoay chiêu khi farm', 'cRot', S.rot !== false)}
+      ${row('Tự duy trì bùa lợi', 'cAutoBuff', S.autoBuff !== false)}
+      ${row('Tự dùng bùa hại', 'cAutoCurse', S.autoCurse !== false)}
+      <div class="auto-skill-grid">${skills}</div>
+      <small class="dim">Chỉ dùng chiêu gán ở ô 1–4; Auto ưu tiên chiêu mạnh và đủ nội lực. Bùa lợi và bùa hại tự duy trì khi đủ nội lực.</small>
+    </section>
+    <section class="auto-section"><h4>HP / MP</h4>
+      ${hpMpRow('Tự dùng HP khi dưới', 'cAutoHp', 'hpPotionAt')}
+      ${hpMpRow('Tự dùng MP khi dưới', 'cAutoMp', 'mpPotionAt')}
+      ${hpMpRow('Về thành khi HP thấp', 'cAutoTown', 'townHpAt')}
+      ${noPot ? '<small class="dim">Thử thách Bất dược không cho dùng thuốc.</small>' : `<small class="dim">Thuốc có sẵn được dùng trước; nếu hết, game mua bằng vàng khi đủ ngân lượng. Đã dùng ${fmt(S.potUsed || 0)} bình.</small>`}
+    </section>
+    <div id="autoLootPanel"></div>
+    <section class="auto-section"><h4>Trang bị & tiện ích</h4>
+      ${row('Tự mặc đồ tốt hơn khi nhặt', 'cAutoEquip', !!S.autoEquip)}
+      ${row('Tự bán đồ yếu hoặc sai phái', 'cAutoJunk', S.autoJunk !== false)}
+      ${row('Tự cộng điểm tiềm năng và võ công', 'cAutoPts', S.autoPts === true)}
+      ${row('Tự rèn trang bị · mỗi 30 giây', 'cAutoForge', !!S.autoForge)}
+      ${row('Tự mua vũ khí mạnh hơn ở Biện Kinh · tối đa 60% vàng', 'cAutoBuy', S.autoBuy !== false)}
+    </section>
+    <section class="auto-section"><h4>Thử nghiệm</h4>
+      ${row('Vòng sáng độc (Vô Hình Độc)', 'cAura2', !(S.auraOff || {})[69])}
+      ${row('Bãi quái ngoài bản đồ', 'cField2', S.fieldMode === true)}
+      <small class="dim">Hàng thử nghiệm của bản port, không có trong bản nguồn.</small>
+    </section>
+    <div class="auto-footer"><small class="dim">Thiết lập được lưu theo nhân vật.</small><button type="button" class="btn sm" id="bAutoDefaults">Mặc định</button></div>
+  </div>`;
+  renderAutoLootPanel();
+  bindAutoSettings();
+  $('#bAutoBack').onclick = () => showTab(autoReturnTab);
+}
+function bindAutoSettings() {
+  $('#cAutoFind').onchange = e => { S.autoFind = e.target.checked; save(); };
+  $('#cAutoAttack').onchange = e => { setCtrl(e.target.checked ? 'auto' : 'manual'); R.moveTo = null; renderPad(); save(); };
+  $('#cBossPrio').onchange = e => { S.autoBossPriority = e.target.checked; save(); };
+  $('#autoRange').querySelectorAll('[data-auto-range]').forEach(b => b.onclick = () => {
+    S.autoRange = b.dataset.autoRange;
+    $('#autoRange').querySelectorAll('[data-auto-range]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    save();
+  });
+  $('#cRot').onchange = e => { S.rot = e.target.checked; R.dirty = true; save(); };
+  const autoBuff = $('#cAutoBuff'); if (autoBuff) autoBuff.onchange = e => { S.autoBuff = e.target.checked; save(); renderSkill(); };
+  const autoCurse = $('#cAutoCurse'); if (autoCurse) autoCurse.onchange = e => { S.autoCurse = e.target.checked; save(); };
+  document.querySelectorAll('#t-auto [data-auto-skill]').forEach(e => e.onchange = () => {
+    S.autoSkillSlots = (Array.isArray(S.autoSkillSlots) ? S.autoSkillSlots : [true, true, true, true]).slice();
+    S.autoSkillSlots[+e.dataset.autoSkill] = e.checked; save();
+  });
+  $('#cAutoHp').onchange = e => { S.autoHpPotion = e.target.checked; S.potOff = !S.autoHpPotion && !S.autoMpPotion; save(); };
+  $('#cAutoMp').onchange = e => { S.autoMpPotion = e.target.checked; S.potOff = !S.autoHpPotion && !S.autoMpPotion; save(); };
+  $('#cAutoTown').onchange = e => { S.autoTownHp = e.target.checked; save(); };
+  document.querySelectorAll('#t-auto [data-step]').forEach(b => b.onclick = () => {
+    const key = b.dataset.step, value = clamp((+S[key] || 0) + (+b.dataset.delta * 10), 10, 90);
+    S[key] = value; const sp = $('#' + key + 'Value'); if (sp) sp.textContent = `${value}%`; save();
+  });
+  $('#cAutoEquip').onchange = e => { S.autoEquip = e.target.checked; save(); };
+  $('#cAutoJunk').onchange = e => { S.autoJunk = e.target.checked; save(); };
+  $('#cAutoPts').onchange = e => { S.autoPts = e.target.checked; if (S.autoPts) { autoSpendAttrs(); autoSpendSkills(); recalc(); updateDots(); } save(); };
+  $('#cAutoForge').onchange = e => { S.autoForge = e.target.checked; if (S.autoForge) autoForge(); save(); };
+  $('#cAutoBuy').onchange = e => { S.autoBuy = e.target.checked; save(); };
+  $('#cAura2').onchange = e => { S.auraOff = S.auraOff || {}; S.auraOff[69] = !e.target.checked; R.dirty = true; recalc(); save(); };
+  $('#cField2').onchange = e => { S.fieldMode = e.target.checked; R.field = null; R.enemies = []; R.spawnT = 0.3; save(); toast(e.target.checked ? 'Bãi quái ngoài bản đồ: bật' : 'Bãi quái ngoài bản đồ: tắt'); };
+  $('#bAutoDefaults').onclick = resetAutoSettings;
+}
+/* The loc do tu nhặt — dùng chung cho thẻ Hành trang và Thiết lập Auto */
+function lootPanelHTML() {
   const f = lootFilter();
   const rar = RAR_VI.map((n, i) => `<option value="${i}" ${f.minRar === i ? 'selected' : ''}>${n}</option>`).join('');
   const lv = Array.from({ length: 10 }, (_, i) => `<option value="${i + 1}" ${f.minLvl === i + 1 ? 'selected' : ''}>${i + 1}</option>`).join('');
   const grp = LOOT_ATTR_GROUPS.map(([n], i) => `<label class="chip2"><input type="checkbox" data-g="${i}" ${f.groups.includes(i) ? 'checked' : ''}>${n}</label>`).join('');
   const ser = SERIES.map((n, i) => `<label class="chip2" style="color:${SERIES_COL[i]}"><input type="checkbox" data-s="${i}" ${f.series.includes(i) ? 'checked' : ''}>${n}</label>`).join('');
   const onGround = R.ground.length, match = R.ground.filter(d => lootMatch(d.it)).length;
-  $('#t-inv').innerHTML = `<div class="invbar"><span class="inv-capacity"><span>${S.inv.length}/${INV_MAX}</span><span class="sp"></span>
-    <button class="btn sm" id="bDonKho">Dọn kho</button><button class="btn sm" id="bStash">Kho chung</button></span><span class="inv-actions">
-    <button class="btn sm" id="bBest">Mặc đồ tốt</button><button class="btn sm" id="bGrabAll" ${onGround ? '' : 'disabled'}>Lấy hết đồ (${onGround})</button><button class="btn sm red" id="bSellAll">Bán đồ không khớp lọc</button></span></div>
-    <div class="invgrid">${S.inv.map(itemCell).join('')}</div>
-    <h3>Đồ rơi trên đất <small>${onGround} món · ${match} khớp bộ lọc</small></h3>
+  return `<h3>Đồ rơi trên đất <small>${onGround} món · ${match} khớp bộ lọc</small></h3>
     <div class="card lootf">
       <label><input type="checkbox" id="fAuto" ${f.auto ? 'checked' : ''}> Tự đi nhặt đồ khớp bộ lọc${petActive() ? ' (Đồng hành nhặt thay khi ra trận)' : ''}</label>
       <div class="row" style="gap:16px;${f.auto ? '' : 'opacity:.5'}">
@@ -381,66 +486,39 @@ export function renderInv() {
       <div class="dim small">Hệ của món đồ (bỏ trống = mọi hệ):</div><div class="chips">${ser}</div>
       <div class="dim small">Chạm vào món đồ trên sân để đi nhặt tay. Khi Đồng hành ra trận, nó tự đi nhặt đồ auto thay nhân vật (nhân vật ở lại đánh quái); nhặt tay vẫn do nhân vật. Trên 40 món thì món cũ nhất tự bán. Khi vắng mặt, đồ không khớp tự bán.</div>
     </div>`;
-  const upd = () => { save(); renderInv(); };
-  $('#fAuto').onchange = e => { f.auto = e.target.checked; upd(); };
-  $('#fPickWait').onchange = e => { if (e.target.checked) { f.always = false; upd(); } };
-  $('#fPickNow').onchange = e => { if (e.target.checked) { f.always = true; upd(); } };
-  $('#fRar').onchange = e => { f.minRar = +e.target.value; upd(); };
-  $('#fLvl').onchange = e => { f.minLvl = +e.target.value; upd(); };
-  document.querySelectorAll('#t-inv [data-g]').forEach(b => b.onchange = () => { const g = +b.dataset.g; f.groups = b.checked ? [...new Set(f.groups.concat(g))] : f.groups.filter(x => x !== g); upd(); });
-  document.querySelectorAll('#t-inv [data-s]').forEach(b => b.onchange = () => { const v = +b.dataset.s; f.series = b.checked ? [...new Set(f.series.concat(v))] : f.series.filter(x => x !== v); upd(); });
-  $('#bStash').onclick = () => stashModal();
-  $('#bDonKho').onclick = () => donKhoModal('inv');
-  $('#bBest').onclick = () => { for (const it of S.inv.slice()) if (betterThanEquipped(it)) equip(it, true); refresh(); };
-  $('#bGrabAll').onclick = () => { const n = pickAllGround(); toast(n ? `Đã lấy ${n} món từ đất` : 'Không lấy thêm được (túi đầy?)'); refresh(); };
-  $('#bSellAll').onclick = () => { const r = sellUnmatched(); toast(`Bán ${r.n} món${r.kept ? ` (giữ ${r.kept} món bộ / Tím / Bạch Kim)` : ''}`); refresh(); };
-  document.querySelectorAll('#t-inv .it').forEach(b => b.onclick = () => itemModal(findItem(b.dataset.uid)));
 }
-
-/* ---------- Cai dat Auto (nut banh rang tren san dau) ----------
-   Gon cac tuy chon tu dong cua ban minh vao mot modal dung kieu bang tham chieu
-   (.auto-config/.auto-section/.ios-switch-row co san trong style.css). */
-export function autoSettingsModal() {
-  if (!S.fac) return;
-  const sw = (id, label, on, note = '') => `<label class="ios-switch-row"><span>${label}${note ? `<br><small class="dim">${note}</small>` : ''}</span><input type="checkbox" id="${id}" ${on ? 'checked' : ''}><span class="ios-switch" aria-hidden="true"></span></label>`;
-  modal(`<h3>Cài đặt Auto</h3><p class="desc">Các việc nhân vật tự làm khi treo máy. Bộ lọc nhặt đồ nằm ở thẻ Hành trang.</p>
-    <div class="auto-config">
-      <section class="auto-section"><h4>Chiến đấu</h4>
-        ${sw('cAuto2', 'Auto đánh &amp; tự đi nhặt đồ', !manual(), 'Tắt: bấm ô kỹ năng để đánh tay, joystick để đi (phím F)')}
-        ${sw('cRot2', 'Xoay chiêu khi farm', S.rot !== false, 'Luân phiên các chiêu gán ô 1–4, luôn có 2 chiêu mạnh nhất, bỏ chiêu hết nội lực (phím R)')}
-        ${sw('cBuff2', 'Tự duy trì bùa lợi', S.autoBuff !== false, 'Tốn nội lực / sinh lực theo chiêu, chỉ dùng khi có quái')}
-        ${sw('cCurse2', 'Tự hạ bùa hại', S.autoCurse !== false, 'Ưu tiên trùm / tinh anh; giảm kháng – phòng thủ – sát thương – tốc đánh của chúng')}
-        ${sw('cAura2', 'Vòng sáng độc (Vô Hình Độc)', !(S.auraOff || {})[69], 'Phủ độc quanh người mỗi 4 giây')}
-        ${sw('cField2', 'Bãi quái ngoài bản đồ', S.fieldMode === true, 'Thử nghiệm: quái đi tuần khắp bản đồ — đi gần để chúng chú ý, thay đợt quái quanh người')}
-      </section>
-      <section class="auto-section"><h4>Trang bị &amp; túi đồ</h4>
-        ${sw('cEquip2', 'Tự mặc đồ tốt hơn khi nhặt', !!S.autoEquip, 'So theo lực chiến thật sau khi mặc')}
-        ${sw('cJunk2', 'Tự bán đồ thừa', S.autoJunk !== false, 'Yếu hơn đồ đang mặc cùng ô, vũ khí sai loại, đồ sai hệ / sai môn phái — trừ đồ Đồng hành cần; giữ 6 nhẫn / dây chuyền / ngọc bội để hợp Huyền Tinh')}
-        ${sw('cPts2', 'Tự cộng điểm tiềm năng &amp; võ công', S.autoPts === true, 'Mặc định tắt; bật thì tự cộng theo gợi ý mỗi lần lên cấp')}
-      </section>
-      <section class="auto-section"><h4>Rèn, mua, thuốc</h4>
-        ${sw('cPot2', 'Tự dùng thuốc', S.potOff !== true, `Kim Sáng Dược / Ngưng Thần đan, trừ ngân lượng · đã dùng ${fmt(S.potUsed || 0)}`)}
-        ${sw('cForge2', 'Tự động rèn đồ', !!S.autoForge, 'Ghép mảnh Hoàng Kim, khảm Tím, hợp và thăng cấp Huyền Tinh (mỗi 30 giây)')}
-        ${sw('cBuy2', 'Tự mua vũ khí ở Biện Kinh', S.autoBuy !== false, 'Khi mạnh hơn ≥ 25%, tối đa 60% ngân lượng')}
-      </section>
-    </div>
-    <div class="btnrow"><button class="btn" id="asLoot">Lọc đồ tự nhặt</button><button class="btn" id="asClose">Đóng</button></div>`, () => {
-    const on = (id, fn) => { const el = $(id); if (el) el.onchange = fn; };
-    on('#cAuto2', e => setCtrl(e.target.checked ? 'auto' : 'manual'));
-    on('#cRot2', e => { S.rot = e.target.checked; save(); });
-    on('#cBuff2', e => { S.autoBuff = e.target.checked; save(); });
-    on('#cCurse2', e => { S.autoCurse = e.target.checked; save(); });
-    on('#cAura2', e => { S.auraOff = S.auraOff || {}; S.auraOff[69] = !e.target.checked; R.dirty = true; recalc(); save(); });
-    on('#cField2', e => { S.fieldMode = e.target.checked; R.field = null; R.enemies = []; R.spawnT = 0.3; save(); toast(e.target.checked ? 'Bãi quái ngoài bản đồ: bật' : 'Bãi quái ngoài bản đồ: tắt'); });
-    on('#cEquip2', e => { S.autoEquip = e.target.checked; save(); });
-    on('#cJunk2', e => { S.autoJunk = e.target.checked; save(); });
-    on('#cPts2', e => { S.autoPts = e.target.checked; if (S.autoPts) { autoSpendAttrs(); autoSpendSkills(); recalc(); } save(); });
-    on('#cPot2', e => { S.potOff = !e.target.checked; save(); });
-    on('#cForge2', e => { S.autoForge = e.target.checked; if (S.autoForge) autoForge(); save(); });
-    on('#cBuy2', e => { S.autoBuy = e.target.checked; save(); });
-    $('#asLoot').onclick = () => { showTab('inv'); closeModal(true); };
-    $('#asClose').onclick = () => closeModal(true);
+function bindLootPanel(scope) {
+  const f = lootFilter();
+  const q = s => scope.querySelector(s);
+  const upd = () => { save(); if (curTab === 'auto') renderAutoLootPanel(); else renderInv(); };
+  const fa = q('#fAuto'); if (fa) fa.onchange = e => { f.auto = e.target.checked; upd(); };
+  const pw = q('#fPickWait'); if (pw) pw.onchange = e => { if (e.target.checked) { f.always = false; upd(); } };
+  const pn = q('#fPickNow'); if (pn) pn.onchange = e => { if (e.target.checked) { f.always = true; upd(); } };
+  const fr = q('#fRar'); if (fr) fr.onchange = e => { f.minRar = +e.target.value; upd(); };
+  const fl = q('#fLvl'); if (fl) fl.onchange = e => { f.minLvl = +e.target.value; upd(); };
+  scope.querySelectorAll('[data-g]').forEach(b => b.onchange = () => { const g = +b.dataset.g; f.groups = b.checked ? [...new Set(f.groups.concat(g))] : f.groups.filter(x => x !== g); upd(); });
+  scope.querySelectorAll('[data-s]').forEach(b => b.onchange = () => { const v = +b.dataset.s; f.series = b.checked ? [...new Set(f.series.concat(v))] : f.series.filter(x => x !== v); upd(); });
+}
+export function renderAutoLootPanel() {
+  const el = $('#autoLootPanel');
+  if (!el) return;
+  el.innerHTML = lootPanelHTML();
+  bindLootPanel(el);
+  if (curTab === 'auto') invDirty = false;
+}
+/* Tro ve cau hinh Auto mac dinh */
+function resetAutoSettings() {
+  Object.assign(S, {
+    autoFind: true, autoBossPriority: true, autoRange: 'medium', autoSkillSlots: [true, true, true, true],
+    rot: true, autoBuff: true, autoCurse: true, auraOff: {}, buffOff: {},
+    autoEquip: true, autoJunk: true, autoPts: false, autoForge: false, autoBuy: true,
+    autoHpPotion: true, hpPotionAt: 50, autoMpPotion: true, mpPotionAt: 30, autoTownHp: false, townHpAt: 20,
+    potOff: false,
   });
+  setCtrl('auto');
+  if (S.chal === 'nopot') { S.autoHpPotion = false; S.autoMpPotion = false; S.potOff = true; }
+  Object.assign(lootFilter(), { minRar: 1, minLvl: 1, groups: [], series: [], auto: true, always: false });
+  R.moveTo = null; R.dirty = true; recalc(); save(); renderPad(); renderAutoPanel(); toast('Đã khôi phục cài đặt Auto mặc định');
 }
 /* ---------- the: khac ---------- */
 function renderMore() {
@@ -456,8 +534,6 @@ function renderMore() {
       <div class="btnrow"><button class="btn" id="bAutoSet">Cài đặt Auto</button><button class="btn" id="bLootF">Lọc đồ tự nhặt</button></div></div>
     <h3>Độ khó và trợ giúp</h3><div class="card lootf">
       <div class="row">Độ khó <select id="sDiff" ${S.chal === 'hard' ? 'disabled' : ''}>${DIFFS.map((d, i) => `<option value="${i}" ${diffOf() === d ? 'selected' : ''}>${d.n}</option>`).join('')}</select> <small class="dim">${esc(diffOf().d)}${S.chal === 'hard' ? ' · Thử thách Huyết chiến: khóa Khó' : ''}</small></div>
-      <label><input type="checkbox" id="cForge" ${S.autoForge ? 'checked' : ''}> Tự động rèn đồ (ghép mảnh Hoàng Kim, khảm Tím, hợp và thăng cấp Huyền Tinh; mỗi 30 giây)</label>
-      <label><input type="checkbox" id="cBuy" ${S.autoBuy === false ? '' : 'checked'}> Tự mua vũ khí đúng loại ở Biện Kinh khi mạnh hơn ≥ 25% (tối đa 60% ngân lượng)</label>
       <div class="btnrow"><button class="btn" id="bStashM">Kho chung</button><button class="btn" id="bClan">Gia tộc</button><button class="btn" id="bJournal">Sổ tay</button><button class="btn" id="bLog">Nhật ký</button><button class="btn" id="bTut">Hướng dẫn</button><button class="btn" id="bCodex">Bách khoa</button><button class="btn" id="bSug">Gợi ý cộng điểm</button></div></div>
     <h3>Trợ năng</h3><div class="card lootf">
       <div class="row">Cỡ chữ <select id="uFs">${UI_FS.map((v, i) => `<option value="${i}" ${uiPrefs().fs === i ? 'selected' : ''}>${UI_FS_NAME[i]}</option>`).join('')}</select> <small class="dim">áp dụng cho bảng thông tin, thẻ và hộp thoại</small></div>
@@ -473,13 +549,11 @@ function renderMore() {
   $('#bFile').onclick = () => pickSaveFile(null);
   $('#bExp').onclick = () => { $('#saveTxt').value = exportSave(); toast('Đã xuất mã'); };
   $('#bImp').onclick = () => importFlow($('#saveTxt').value, null);
-  $('#bAutoSet').onclick = () => autoSettingsModal();
+  $('#bAutoSet').onclick = () => openAutoSettings();
   $('#bLootF').onclick = () => { showTab('inv'); closeModal(); };
   $('#cJoy').onchange = e => { S.joy = e.target.checked ? 'fixed' : 'float'; save(); };
   $('#cLowFx').onchange = e => { S.lowFx = e.target.checked; save(); };
   $('#sDiff').onchange = e => { S.diff = +e.target.value; R.enemies = []; R.spawnT = 0.3; save(); toast('Độ khó: ' + diffOf().n); renderMore(); };
-  $('#cBuy').onchange = e => { S.autoBuy = e.target.checked; save(); };
-  $('#cForge').onchange = e => { S.autoForge = e.target.checked; if (S.autoForge) autoForge(); save(); };
   $('#bStashM').onclick = () => stashModal(); $('#bClan').onclick = () => clanModal(); $('#bJournal').onclick = () => jrModal(); $('#bLog').onclick = () => logModal(); $('#bTut').onclick = () => tutorialModal(0); $('#bCodex').onclick = () => codexModal(); $('#bSug').onclick = suggestModal;
   $('#bAdmin').onclick = () => adminModal();
   $('#uFs').onchange = e => { setUiPref({ fs: +e.target.value }); }; $('#uSaver').onchange = e => setUiPref({ saver: e.target.checked });
@@ -498,7 +572,7 @@ export function showTab(t) {
 export function refresh() {
   if (!S.fac) return;
   if (R.dirty) recalc();
-  ({ log: renderLog, char: renderChar, skill: renderSkill, inv: renderInv, more: renderMore, pet: renderPet })[curTab]();
+  ({ log: renderLog, char: renderChar, skill: renderSkill, inv: renderInv, more: renderMore, pet: renderPet, auto: renderAutoPanel })[curTab]();
   renderPad();
   updateDots();
 }
@@ -541,8 +615,8 @@ export function slotMenu(confirmDel?) {
 }
 export function pickFaction() {
   const cards = FACTIONS.map(f => `<button data-f="${f.key}" style="--c:${SERIES_COL[f.series]}"><img src="${(W.hero[f.key] || {}).img || ''}" alt=""><b>${esc(f.n)}</b><small>hệ ${SERIES[f.series]}</small><i class="s5b" style="background-image:url('ui/s${f.series}.png')"></i></button>`).join('');
-  modal(`<h3>Chọn môn phái</h3><p class="desc">Mỗi phái thuộc một hệ ngũ hành. Kim khắc Mộc, Mộc khắc Thổ, Thổ khắc Thủy, Thủy khắc Hỏa, Hỏa khắc Kim.</p><div class="facpick">${cards}</div>`, () => {
-    document.querySelectorAll('.facpick button').forEach(b => b.onclick = () => challengeModal(b.dataset.f, chal => startFaction(b.dataset.f, chal)));
+  modal(`<h3>Chọn môn phái</h3><p class="desc">Mỗi phái thuộc một hệ ngũ hành. Kim khắc Mộc, Mộc khắc Thổ, Thổ khắc Thủy, Thủy khắc Hỏa, Hỏa khắc Kim.</p><div class="card lootf"><div class="row">Tên nhân vật <input id="pfName" maxlength="24" placeholder="Tân thủ" style="flex:1"></div><div class="row">Giới tính <select id="pfSex"><option value="">Theo phái (Nga My / Thúy Yên là nữ)</option><option value="0">Nam</option><option value="1">Nữ</option></select></div><div class="row">Thử thách <select id="pfChal">${CHALLENGES.map(c => `<option value="${c.k}">${c.n} — ${c.d}</option>`).join('')}</select></div><small class="dim">Thử thách không đổi được sau khi tạo. Để trống tên thì lấy tên phái. Mặc định Nga My / Thúy Yên là nữ.</small></div><div class="facpick">${cards}</div>`, () => {
+    document.querySelectorAll('.facpick button').forEach(b => b.onclick = () => { const ne = $('#pfName'), sx = $('#pfSex'); startFaction(b.dataset.f, ne ? ne.value : '', (sx && sx.value !== '') ? +sx.value : null, ($('#pfChal') || {}).value || ''); });   // de trong gioi tinh = theo mac dinh cua phai
   }, true);
 }
 const NOTICE_TXT = 'Võ Lâm Idle - Phi thương mại, ưu tiên giải trí trên chính thiết bị của mình';
@@ -551,17 +625,19 @@ function noticeModal() {
   modal(`<h3>Võ Lâm Idle</h3><p class="desc notice">${esc(NOTICE_TXT)}</p><div class="btnrow"><button class="btn" id="bNotice">Đã hiểu</button></div>`, () => { $('#bNotice').onclick = () => { closeModal(true); if (!S.tut) tutorialModal(0); }; });
   log(`<span class="dim">${esc(NOTICE_TXT)}</span>`);
 }
-function startFaction(key, chal) {
-  const f = FAC[key]; S.fac = key; S.sex = ['emei', 'cuiyan'].includes(key) ? 1 : 0; S.name = f.n;
-  S.chal = CHALLENGES.some(c => c.k === chal) ? chal : '';      // thu thach nhan vat: khong doi duoc
-  if (S.chal === 'nopot') S.potOff = true;                       // Bat duoc: tat tu dong uong thuoc ngay tu dau
+function startFaction(key, tenNguoi, gioiTinh, chal) {
+  const f = FAC[key]; S.fac = key; S.chal = CHALLENGES.some(c => c.k === chal) ? chal : '';   // thu thach: luat rieng, khong doi duoc
+  if (S.chal === 'nopot') { S.potOff = true; S.autoHpPotion = false; S.autoMpPotion = false; }   // Bat duoc: tat tu dong uong thuoc ngay tu dau
+  // A: nguoi choi duoc tu dat ten va chon gioi tinh; de trong / khong truyen thi lay mac dinh theo phai
+  S.sex = (gioiTinh === 0 || gioiTinh === 1) ? gioiTinh : (['emei', 'cuiyan'].includes(key) ? 1 : 0); S.sexSet = 1;   // sexSet: migrate() khong ghi de ve mac dinh cua phai
+  S.name = (typeof tenNguoi === 'string' && tenNguoi.trim()) ? tenNguoi.trim().slice(0, 24) : f.n;
   if (f.starter) { S.sk[f.starter] = 1; S.skPts = Math.max(0, S.skPts - 1); S.main = f.starter; }
   starterGear();
   R.dirty = true; recalc(); R.life = R.P.life; R.mana = R.P.mana;
   loginCheck(); dotGift();                                  // ngay dau: co qua diem danh
   closeModal(true); save(); showTab('log');
+  noticeModal();
   log(`Gia nhập <b style="color:${SERIES_COL[f.series]}">${esc(f.n)}</b>. Bắt đầu hành tẩu giang hồ!`);
-  nameModal(true, () => noticeModal());
 }
 /* Dat ten (first: bat buoc khi tao nhan vat, khong the dong) / doi ten (bam chan dung goc trai).
    Data cu chua dat ten van choi binh thuong — hien thi ten phai cho toi khi nguoi choi dat ten. */

@@ -1,7 +1,7 @@
 import React from 'react';
 import { useGameTick } from './useGameTick';
-import { SK, W, clamp } from '../game/core';
-import { R } from '../game/combat';
+import { SK, W, J, clamp } from '../game/core';
+import { POT_TIER_LV, R } from '../game/combat';
 import { S, save } from '../game/save';
 import {
   INPUT, manual, setCtrl, pressSlot, drinkNow, goTown, backFromTown,
@@ -11,19 +11,32 @@ import { SV, svPause, svCastUlt, svUseBomb, svUseHp } from '../game/survival';
 import { shopModal } from '../game/shop';
 import { stashModal } from '../game/stash';
 import { backFromBossArena, goBossArena, wbHudState, wbUiState } from '../game/worldboss';
-import { autoSettingsModal, sellUnmatched, refresh, toast } from '../game/ui';
+import { openAutoSettings, sellUnmatched, refresh, toast } from '../game/ui';
 import { toggleRide } from '../game/horse';
 import { uiSfx } from '../game/audio';
 
-/* binh thuoc: anh theo cap cao nhat dang co, badge = tong so binh con lai */
-const POT_ICON_BY_TIER = [0, 0, 2, 4, 5, 7, 9, 9, 9, 9, 9];
-/* doc thang tu save (khong import shop: island nap som, import cheo lam undefined luc khoi tao) */
+/* binh thuoc: anh theo cap cao nhat dang co; het thuoc thi van hien anh binh se mua khi dung (giong ban nguon).
+   Luu y: island render truoc khi binding S cua save.ts khoi tao (vong import) -> khong doc S truc tiep. */
 const potStockOf = (kind: string): Record<string, number> => { const s: any = S; if (!s || !s.potStock) return {}; return s.potStock[kind] || {}; };
-const potCount = (kind: string): number => { const st = potStockOf(kind); return Object.keys(st).reduce((n, t) => n + (st[t] || 0), 0); };
-const potIcon = (kind: string): string => {
-  const st = potStockOf(kind); let best = 0;
+const potOfKind = (kind: string): any[] => (J.potions || []).filter((p: any) => p.kind === kind);
+const potLvl = (): number => (S as any)?.lvl || 1;
+const potHeld = (kind: string): any => {
+  const st = potStockOf(kind); let best = -1;
   for (const t of Object.keys(st)) if ((st[t] || 0) > 0 && +t > best) best = +t;
-  return `img/i/pot${POT_ICON_BY_TIER[Math.min(best, POT_ICON_BY_TIER.length - 1)]}.png`;
+  return best >= 0 ? potOfKind(kind).find((p: any) => p.tier === best) || null : null;
+};
+const potIcon = (kind: string): string => {
+  const held = potHeld(kind);
+  const buyable = potOfKind(kind).filter((p: any) => potLvl() >= (POT_TIER_LV[p.tier] || 999)).sort((a: any, b: any) => b.tier - a.tier)[0];
+  const item = held || buyable || potOfKind(kind).slice().sort((a: any, b: any) => a.tier - b.tier)[0];
+  return item && item.ic ? item.ic : '';
+};
+const potTitle = (kind: string): string => {
+  const held = potHeld(kind);
+  const buyable = potOfKind(kind).filter((p: any) => potLvl() >= (POT_TIER_LV[p.tier] || 999)).sort((a: any, b: any) => b.tier - a.tier)[0];
+  const item = held || buyable;
+  const n = held ? potStockOf(kind)[held.tier] || 0 : 0;
+  return `${item ? item.n : kind === 'life' ? 'HP' : 'MP'}${n > 0 ? ` · còn ${n}` : ' · mua khi dùng'}`;
 };
 const cdStyle = (v: number, max: number): React.CSSProperties => ({ '--p': `${clamp(v / max, 0, 1) * 100}%` } as React.CSSProperties);
 const sellTown = () => { const r = sellUnmatched(); toast(`Bán ${r.n} món`); refresh(); };
@@ -64,7 +77,7 @@ export default function Battle() {
       })()}
       <div id="autoControls" role="group" aria-label="Điều khiển tự động">
         <button id="autoSettingsBtn" title="Cài đặt Auto" aria-label="Cài đặt Auto"
-          onClick={() => { uiSfx('click'); autoSettingsModal(); }}><img src="ui/wrench.svg" alt="" aria-hidden="true" /></button>
+          onClick={() => { uiSfx('click'); openAutoSettings(); }}><img src="ui/wrench.svg" alt="" aria-hidden="true" /></button>
         <button id="ctrlBtn" className="chip autotoggle" role="switch" aria-label="Auto"
           aria-checked={fac ? !manual() : false}
           title="Bật: tự đánh và đi nhặt đồ khớp bộ lọc. Tắt: bấm ô kỹ năng để đánh thủ công. Phím F bật/tắt Auto."
@@ -130,17 +143,19 @@ export default function Battle() {
             </button>
           );
         })}
-        <button className="pbtn pot hp" id="bHp" title="Uống thuốc HP (Q)"
-          onPointerDown={e => { e.preventDefault(); e.stopPropagation(); drinkNow('life'); }}>
-          <img className="potion-icon" src={potIcon('life')} alt="" draggable={false} hidden={potCount('life') <= 0} />
+        <button className="pbtn pot hp" id="bHp"
+          onPointerDown={e => { e.preventDefault(); e.stopPropagation(); drinkNow('life'); }}
+          title={potTitle('life')}>
+          <img className="potion-icon" src={potIcon('life')} alt="" draggable={false} title={potTitle('life')} />
           <div className="cd" style={cdStyle(potCd.life || 0, POT_CD)} />
-          <b className="potion-count" hidden={potCount('life') <= 0}>{potCount('life')}</b><span>HP</span>
+          <b className="potion-count" hidden={!potHeld('life')}>{potHeld('life') ? potStockOf('life')[potHeld('life').tier] : ''}</b><span>HP</span>
         </button>
-        <button className="pbtn pot mp" id="bMp" title="Uống thuốc MP (E)"
-          onPointerDown={e => { e.preventDefault(); e.stopPropagation(); drinkNow('mana'); }}>
-          <img className="potion-icon" src={potIcon('mana')} alt="" draggable={false} hidden={potCount('mana') <= 0} />
+        <button className="pbtn pot mp" id="bMp"
+          onPointerDown={e => { e.preventDefault(); e.stopPropagation(); drinkNow('mana'); }}
+          title={potTitle('mana')}>
+          <img className="potion-icon" src={potIcon('mana')} alt="" draggable={false} title={potTitle('mana')} />
           <div className="cd" style={cdStyle(potCd.mana || 0, POT_CD)} />
-          <b className="potion-count" hidden={potCount('mana') <= 0}>{potCount('mana')}</b><span>MP</span>
+          <b className="potion-count" hidden={!potHeld('mana')}>{potHeld('mana') ? potStockOf('mana')[potHeld('mana').tier] : ''}</b><span>MP</span>
         </button>
         <button className="pbtn ride" id="bRide" type="button" aria-label="Lên hoặc xuống ngựa" title="Lên hoặc xuống ngựa"
           onClick={() => { uiSfx('click'); toggleRide(); }}>

@@ -4,6 +4,7 @@ import {
   H,
   R,
   alive,
+  expFor,
   heal,
   makeEnemy,
   stageLevel,
@@ -82,12 +83,13 @@ import { addAttr, autoSpendAttrs, sexReqOk } from './stats';
 import { addItem, closeModal, findItem, itemHTML, log, modal, refresh, setInvDirty, toast } from './ui';
 import { obsSteer } from './mapobs';
 import { codexModal } from './guide';
-import { matAdd, matHave } from './recipes';
+import { matAdd, matHave, HT_MAX } from './recipes';
 import { WB_EVERY, WB_FIRST, WB_MIN_LV } from './worldboss';
 import { thanMaBind, thanMaBody } from './horse';
 import { tamPhapModal, tpPending, applyWeekMod } from './depth';
 import { TOWER2, t2mul, tp2Pending, tower2Bonuses, tower2Floor, tower2Level, tower2OptionModal, tower2Unlocked } from './tower2';
 import { TOWER2_SET_ROWS } from './sets';
+import { localISODay } from './journal';
 import { actBind, actBody } from './activities';
 
 /* ======================= PHAN THUONG NGOAI GAME GOC (docs/DE_XUAT.md) =======================
@@ -978,8 +980,76 @@ export function giftText(g) {
   if (g.item) p.push(`đồ ${g.item} dòng`); if (g.set) p.push('đồ Hoàng Kim'); if (g.pts) p.push(`${g.pts} tiềm năng`);
   return p.join(', ');
 }
+/* ---------- TAI XIU (cuoc xu xac 3 mặt, thiet ke tu ban vinarpg) ---------- */
+const TX_LUOT = 10, TX_BO_BA = 30, BLESS_LUCKY = 10;
+/* Lời chúc (quà hiếm của Tài Xỉu): +10 may mắn trong 1 giờ. Nhiều lời chúc không cộng dồn. */
+export function blessLucky() {
+  const b = S.rw && S.rw.bless; if (!b || !b.length) return 0;
+  const now = Date.now(); return b.some(x => x.until > now) ? BLESS_LUCKY : 0;
+}
+/* Hết hạn lời chúc: bỏ khỏi file lưu và tính lại chỉ số (gọi định kỳ từ vòng lặp) */
+export function blessSweep() {
+  const b = S.rw && S.rw.bless; if (!b || !b.length) return;
+  const now = Date.now(), keep = b.filter(x => x.until > now);
+  if (keep.length !== b.length) { S.rw.bless = keep; R.dirty = true; }
+}
+const txNgay = () => localISODay();                    // gio may, cung moc voi diem danh / thap
+function txState() {
+  const r = RW();
+  if (!r.tx || r.tx.ngay !== txNgay()) r.tx = { ngay: txNgay(), luot: 0 };
+  return r.tx;
+}
+const txLuotMax = () => TX_LUOT + (txState().bonus || 0);
+const txLuotCon = () => Math.max(0, txLuotMax() - txState().luot);
+const txCuocMax = () => 20000 + S.lvl * 4000;
+const txCuocMin = () => Math.round(txCuocMax() / 10);   // = mức cược thấp nhất trên giao diện
+function txQua(bac) {                       // bac 1 = van thuong, 2 = bo ba
+  const roll = irnd(1, 100);
+  if (roll <= 30) { const n = irnd(1, 2) * bac; matAdd('misc', 'thbt', n); return n + ' Tinh Hồng Bảo Thạch'; }
+  if (roll <= 55) { const n = irnd(1, 3) * bac; matAdd('misc', 'wc', n); return n + ' Thủy Tinh Trắng'; }
+  if (roll <= 75) { const n = irnd(1, 2) * bac; matAdd('misc', 'mys', n); return n + ' Thần Bí Khoáng Thạch'; }
+  if (roll <= 88) { const lvl = clamp(irnd(1, 4) * bac, 1, HT_MAX); matAdd('ht', lvl, 1); return 'Huyền Tinh cấp ' + lvl; }
+  if (roll <= 93) { const n = 3 * bac; S.attrPts += n; return n + ' điểm tiềm năng'; }
+  if (roll <= 97) { const n = 2 * bac; S.skPts += n; return n + ' điểm võ công'; }
+  if (roll <= 99) { const xp = Math.round(expFor(S.lvl) * 0.25 * bac); S.xp += xp; return 'Kinh nghiệm +' + fmt(xp); }
+  const r = RW(); (r.bless = r.bless || []).push({ until: Date.now() + 3600000, ten: 'Lời chúc: may mắn +10 trong 1 giờ' });
+  return 'MỘT LỜI CHÚC: may mắn +10 trong 1 giờ';
+}
+export function taiXiu(cua, cuoc) {
+  cuoc = Math.floor(cuoc);
+  const t = txState();
+  if (txLuotCon() <= 0) return { ok: false, msg: 'Hết lượt hôm nay (' + txLuotMax() + ' lượt) — mai quay lại' };
+  if (!['tai', 'xiu', 'boba'].includes(cua)) return { ok: false, msg: 'Cửa không hợp lệ' };
+  if (!(cuoc > 0)) return { ok: false, msg: 'Mức cược không hợp lệ' };
+  if (cuoc < txCuocMin()) return { ok: false, msg: 'Cược tối thiểu ' + fmt(txCuocMin()) + ' lượng (quà thắng không phụ thuộc mức cược)' };
+  if (cuoc > txCuocMax()) return { ok: false, msg: 'Trần cược ' + fmt(txCuocMax()) + ' lượng' };
+  if (S.gold < cuoc) return { ok: false, msg: 'Không đủ ngân lượng' };
+  t.luot++;
+  S.gold -= cuoc;
+  const x = [irnd(1, 6), irnd(1, 6), irnd(1, 6)], tong = x[0] + x[1] + x[2];
+  const boBa = x[0] === x[1] && x[1] === x[2];
+  const thang = cua === 'boba' ? boBa : (!boBa && (cua === 'tai' ? tong >= 11 : tong <= 10));
+  const dau = 'Xúc xắc ' + x.join('-') + ' = ' + tong;
+  if (!thang) return { ok: true, thang: false, xucXac: x, tong, msg: dau + ' — thua ' + fmt(cuoc) + ' lượng' };
+  const heSo = cua === 'boba' ? TX_BO_BA : 2, tienThang = cuoc * heSo;
+  S.gold += tienThang;
+  const qua = txQua(cua === 'boba' ? 2 : 1);
+  R.dirty = true;
+  return { ok: true, thang: true, xucXac: x, tong, tienThang, qua, msg: dau + ' — THẮNG ' + fmt(tienThang) + ' lượng · nhận: ' + qua };
+}
+function txBody(r) {
+  const con = txLuotCon(), maxc = txCuocMax(), muc = [Math.round(maxc / 10), Math.round(maxc / 4), maxc];
+  const ok = c => con > 0 && S.gold >= c;
+  return `<p class="desc">Tài Xỉu 3 xúc xắc · cược ngân lượng · còn <b>${con}/${txLuotMax()}</b> lượt hôm nay · trần cược ${fmt(maxc)} lượng.</p>
+    <div class="card"><b>Luật</b> <small class="dim">Xỉu 4–10 (×2) · Tài 11–17 (×2) · Bộ ba (3 mặt giống nhau) ×${TX_BO_BA}. Bộ ba KHÔNG tính cho Tài/Xỉu.</small></div>
+    <div class="card"><b>Đặt cược</b> <small class="dim">thắng còn nhận quà hỗ trợ ngẫu nhiên: Huyền Tinh, Thủy Tinh Trắng, Thần Bí Khoáng Thạch, Tinh Hồng Bảo Thạch, điểm tiềm năng, điểm võ công, kinh nghiệm — hoặc MỘT LỜI CHÚC</small>
+      ${muc.map(c => `<div class="btnrow"><small>${fmt(c)} lượng</small><button class="btn" data-tx="xiu:${c}" ${ok(c) ? '' : 'disabled'}>Xỉu</button><button class="btn" data-tx="tai:${c}" ${ok(c) ? '' : 'disabled'}>Tài</button><button class="btn red" data-tx="boba:${c}" ${ok(c) ? '' : 'disabled'}>Bộ ba</button></div>`).join('')}
+    </div>
+    ${r.txLog && r.txLog.length ? `<div class="card"><b>Ván gần đây</b>${r.txLog.slice(0, 6).map(s => `<div class="row"><small>${esc(s)}</small></div>`).join('')}</div>` : ''}`;
+}
 function giftBody(r) {
   if (giftTab === 'tm') return thanMaBody();
+  if (giftTab === 'tx') return txBody(r);
   const act = actBody(giftTab); if (act) return act;
   if (giftTab === 'login') {
     const L = r.login, day = ((L.streak - 1) % 7 + 7) % 7;
@@ -1077,7 +1147,7 @@ export function titleModal() {
 }
 export function giftModal() {
   if (!S.fac) return;
-  const r = RW(), tabs = [['newbie', 'Tân thủ'], ['code', 'Mã quà'], ['login', 'Điểm danh'], ['lvms', 'Mốc cấp'], ['quest', 'Nhiệm vụ'], ['ach', 'Thành tựu'], ['chest', 'Phúc Duyên'], ['so', 'Quay Sò'], ['event', 'Sự kiện'], ['tower', 'Tháp'], ['pet', 'Đồng hành'], ['tm', 'Thần Mã'], ['yt', 'Dã Tẩu'], ['guild', 'Bang hội'], ['tk', 'Tống Kim'], ['reborn', 'Chuyển sinh']];
+  const r = RW(), tabs = [['newbie', 'Tân thủ'], ['code', 'Mã quà'], ['login', 'Điểm danh'], ['lvms', 'Mốc cấp'], ['quest', 'Nhiệm vụ'], ['ach', 'Thành tựu'], ['chest', 'Phúc Duyên'], ['so', 'Quay Sò'], ['event', 'Sự kiện'], ['tower', 'Tháp'], ['tx', 'Tài Xỉu'], ['pet', 'Đồng hành'], ['tm', 'Thần Mã'], ['yt', 'Dã Tẩu'], ['guild', 'Bang hội'], ['tk', 'Tống Kim'], ['reborn', 'Chuyển sinh']];
   modal(`<h3>Phần thưởng <small>Phúc Duyên ${r.fd}</small></h3><div class="dtabs" id="giftTabs">${tabs.map(([k, n]) => `<button data-g="${k}" class="${k === giftTab ? 'on' : ''}">${n}</button>`).join('')}</div>${giftBody(r)}`, () => {
     document.querySelectorAll('#mBody #giftTabs button').forEach(x => x.onclick = () => { giftTab = x.dataset.g; giftModal(); });
     const on = (id, fn) => { const el = $(id); if (el) el.onclick = fn; };
@@ -1092,6 +1162,12 @@ export function giftModal() {
     document.querySelectorAll('#mBody [data-w]').forEach(x => x.onclick = () => { claimWeekQuest(+x.dataset.w); refreshGift(); });
     document.querySelectorAll('#mBody [data-t]').forEach(x => x.onclick = () => { r.title = r.title === x.dataset.t ? '' : x.dataset.t; R.dirty = true; save(); refreshGift(); });
     document.querySelectorAll('#mBody [data-e]').forEach(x => x.onclick = () => eventBuy(+x.dataset.e));
+    document.querySelectorAll('#mBody [data-tx]').forEach(x => x.onclick = () => {
+      const [cua, c] = x.dataset.tx.split(':');
+      const res = taiXiu(cua, +c);
+      if (res.xucXac) { const rr = RW(); rr.txLog = [res.msg, ...(rr.txLog || [])].slice(0, 20); }
+      toast(res.msg); save(); refreshGift();
+    });
     document.querySelectorAll('#mBody .petpick [data-p]').forEach(x => x.onclick = () => petAdopt(+x.dataset.p));
     /* cac tab phu gan CUOI + boc loi: mot module loi khong duoc lam chet bind loi cua cac tab chinh */
     try { thanMaBind(refreshGift); } catch (e) { console.error('thanMaBind', e); }

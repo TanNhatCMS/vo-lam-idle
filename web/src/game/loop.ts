@@ -20,6 +20,7 @@ import {
   autoEquipAll,
   renderLogOnly,
   renderInv,
+  renderAutoLootPanel,
   showTab,
   refresh,
   toast,
@@ -87,7 +88,7 @@ export function guard(what, fn) {
 /* Phan giao dien nhe cua vong lap: log moi, hanh trang khi thay doi + bao React ve lai HUD */
 function uiPump() {
   if (R.logDirty && curTab === 'log') { R.logDirty = false; renderLogOnly(); }
-  if (invDirty && curTab === 'inv') renderInv();
+  if (invDirty && (curTab === 'inv' || curTab === 'auto')) { if (curTab === 'auto') renderAutoLootPanel(); else renderInv(); }
   renderSkBuffs();
   uiBump();
 }

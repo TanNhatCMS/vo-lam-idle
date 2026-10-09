@@ -6,6 +6,7 @@ import {
   FAC,
   MON,
   RAR_COL,
+  SERIES,
   SERIES_COL,
   STAGES,
   W,
@@ -280,7 +281,7 @@ function nameTag(x, y, text, col, size = 11) {
   CX.font = `${size}px "IBM Plex Mono", monospace`; CX.textAlign = 'center'; CX.lineJoin = 'round'; CX.lineWidth = 3; CX.strokeStyle = '#000c';
   CX.strokeText(text, x, y); CX.fillStyle = col; CX.fillText(text, x, y);
 }
-export const enemyName = e => `${e.n} · Lv${e.L}`;
+export const enemyName = e => `${e.n} [${SERIES[e.series] || SERIES[0]}] Lv${e.L}`;
 export function bar(x, y, w, h, f, col) { CX.fillStyle = '#000a'; CX.fillRect(x, y, w, h); CX.fillStyle = col; CX.fillRect(x, y, w * clamp(f, 0, 1), h); }
 export function draw(dt) {
   const c = CX; c.setTransform(DPR, 0, 0, DPR, 0, 0); c.clearRect(0, 0, AR.w, AR.h);
