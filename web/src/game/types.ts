@@ -12,6 +12,7 @@ export interface SaveState {
   name: string;
   fac: string | null;
   sex: 0 | 1;
+  sexSet?: boolean;
   lvl: number;
   xp: number;
   gold: number;
@@ -49,6 +50,17 @@ export interface SaveState {
   last: number;
   lowFx?: boolean;
   rot?: boolean;
+  fieldMode?: boolean;
+  autoFind?: boolean;
+  autoBossPriority?: boolean;
+  autoRange?: 'near' | 'medium' | 'far';
+  autoSkillSlots?: boolean[];
+  autoHpPotion?: boolean;
+  hpPotionAt?: number;
+  autoMpPotion?: boolean;
+  mpPotionAt?: number;
+  autoTownHp?: boolean;
+  townHpAt?: number;
 }
 
 /* Trang bị/nhân vật trên sân (H) */

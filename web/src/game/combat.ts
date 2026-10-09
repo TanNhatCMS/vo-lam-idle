@@ -1,7 +1,7 @@
 // @ts-nocheck — chuyen tu vanilla JS: bat lai check tung file dan dan (xem README muc TypeScript)
 import { npcSfx, skillSfx, uiSfx } from './audio';
 import { autoBuyWeapon, autoForge } from './auto';
-import { manual, moveManual, townTick } from './control';
+import { goTown, manual, moveManual, townTick } from './control';
 import {
   $,
   CRIT_MULT,
@@ -60,6 +60,7 @@ import {
   questTick,
   rebornBonus,
   rwOnKill,
+  blessSweep,
   spawnGoldBoss,
   towerCleared,
   towerExit,
@@ -209,7 +210,9 @@ function autoPotion(dt) {
     if (h[k + 'T'] > 0) { const d = Math.min(dt, h[k + 'T']); h[k + 'T'] -= dt; if (k === 'life') R.life = Math.min(P.life, R.life + h.life * d); else R.mana = Math.min(P.mana, R.mana + h.mana * d); }
   }
   if (S.potOff) return;
-  const needLife = R.life < P.life * 0.5, needMana = P.main.cost > 0 && R.mana < P.main.cost * 2;
+  const hpOn = S.autoHpPotion !== false, mpOn = S.autoMpPotion !== false;
+  if (!hpOn && !mpOn) return;
+  const needLife = hpOn && R.life < P.life * (S.hpPotionAt ?? 50) / 100, needMana = mpOn && P.main.cost > 0 && R.mana < P.mana * (S.mpPotionAt ?? 30) / 100;
   h.cd = Math.max(0, (h.cd || 0) - dt);
   for (const [k, need] of [['life', needLife], ['mana', needMana]]) {
     // binh thuong: 1 binh moi lan hoi xong; nguy kich (< 30% mau): uong them binh chong len, cach nhau 1 giay
@@ -236,7 +239,7 @@ function nearest(list) { let b = null, bd = 1e9; for (const e of list) { const d
    chieu het noi luc thi bo qua, khong chieu nao du noi luc thi danh thuong. Tat: danh moi chieu chinh nhu truoc. */
 function rotPool(P) {
   if (S.rot === false || window.NO_ROT) return [];   // NO_ROT: chi dung de so sanh A / B trong test
-  const ids = (S.slots || []).filter(Boolean), pool = P.actives.filter(a => ids.includes(a.id));
+  const ids = (S.slots || []).filter((id, i) => id && (S.autoSkillSlots || [])[i] !== false), pool = P.actives.filter(a => ids.includes(a.id));
   if (pool.length < 2) return [];
   const byDps = pool.slice().sort((a, b) => b.dps - a.dps), top = byDps[0].dps, keep = new Set(byDps.filter((a, i) => i < 2 || a.dps >= top * 0.4));   // it nhat 2 chieu manh nhat, them chieu >= 40% DPS chieu manh nhat
   return ids.map(id => pool.find(a => a.id === id)).filter(a => a && keep.has(a));
@@ -248,12 +251,26 @@ function pickAttack(P, hard) {
   for (let k = 0; k < n; k++) { const a = pool[(R.rotI + k) % n]; if (R.mana >= a.cost) { R.rotI = (R.rotI + k + 1) % n; return a; } }
   return P.basic;
 }
+/* Chon muc tieu: uu tien boss / tinh anh / trum Hoang Kim (mac dinh bat); con lai quai gan nhat */
+function pickTarget(list) {
+  if (S.autoBossPriority !== false) {
+    const hard = list.find(e => e.cls === 'boss' || e.goldBoss) || list.find(e => e.cls === 'elite');
+    if (hard) return hard;
+  }
+  return nearest(list);
+}
+/* Cho phep nhat tay den muc tieu khong: tuy "tu tim & duoi" (autoFind) + pham vi duoi (Gan 3m / Vua 7m / Xa khong gioi han) */
+const CHASE_PX = { near: 300, medium: 700, far: 1e9 };
+function chaseOk(d) {
+  if (manual() || S.autoFind === false) return false;
+  return d <= (CHASE_PX[S.autoRange] || CHASE_PX.medium);
+}
 function heroAttack() {
   const P = R.P, list = alive(); if (!list.length) return 0.3;
   const a = pickAttack(P, list.some(e => e.cls === 'boss' || e.cls === 'elite' || e.goldBoss));
-  const t = nearest(list);
+  const t = pickTarget(list);
   const d = Math.hypot(t.x - H.x, t.y - H.y) - t.r;
-  if (d > a.rad) { R.moveTo = manual() ? null : t; return 0.05; }   // tu dieu khien: chi danh quai trong tam, khong tu chay toi
+  if (d > a.rad) { R.moveTo = chaseOk(d) ? t : null; return 0.05; }   // tu dieu khien: chi danh quai trong tam, khong tu chay toi
   R.moveTo = null;
   R.mana -= a.cost;
   const c = a.around ? H : t, splash = a.around ? a.rad + 40 : 110; // form 7: quanh nguoi danh
@@ -279,12 +296,14 @@ function enemyAI(e, dt) {
 export function tick(dt) {
   obsFrame();
   skillSysTick(dt);
-  if ((R.sweepT = (R.sweepT || 0) + dt) > 30) { R.sweepT = 0; autoEquipAll(); petAutoEquip(); sweepJunk(); autoBuyWeapon(); autoForge(); checkHints(); }
+  if ((R.sweepT = (R.sweepT || 0) + dt) > 30) { R.sweepT = 0; autoEquipAll(); petAutoEquip(); sweepJunk(); autoBuyWeapon(); autoForge(); blessSweep(); checkHints(); }
   if (R.dirty) recalc();
   const P = R.P;
   if (R.deadT > 0) { R.deadT -= dt; if (R.deadT <= 0) { R.life = P.life; R.mana = P.mana; S.wave = 1; if (R.wbArena) backFromBossArena(); else spawnWave(); } return; }
   R.life = Math.min(P.life, R.life + P.regen * dt); R.mana = Math.min(P.mana, R.mana + P.manaRegen * dt);
   autoPotion(dt);
+  if (S.autoTownHp && !R.town && (R.tpCd || 0) <= 0 && !R.wbArena && !R.tower && !R.tk && !R.petRealm
+    && R.life < P.life * (S.townHpAt ?? 20) / 100) goTown();   // Ve thanh khi HP duoi nguong (Tho Dia Phu hoi phuc nhanh)
   if (R.hurtT > 0) R.hurtT -= dt;
   if (R.tpCd > 0) R.tpCd -= dt;
   if (R.potCd) { R.potCd.life = Math.max(0, R.potCd.life - dt); R.potCd.mana = Math.max(0, R.potCd.mana - dt); }

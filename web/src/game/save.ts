@@ -38,7 +38,10 @@ const FEMALE_FAC = ['emei', 'cuiyan'];       // phai nu: trang phuc nu; con lai 
 export function newSave() {
   return { v: SAVE_V, name: 'Tân thủ', fac: null, sex: 0, lvl: 1, xp: 0, gold: 0, attrPts: 0, attr: { str: 0, dex: 0, vit: 0, eng: 0 },
     skPts: 1, sk: {}, main: 0, eq: {}, inv: [], stage: 1, maxStage: 1, wave: 1, push: true, uid: 1, autoSell: 0,
-    kps: 0.2, totalKills: 0, autoEquip: true, autoPts: false, diff: 1, autoForge: false, autoBuy: true, tut: 0, hints: {}, bakAt: 0, potOff: false, potUsed: 0, potStock: { life: {}, mana: {} }, ctrl: 'auto', joy: 'fixed', slots: [0, 0, 0, 0], fieldMode: false, snd: { on: true, vol: 0.7, music: true, mvol: 0.4 }, lootF: { minRar: 1, minLvl: 1, groups: [], series: [], auto: true, always: false }, ground: [], mats: { ht: {}, ore: {}, shard: {}, misc: {} }, last: Date.now() };
+    kps: 0.2, totalKills: 0, autoEquip: true, autoPts: false, diff: 1, autoForge: false, autoBuy: true, tut: 0, hints: {}, bakAt: 0, potOff: false, potUsed: 0, potStock: { life: {}, mana: {} }, ctrl: 'auto', joy: 'fixed', slots: [0, 0, 0, 0], fieldMode: false,
+    autoFind: true, autoBossPriority: true, autoRange: 'medium', autoSkillSlots: [true, true, true, true],
+    autoHpPotion: true, hpPotionAt: 50, autoMpPotion: true, mpPotionAt: 30, autoTownHp: false, townHpAt: 20,
+    snd: { on: true, vol: 0.7, music: true, mvol: 0.4 }, lootF: { minRar: 1, minLvl: 1, groups: [], series: [], auto: true, always: false }, ground: [], mats: { ht: {}, ore: {}, shard: {}, misc: {} }, last: Date.now() };
 }
 /* Chu ky file luu (cyrb53 + muoi): phat hien sua tay localStorage / ma xuat. Khong ngan duoc nguoi quyet tam (game chay hoan toan o may nguoi choi) nhung chan sua vo tinh va nhap ma da bi doi. */
 const SAVE_SALT = 'jx-idle-v1:';
@@ -80,6 +83,12 @@ function migrate(o) {
   s.mats = { ht: Object.assign({}, (o.mats || {}).ht), ore: Object.assign({}, (o.mats || {}).ore), shard: Object.assign({}, (o.mats || {}).shard), misc: Object.assign({}, (o.mats || {}).misc) };
   s.rw = o.rw && typeof o.rw === 'object' ? o.rw : {};    // phan thuong: file cu chua co -> RW() tu dien mac dinh
   s.fieldMode = o.fieldMode === true;                     // bãi quái ngoài bản đồ: mac dinh tắt (file cu + file moi)
+  // tu tim / uu tien boss / pham vi duoi / chiêu tu dùng / ngưỡng thuốc: file cu chua co -> mac dinh newSave
+  if (!['near', 'medium', 'far'].includes(s.autoRange)) s.autoRange = 'medium';
+  if (!Array.isArray(s.autoSkillSlots) || s.autoSkillSlots.length !== 4) s.autoSkillSlots = [true, true, true, true];
+  s.hpPotionAt = clamp(Math.round(+s.hpPotionAt) || 50, 1, 100);
+  s.mpPotionAt = clamp(Math.round(+s.mpPotionAt) || 30, 1, 100);
+  s.townHpAt = clamp(Math.round(+s.townHpAt) || 20, 1, 100);
   // Dong hanh: o trang bi (save cu chua co) — chi giu mon hop le (co base/mag, khong phai ngua d 10)
   s.rw.pet = s.rw.pet && typeof s.rw.pet === 'object' ? s.rw.pet : null;
   /* Dong hanh: chuan hoa o trang bi cua MOI con trong roster — save cu co the dung key petW/petA/petJ
@@ -107,7 +116,7 @@ function migrate(o) {
   let maxUid = 0; for (const it of s.inv.concat(Object.values(s.eq || {}), Object.values(petEq))) if (it && it.uid > maxUid) maxUid = it.uid; s.uid = Math.max(+s.uid || 1, maxUid + 1);
   { const seen = new Set(); const dedupe = it => { if (seen.has(it.uid)) { it.uid = s.uid++; } seen.add(it.uid); }; s.inv.forEach(dedupe); petEq.forEach(dedupe); }   // uid trung (nhap ma sua tay): cap lai
   s.diff = [0, 1, 2].includes(+o.diff) ? +o.diff : 1; s.hints = o.hints && typeof o.hints === 'object' ? o.hints : {};
-  if (s.fac) s.sex = FEMALE_FAC.includes(s.fac) ? 1 : 0;         // gioi tinh theo phai (file luu cu mac dinh 0 -> phai nu mac nham do nam)
+  if (s.fac && !s.sexSet) s.sex = FEMALE_FAC.includes(s.fac) ? 1 : 0;   // gioi tinh theo phai, tru khi nguoi choi da tu chon (startFaction / setAppearance dat sexSet)
   const wrongSex = k => s.eq[k] && !sexReqOkFor(s.eq[k], s.sex);
   for (const k of Object.keys(s.eq || {})) if (!s.eq[k] || typeof s.eq[k] !== 'object') delete s.eq[k]; else if (wrongSex(k)) { if (s.inv.length < INV_MAX) s.inv.push(s.eq[k]); delete s.eq[k]; }   // trang phuc sai gioi tinh dang mac: thao ve tui
   s.v = SAVE_V;

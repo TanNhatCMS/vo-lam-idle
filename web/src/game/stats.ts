@@ -36,7 +36,7 @@ import { tpStacks } from './depth';
 import { guildBuff } from './activities';
 import { baseRow, slotFor } from './loot';
 import { PET_BENCH_BUFF, TEAM_CHAIN_PCT } from './core';
-import { rebornBonus, teamChainOk, titleAttr } from './rewards';
+import { rebornBonus, teamChainOk, titleAttr, blessLucky } from './rewards';
 import { S } from './save';
 import { enoughToActive, goldEnhance } from './sets';
 import { equip, equipGain } from './ui';
@@ -194,7 +194,7 @@ export function calc(eq) {
   P.retMelee = av(A, 'meleedamagereturn_v'); P.retMeleeP = av(A, 'meleedamagereturn_p');
   P.series5 = av(A, 'five_elements_enhance_v'); P.res5 = av(A, 'five_elements_resist_v');
   P.seriesSkill = av(A, ['metalskill_v', 'woodskill_v', 'waterskill_v', 'fireskill_v', 'earthskill_v'][ser]);
-  P.lucky = av(A, 'lucky_v') + tpStacks().bao * 3 + guildBuff().lucky;   // Tham Bao +3/cap, bang hoi +0.25/cap
+  P.lucky = av(A, 'lucky_v') + tpStacks().bao * 3 + guildBuff().lucky + blessLucky();   // Tham Bao +3/cap, bang hoi +0.25/cap, loi chuc +10
   P.dropMul = 1 + tpStacks().bao * 0.05;             // Tham Bao: +5% ti le roi do moi cap
   P.speed = 1 + av(A, 'fastwalkrun_p') / 100;
   P.ranged = ranged;
