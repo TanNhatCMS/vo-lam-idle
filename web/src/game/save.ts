@@ -38,7 +38,7 @@ const FEMALE_FAC = ['emei', 'cuiyan'];       // phai nu: trang phuc nu; con lai 
 export function newSave() {
   return { v: SAVE_V, name: 'Tân thủ', fac: null, sex: 0, lvl: 1, xp: 0, gold: 0, attrPts: 0, attr: { str: 0, dex: 0, vit: 0, eng: 0 },
     skPts: 1, sk: {}, main: 0, eq: {}, inv: [], stage: 1, maxStage: 1, wave: 1, push: true, uid: 1, autoSell: 0,
-    kps: 0.2, totalKills: 0, autoEquip: true, autoPts: false, diff: 1, autoForge: false, autoBuy: true, tut: 0, hints: {}, bakAt: 0, potOff: false, potUsed: 0, potStock: { life: {}, mana: {} }, ctrl: 'auto', joy: 'fixed', slots: [0, 0, 0, 0], snd: { on: true, vol: 0.7, music: true, mvol: 0.4 }, lootF: { minRar: 1, minLvl: 1, groups: [], series: [], auto: true, always: false }, ground: [], mats: { ht: {}, ore: {}, shard: {}, misc: {} }, last: Date.now() };
+    kps: 0.2, totalKills: 0, autoEquip: true, autoPts: false, diff: 1, autoForge: false, autoBuy: true, tut: 0, hints: {}, bakAt: 0, potOff: false, potUsed: 0, potStock: { life: {}, mana: {} }, ctrl: 'auto', joy: 'fixed', slots: [0, 0, 0, 0], fieldMode: false, snd: { on: true, vol: 0.7, music: true, mvol: 0.4 }, lootF: { minRar: 1, minLvl: 1, groups: [], series: [], auto: true, always: false }, ground: [], mats: { ht: {}, ore: {}, shard: {}, misc: {} }, last: Date.now() };
 }
 /* Chu ky file luu (cyrb53 + muoi): phat hien sua tay localStorage / ma xuat. Khong ngan duoc nguoi quyet tam (game chay hoan toan o may nguoi choi) nhung chan sua vo tinh va nhap ma da bi doi. */
 const SAVE_SALT = 'jx-idle-v1:';
@@ -79,6 +79,7 @@ function migrate(o) {
   if (!o.autoPtsOff) { s.autoPts = false; s.autoPtsOff = 1; }     // tu cong diem tiem nang / ky nang nay mac dinh TAT (ca file luu cu: tat mot lan, bat lai o the Khac)
   s.mats = { ht: Object.assign({}, (o.mats || {}).ht), ore: Object.assign({}, (o.mats || {}).ore), shard: Object.assign({}, (o.mats || {}).shard), misc: Object.assign({}, (o.mats || {}).misc) };
   s.rw = o.rw && typeof o.rw === 'object' ? o.rw : {};    // phan thuong: file cu chua co -> RW() tu dien mac dinh
+  s.fieldMode = o.fieldMode === true;                     // bãi quái ngoài bản đồ: mac dinh tắt (file cu + file moi)
   // Dong hanh: o trang bi (save cu chua co) — chi giu mon hop le (co base/mag, khong phai ngua d 10)
   s.rw.pet = s.rw.pet && typeof s.rw.pet === 'object' ? s.rw.pet : null;
   /* Dong hanh: chuan hoa o trang bi cua MOI con trong roster — save cu co the dung key petW/petA/petJ

@@ -308,8 +308,8 @@ export function draw(dt) {
   }
   R.corpses = R.corpses.filter(e => e.actT < 1.6);
   drawPet(c, dt);                                                           // dong hanh (rewards.js)
-  // ke dich (sap theo y de nguoi o duoi ve sau)
-  const ents = R.enemies.filter(e => !e.dead).concat([{ hero: true, y: H.y }]).sort((a, b) => a.y - b.y);
+  // ke dich (sap theo y de nguoi o duoi ve sau); bãi quái có thể có 240 con — chỉ vẽ con trong khung nhìn
+  const ents = R.enemies.filter(e => !e.dead && onScreen(e.x, e.y, 170)).concat([{ hero: true, y: H.y }]).sort((a, b) => a.y - b.y);
   for (const e of ents) {
     if (e.hero) {
       c.fillStyle = '#0007'; c.beginPath(); c.ellipse(H.x, H.y, 16, 6, 0, 0, 7); c.fill();
