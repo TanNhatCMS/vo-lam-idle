@@ -10,3 +10,7 @@ public/fx/
 
 # TypeScript build cache
 *.tsbuildinfo
+
+# Playwright output
+test-results/
+playwright-report/
