@@ -29,7 +29,11 @@ export const SLOT_N = 3, SLOT_PTR = 'jxidle_slot';
 export let SLOT = 0, SAVE_LOCK = false;                 // SAVE_LOCK: dang xoa / doi nhan vat -> moi lan save() (pagehide, an tab...) bi chan, khong ghi lai nhan vat vua xoa
 const slotKey = i => i === 0 ? 'jxidle' : 'jxidle_' + (i + 1);
 const saveKey = () => slotKey(SLOT);
-export let S: SaveState;
+/* S luon co san (save mac dinh ngay luc nap module): cac island React co the
+   goi ham game (bam nut, chuyen tab) trong khoang chong React mount -> boot(),
+   hoac khi HMR nap lai module (dev) — doc S.fac=null -> cac ham early-return
+   thay vi crash "Cannot read properties of undefined (reading 'eq'/'fac'/...)". */
+export let S: SaveState = newSave();                 // newSave khai bao ben duoi hoist duoc
 /* Gan lai bien cap module — module khac (loop.js, ui.js) khong gan duoc bien import truc tiep */
 export function setSlot(v) { SLOT = v; }
 export function setSaveLock(v) { SAVE_LOCK = v; }
