@@ -38,11 +38,15 @@ object OtaManager {
      * Cau hinh OTA theo variant: build thuong (debug/release) deu dung GitHub
      * production; build voi co -PotaLocal (chi debug) tro toan bo OTA ve server
      * local — MANIFEST_URL thay bang OTA_LOCAL_BASE + "assets-manifest.json",
-     * URL ZIP trong manifest thay bang OTA_LOCAL_BASE + zipName. Khong phai sua
-     * URL tay trong code/manifest khi test nua.
+     * RELEASES_API thay bang OTA_LOCAL_BASE + "releases.json", URL ZIP trong
+     * manifest thay bang OTA_LOCAL_BASE + zipName. Khong phai sua URL tay
+     * trong code/manifest khi test nua.
      */
     private fun manifestUrl(): String =
         if (BuildConfig.OTA_LOCAL) BuildConfig.OTA_LOCAL_BASE + "assets-manifest.json" else MANIFEST_URL
+
+    private fun releasesApiUrl(): String =
+        if (BuildConfig.OTA_LOCAL) BuildConfig.OTA_LOCAL_BASE + "releases.json" else RELEASES_API
 
     private fun zipUrlFrom(o: JSONObject): String =
         if (BuildConfig.OTA_LOCAL) BuildConfig.OTA_LOCAL_BASE + o.getString("zipName") else o.getString("zipUrl")
@@ -180,16 +184,44 @@ object OtaManager {
     }
 
     /**
+     * Verify tài nguyên ĐÃ CÀI theo index (không cần mạng) — phát hiện
+     * file bị hỏng/thiếu (bit-rot, đầy dung lượng, ghi dở...). Mở app
+     * chạy ngay: có file lỗi → đề nghị sửa (tải lại gói bị lỗi) trước
+     * khi vào game. onProgress(done, total) gọi trên thread này — UI
+     * tự bóc ra main thread. Trả rỗng nếu chưa cài gì hoặc toàn bộ
+     * file đúng hash.
+     */
+    fun verifyInstalled(ctx: Context, onProgress: (Int, Int) -> Unit): List<String> {
+        val idx = loadIndex(ctx)
+        if (idx.files.isEmpty()) return emptyList()
+        val dir = assetsDir(ctx)
+        val broken = ArrayList<String>()
+        var i = 0
+        val total = idx.files.size
+        for ((path, sha) in idx.files) {
+            val f = File(dir, path)
+            if (!f.isFile || hash(f) != sha) broken.add(path)
+            i++
+            if (i % 50 == 0) onProgress(i, total)
+        }
+        onProgress(total, total)
+        return broken
+    }
+
+    /**
      * Release mới nhất CÓ file APK (duyet danh sach releases moi nhat truoc; bo qua
      * ban chi vá data khong kem APK — neu khong app se bao cap nhat APK trong khi
      * release do khong co file de tai). Kem URL + dung luong file APK; null neu
      * khong co/loi.
      */
     fun fetchNewestApkRelease(): ReleaseInfo? = try {
-        val req = Request.Builder().url(RELEASES_API)
+        val req = Request.Builder().url(releasesApiUrl())
             .header("Accept", "application/vnd.github+json").build()
         http.newCall(req).execute().use { resp ->
-            if (!resp.isSuccessful) return null
+            if (!resp.isSuccessful) {
+                Log.w(TAG, "fetchNewestApkRelease: HTTP ${resp.code}")
+                return null
+            }
             val arr = org.json.JSONArray(resp.body!!.string())
             for (i in 0 until arr.length()) {
                 val obj = arr.getJSONObject(i)
