@@ -17,7 +17,7 @@ import {
 import { JFX } from './jdata';
 import { lootMatch } from './loot';
 import { OBS } from './mapobs';
-import { drawPet } from './rewards';
+import { drawPet, titleWorn } from './rewards';
 import { drawJxHero } from './look';
 import { TK_WAVES } from './activities';
 import { S } from './save';
@@ -323,7 +323,8 @@ export function draw(dt) {
       // nhan vat ghep bo phan (look.ts, du lieu img/jx): co thi ve truoc, thieu thi roi ve hinh mon phai cu
       const jxH = R.jx ? drawJxHero(H.act || 'st', H.dir || 0, H.actT || 0, H.x, H.y, HERO_SCALE * 0.6, R.deadT > 0 ? 0.35 : 1, H.animKey) : false;
       const drawn = jxH !== false ? jxH : (hw && hw.anim && drawAnim(hw.anim, H.act || 'st', H.dir || 0, H.actT || 0, H.x, H.y, HERO_SCALE));
-      label(H.x, H.y - (drawn ? Math.min(drawn, 90) * 0.9 : 52) - 6, `${S.name || (FAC[S.fac] && FAC[S.fac].n) || ''} · Lv${S.lvl}`, NAME_COL.hero, 12, R.life / Math.max(1, R.P.life), '#4fd04f');
+      const tw = titleWorn();
+      label(H.x, H.y - (drawn ? Math.min(drawn, 90) * 0.9 : 52) - 6, `${tw ? `«${tw.n}» ` : ''}${S.name || (FAC[S.fac] && FAC[S.fac].n) || ''} · Lv${S.lvl}`, NAME_COL.hero, 12, R.life / Math.max(1, R.P.life), '#4fd04f');
       if (!drawn && !(hw && drawSprite(img(hw.img), hw.sz, H.x, H.y, 0.9, H.face < 0, R.deadT > 0 ? 0.35 : 1))) { c.fillStyle = SERIES_COL[heroSeries()]; c.beginPath(); c.arc(H.x, H.y - 20, 14, 0, 7); c.fill(); }
       if (R.hurtT > 0) { c.fillStyle = '#f004'; c.beginPath(); c.arc(H.x, H.y - 24, 20, 0, 7); c.fill(); }
       continue;
