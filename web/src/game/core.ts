@@ -115,7 +115,9 @@ export const DETAIL_SLOT = ['weapon', 'weapon', 'armor', 'ring', 'amulet', 'boot
 export const MELEE_KIND = ['sword', 'blade', 'wand', 'spear', 'hammer', 'dualblades'], RANGE_KIND = ['darts', 'knife', 'crossbow'];
 export const AFFIX_KEY = { armor: 'armor', ring: 'ring', amulet: 'necklace', boot: 'boot', belt: 'belt', helm: 'helm', cuff: 'cuff', pendant: 'pendant' };
 export const RAR_VI = ['Thường', 'Xanh', 'Vàng', 'Tím', 'Hoàng Kim', 'Bạch Kim'], RAR_COL = ['#e8e0d0', '#6aa8ff', '#ffd24a', '#c77bff', '#ffb52e', '#eaf6ff'];
-export const INV_MAX = 60;
+export const INV_MAX = 60, INV_EXPANSION_STEP = 10, INV_EXPANSION_MAX = 4;
+/* so o hanh trang (mo rong) tinh o invs.ts — core giu nguyen nhap ngan (jdata/mapobs) de tranh chu ky module
+   (sets.ts dung J ngay luc module-init, neu core nhap save/shop se gap J truoc khi khoi tao) */
 /* Cuong hoa trang bi (forge.js): moi cap +8% thuoc tinh goc (sat thuong vu khi, phong thu, khang goc...) */
 export const ENH_MAX = 10, ENH_STEP = 0.08;
 export const PLAT_STEP = 0.05;   // Bach Kim: moi cap thang +5% thuoc tinh goc (Uoc luong)

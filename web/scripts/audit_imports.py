@@ -43,8 +43,9 @@ for dp, dn, fn in os.walk(SRC):
             if not re.search(pat, t): continue
             if re.search(r'(function|const|let|var)\s+' + re.escape(name) + r'\s*[=(]', t): continue     # dinh nghia cuc bo
             if re.search(r'export\s+(function|const)\s+' + re.escape(name) + r'\b', t): continue
-            # tham so ham trung ten (vd thanMaBind(refresh), bindBuilds(rerender))
-            if re.search(r'\(\s*' + re.escape(name) + r'\b', t): continue
+            # tham so / doi so ham trung ten (vd thanMaBind(refresh), bindBuilds(rerender))
+            # NHUNG khong phap goi long: stageLevel(clamp(...)) — ten ngay sau ( la goi ham, phai kiem import
+            if re.search(r'\(\s*' + re.escape(name) + r'\b(?!\s*\()', t): continue
             if name in imports: continue
             bad.append(f'{p}: dung {name}() nhung khong import (nen tu ./{src})')
 

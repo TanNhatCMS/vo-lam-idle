@@ -1,5 +1,6 @@
 // @ts-nocheck — chuyen tu vanilla JS: bat lai check tung file dan dan (xem README muc TypeScript)
 import { $, DETAIL_SLOT, MAX_LEVEL, RAR_VI, clamp, esc, fmt } from './core';
+import { invMax } from './invs';
 import { FUSE_SLOTS, fuse, fuseCost } from './recipes';
 import { itemPower, itemValue, lootMatch } from './loot';
 import { stashMax, stashRead, stashTx } from './stash';
@@ -253,7 +254,7 @@ export function donKhoModal(source, afterSell = refresh) {
   modal(`<h3>Bán đồ · theo lọc</h3>
     <p class="desc">Chọn nơi và loại đồ cần bán. Có thể luyện trang sức thừa thành Huyền Tinh; xem trước số món, tiền nhận và phí luyện trước khi thực hiện.</p>
     <div class="card"><b>Bán ở đâu</b><div class="donkho-options">
-      ${check('inv', `Hành trang <small class="dim">${S.inv.length}/60</small>`)}
+      ${check('inv', `Hành trang <small class="dim">${S.inv.length}/${invMax()}</small>`)}
       ${check('st', `Kho chung <small class="dim">${err ? 'không đọc được' : `${st.items.length}/${stashMax()}`} · dùng chung 3 nhân vật, theo bộ lọc nhân vật này</small>`)}
     </div></div>
     <div class="card"><b>Bán gì</b><div class="donkho-options">

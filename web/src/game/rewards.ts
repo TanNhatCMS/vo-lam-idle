@@ -12,12 +12,12 @@ import {
   zoneOf,
 } from './combat';
 import { backFromTown } from './control';
+import { invMax } from './invs';
 import {
   $,
   DETAIL_SLOT,
   FAC,
   FD_LEVEL_COST,
-  INV_MAX,
   J,
   MAX_LEVEL,
   MON,
@@ -100,7 +100,7 @@ const dayKey = d => `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
 const today = () => dayKey(new Date());
 const weekKey = d => { const t = new Date(d.getFullYear(), d.getMonth(), d.getDate()); t.setDate(t.getDate() - (t.getDay() + 6) % 7); return dayKey(t); };   // Thu Hai cua tuan: doi tuan -> key doi
 export const GB_EVERY = 1800, GB_RETRY = 300;     // trum Hoang Kim: moi 30 phut choi; thua thi 5 phut sau quay lai
-const REBORN_LV = MAX_LEVEL, REBORN_MAX = 10;  // chuyen sinh toi da 10 lan (TS1-TS5 tam phap, TS6-TS10 diem Thap II — theo ban vinarpg)
+export const REBORN_LV = MAX_LEVEL, REBORN_MAX = 10;  // chuyen sinh toi da 10 lan (TS1-TS5 tam phap, TS6-TS10 diem Thap II — theo ban vinarpg)
 const FD_COST = 10;
 export function RW() { // trang thai phan thuong trong file luu (tao / bo sung truong khi nap file cu)
   const r = S.rw || (S.rw = {});
@@ -562,7 +562,7 @@ export function petWants(it) {
   if (!r || !r.petF || r.petF.keep === 0) return false;         // nguoi choi tat giu do pet
   if (!p) return false;                                         // chua dan pet nao: khong giu do cho pet (truoc day doc p.tid -> crash null)
   const slot = petSlotFor(it); if (!slot || !petUnlocked()) return false;
-  if (S.inv.length >= INV_MAX - 6) return false;               // tui gan day: nhuong cho, ban nhu thuong
+  if (S.inv.length >= invMax() - 6) return false;               // tui gan day: nhuong cho, ban nhu thuong
   const elem = petElemOf(p.tid);
   const okElem = x => !r.petF.elemOnly || x.s === elem;
   if (!okElem(it)) return false;                               // bo loc: chi giu do cung he pet
@@ -582,7 +582,7 @@ function petEquip(slot, it, quiet) {
 }
 function petUnequip(slot) {
   const p = petCur(); if (!p || !p.eq || !p.eq[slot]) return;
-  if (S.inv.length >= INV_MAX) { toast('Hành trang đầy'); return; }
+  if (S.inv.length >= invMax()) { toast('Hành trang đầy'); return; }
   S.inv.unshift(p.eq[slot]); delete p.eq[slot];
   R.dirty = true; setInvDirty(true); save(); closeModal(true); refresh();
 }
