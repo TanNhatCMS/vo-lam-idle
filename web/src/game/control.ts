@@ -187,7 +187,7 @@ export function bindControls() {
     const [x, y] = pos(ev); INPUT.x = x; INPUT.y = y;
     if (INPUT.mouse) { const [wx, wy] = inWorld(x + CAM.x, y + CAM.y); INPUT.target = { x: wx, y: wy }; return; }   // giu chuot: di theo con tro
     if (joyFixed() && !INPUT.fromJoy) return;                   // joystick co dinh: keo ngoai vung khong di chuyen
-    if (!INPUT.moved && Math.hypot(x - INPUT.ox, y - INPUT.oy) > TAP_MOVE) { INPUT.moved = true; INPUT.target = null; if (!manual()) setCtrl('manual'); }
+    if (!INPUT.moved && Math.hypot(x - INPUT.ox, y - INPUT.oy) > TAP_MOVE) { INPUT.moved = true; INPUT.target = null; if (typeof (window as any).hideWorldChatFrameForJoystick === 'function') (window as any).hideWorldChatFrameForJoystick(); if (!manual()) setCtrl('manual'); }
   });
   const up = ev => {
     { const [mx, my] = mpos(ev); if (minimapPointerUp(ev.pointerId)) return; }

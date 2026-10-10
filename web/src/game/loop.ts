@@ -10,6 +10,7 @@ import { restoreGround } from './loot';
 import { R, H, zoneOf, tick, recalc } from './combat';
 import { S, newSave, save, pickSlot, load, offlineGains, setS, setSlot } from './save';
 import { CV, img, isMobileUI, resizeArena, snapCamera, draw, setCanvas } from './render';
+import { initWorldChat } from './chat';
 import { AUD, sndCfg, audInit, uiSfx, playMusic, preloadZoneSounds, audioSuspendForBackground, audioResumeFromBackground } from './audio';
 import {
   curTab,
@@ -144,6 +145,7 @@ export async function boot() {
   applyUiPrefs();
   fitApp();
   bindControls();
+  initWorldChat();                 // khung chat the gioi (offline: xem nhat ky he thong)
   window.addEventListener('resize', fitApp); window.addEventListener('orientationchange', fitApp);
   if (window.visualViewport) window.visualViewport.addEventListener('resize', fitApp);
   const unlock = () => { audInit(); const z = zoneOf(Math.min(S.stage, STAGES)); preloadZoneSounds(z); if (AUD.music && sndCfg().music && AUD.music.paused) AUD.music.play().catch(() => {}); else if (!AUD.music && S.fac) playMusic(R.town ? W.town.id : z.id); };

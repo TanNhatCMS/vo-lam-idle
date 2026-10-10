@@ -12,7 +12,7 @@ import { closeModal, modal, toast, updateDots } from './ui';
    chiêu chính) để đổi lối chơi nhanh; dùng bộ chỉ thu phí khi đổi phân bổ điểm. */
 'use strict';
 export const buildN = () => 3 + clanPerk('build');   // gia toc: +1 bo moi moc danh vong
-const sumObj = o => Object.values(o || {}).reduce((a, b) => a + (+b || 0), 0);
+export const sumObj = o => Object.values(o || {}).reduce((a, b) => a + (+b || 0), 0);
 const skillPointCount = skills => Object.entries(skills || {}).reduce((n, [, level]) => n + (+level || 0), 0);
 const samePoints = (a, b) => { const keys = new Set([...Object.keys(a || {}), ...Object.keys(b || {})]); return [...keys].every(k => (+((a || {})[k]) || 0) === (+((b || {})[k]) || 0)); };
 const sameSkillPoints = (a, b) => samePoints(a, b);
@@ -23,13 +23,13 @@ export function chargePointRefund(kind) {
   if (S.gold < cost) { toast(`Cần ${fmt(cost)} lượng để rút lại 1 điểm`); return 0; }
   S.gold -= cost; return cost;
 }
-function respecAttrs() { const n = sumObj(S.attr); if (!n) return 0; S.attrPts += n; S.attr = { str: 0, dex: 0, vit: 0, eng: 0 }; R.dirty = true; return n; }
+export function respecAttrs() { const n = sumObj(S.attr); if (!n) return 0; S.attrPts += n; S.attr = { str: 0, dex: 0, vit: 0, eng: 0 }; R.dirty = true; return n; }
 function respecSkills() {
   if (!sumObj(S.sk)) return 0;
   const n = skillPointCount(S.sk);
   S.skPts += n; S.sk = {}; S.slots = [0, 0, 0, 0]; S.main = 0; S.mainLock = false; R.dirty = true; return n;
 }
-function respecQuote(scope) {
+export function respecQuote(scope) {
   const attrs = scope === 'skill' ? 0 : sumObj(S.attr), hasSkills = scope !== 'attr' && sumObj(S.sk) > 0;
   const skills = scope === 'attr' ? 0 : skillPointCount(S.sk);
   return { attrs, skills, hasSkills, gold: (attrs ? respecCost('attr') : 0) + (hasSkills ? respecCost('skill') : 0) };
@@ -43,7 +43,7 @@ function respecPoints(scope) {
   recalc(); fillSlots(); R.dirty = true;
   return { ok: true, attrs, skills, gold: q.gold, msg: `Đã trả ${attrs} điểm tiềm năng và ${skills} điểm kỹ năng · phí ${fmt(q.gold)} lượng` };
 }
-function respecModal(scope, rerender) {
+export function respecModal(scope, rerender) {
   const q = respecQuote(scope);
   if (!q.attrs && !q.hasSkills) { toast('Chưa có điểm đã cộng để tẩy'); return; }
   const title = scope === 'attr' ? 'Tẩy điểm tiềm năng?' : scope === 'skill' ? 'Tẩy điểm kỹ năng?' : 'Tẩy toàn bộ điểm?';

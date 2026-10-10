@@ -50,7 +50,7 @@ import { bindQuickBar, jrModal, quickBarHTML } from './journal';
 import { titleModal, titleProgress, titleWorn } from './rewards';
 import { CHALLENGES, chalName, clanModal } from './depth';
 import { SK_KIND_VI, skKind, skillAuraHint, skillBuffHint, skillTypeLabel } from './skillsys';
-import { bindBuilds, buildsHTML, chargePointRefund } from './builds';
+import { bindBuilds, buildsHTML, chargePointRefund, pointRefundCost, respecModal, respecQuote, sumObj } from './builds';
 import { bindTodo, codexModal, powerModal, suggestModal, todoHTML, tutorialModal } from './guide';
 import { adminModal } from './admin';
 import { UI_FS, UI_FS_NAME, guard, onZoneChange, setCompact, setUiPref, uiPrefs } from './loop';
@@ -112,7 +112,7 @@ import {
 'use strict';
 export let curTab = 'log', invDirty = true;
 export function setInvDirty(v) { invDirty = v; }
-export function log(h) { if (R.quiet) return; R.logs.unshift(h); if (R.logs.length > 40) R.logs.pop(); R.logDirty = true; }
+export function log(h) { if (R.quiet) return; R.logs.unshift(h); if (R.logs.length > 40) R.logs.pop(); R.logDirty = true; if (typeof window.syncWorldChatSystem === 'function') window.syncWorldChatSystem(R.logs); }
 export let toastT; export function toast(t) { const el = $('#toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('on'), 1800); }
 export function modal(html, bind?, locked?) { const m = $('#modal'); m.classList.remove('modal-entering'); void m.offsetWidth; m.classList.add('modal-entering'); $('#mBody').innerHTML = html; m.classList.remove('hidden'); m.dataset.locked = locked ? '1' : ''; if (bind) bind(); try { $('#modal .mbox').focus({ preventScroll: true }); } catch (e) { /* bo qua */ } }
 export function closeModal(force?) { if ($('#modal').dataset.locked && !force) return; $('#modal').classList.remove('modal-entering'); $('#modal').classList.add('hidden'); }
@@ -275,27 +275,47 @@ function gotoStage(st) {
 
 /* ---------- the: nhan vat ---------- */
 export const ATTR_VI = { str: 'Sức mạnh', dex: 'Thân pháp', vit: 'Sinh khí', eng: 'Nội công' };
+let attrEditKey = null, attrEditValue = '1';
 function renderChar() {
   const P = R.P, f = FAC[S.fac];
+  const elementCycle = [...SERIES, SERIES[0]].map((name, i) => `<span style="color:${SERIES_COL[i % SERIES.length]}">${name}</span>`).join('→');
   const eq = SLOTS.map(([k, vi]) => `<div class="slot" data-slot="${k}">${S.eq[k] ? itemCell(S.eq[k]) : `<span>${vi}</span>`}</div>`).join('');
-  const attrs = Object.keys(ATTR_VI).map(k => `<div class="attr"><span>${ATTR_VI[k]}</span><b>${Math.round(P[k])}</b><span class="pm"><button class="plus" data-a="${k}" ${S.attrPts ? '' : 'disabled'}>+</button><button class="minus" data-a="${k}" title="Rút lại 1 điểm" ${S.attr[k] > 0 ? '' : 'disabled'}>−</button></span></div>`).join('');
+  const attrs = Object.keys(ATTR_VI).map(k => `<div class="attr${attrEditKey === k ? ' editing' : ''}"><span>${ATTR_VI[k]}</span><b title="${S.attr[k]} điểm tiềm năng đã cộng">${Math.round(P[k])}</b><span class="pm">${attrEditKey === k
+    ? `<input class="attr-point-input" id="attrPointInput" type="number" min="0" max="${S.attrPts}" step="1" value="${esc(attrEditValue)}" aria-label="Tổng điểm tiềm năng phân bổ vào ${ATTR_VI[k]}"><button class="attr-apply" data-apply-a="${k}" aria-label="Xác nhận thay đổi ${ATTR_VI[k]}">✓</button><button class="attr-cancel" data-cancel-a="${k}" aria-label="Hủy chỉnh ${ATTR_VI[k]}">Hủy</button>`
+    : `<button class="plus" data-a="${k}" aria-label="Cộng 1 điểm ${ATTR_VI[k]}" ${S.attrPts ? '' : 'disabled'}>+</button><button class="attr-edit" data-edit-a="${k}" aria-label="Chỉnh số điểm tiềm năng ${ATTR_VI[k]}" title="Chỉnh điểm đã cộng; giảm điểm sẽ tốn ${fmt(pointRefundCost('attr'))} lượng mỗi điểm">*</button><button class="minus" data-a="${k}" title="Rút lại 1 điểm · ${fmt(pointRefundCost('attr'))} lượng" ${S.attr[k] > 0 ? '' : 'disabled'}>−</button>`}</span></div>`).join('');
+  const deadWorn = Object.values(S.eq).filter(it => it && !reqOk(it));
   const res = ELEM.map(e => `<span>Kháng ${ELEM_VI[e]}</span><span>${Math.round(P.res[e])}%</span>`).join('');
   const tp = titleProgress(), tw = titleWorn();
-  $('#t-char').innerHTML = `<div class="card"><b style="color:${SERIES_COL[f.series]}">${esc(f.n)}</b> · hệ ${SERIES[f.series]} · Cấp ${S.lvl}${S.chal ? ` · <b>Thử thách ${chalName()}</b>` : ''}<br>
-    <div class="char-power-row"><small class="dim">Lực chiến ${fmt(R.power)}</small></div>
-    <div class="char-title-row"><small class="char-title-worn dim">Tên danh hiệu: ${tw ? `<b style="color:#f3d88a">«${esc(tw.n)}»</b>` : 'Chưa đeo'}</small></div>
-    <div class="char-actions-row"><button class="btn sm title-count-btn" id="bTitle">Danh hiệu ${tp.owned}/${tp.total}</button><button class="btn sm detail-count-btn" id="bPower">Chi tiết</button></div></div>
+  $('#t-char').innerHTML = `<div class="card"><b style="color:${SERIES_COL[f.series]}">${esc(f.n)}</b> · hệ ${SERIES[f.series]} · Cấp ${S.lvl}${S.chal ? ` · <b>Thử thách ${chalName()}</b>` : ''}<div class="char-power-row"><small class="dim">Lực chiến ${fmt(R.power)}</small></div><div class="char-title-row"><small class="char-title-worn dim" title="${tw ? `Tên danh hiệu: ${esc(tw.n)}` : 'Tên danh hiệu: Chưa đeo'}">Tên danh hiệu: ${tw ? `<b style="color:#f3d88a">«${esc(tw.n)}»</b>` : 'Chưa đeo'}</small></div><div class="char-actions-row"><button class="btn sm title-count-btn" id="bTitle">Danh hiệu ${tp.owned}/${tp.total}</button><button class="btn sm detail-count-btn" id="bPower">Chi tiết</button></div></div>
+    ${deadWorn.length ? `<div class="reqbad"><b>⚠ ${deadWorn.length} món đang mặc chưa đủ điều kiện nên KHÔNG có tác dụng:</b> ${deadWorn.map(it => esc(it.n) + ' (' + esc(reqProblems(it).join('; ')) + ')').join(' · ')}</div>` : ''}
     <div class="eqgrid">${eq}</div>
-    <p class="dim small">Dòng ẩn (2, 4, 6) của mỗi món mở khi hệ nhân vật hoặc 2 món liên kết <b>tương sinh</b> với hệ món đó (Kim→Thủy→Mộc→Hỏa→Thổ→Kim). Đang mở: ${SLOTS.filter(([k]) => S.eq[k] && S.eq[k].mag.length > 1).map(([k, vi]) => `${vi} ${hiddenActive(S.eq[k])}/${Math.floor(S.eq[k].mag.length / 2)}`).join(' · ') || '—'}</p>
-    <h3>Tiềm năng <small>${S.attrPts} điểm</small> <button class="btn sm" id="bSugAt">Gợi ý</button></h3><div class="card">${attrs}</div>
+    <p class="dim small">Dòng ẩn (2, 4, 6) của mỗi món mở khi hệ nhân vật hoặc 2 món liên kết <b>tương sinh</b> với hệ món đó (${elementCycle}). Đang mở: ${SLOTS.filter(([k]) => S.eq[k] && S.eq[k].mag.length > 1).map(([k, vi]) => `${vi} ${hiddenActive(S.eq[k])}/${Math.floor(S.eq[k].mag.length / 2)}`).join(' · ') || '—'}</p>
+    <h3 class="attr-heading"><span>Tiềm năng</span><span class="attr-heading-controls"><small>${S.attrPts} điểm chưa cộng</small><button class="attr-respec" id="bRespecAt" aria-label="Tẩy tiềm năng" ${sumObj(S.attr) ? '' : 'disabled'} title="Tẩy tiềm năng · ${fmt(respecQuote('attr').gold)} lượng">−</button><button class="attr-suggest" id="bSugAt">Gợi ý</button></span></h3>
+    <p class="dim small">Đã phân bổ ${sumObj(S.attr).toLocaleString('vi-VN')}, chưa cộng ${S.attrPts.toLocaleString('vi-VN')}.</p><div class="card">${attrs}</div>
     <h3>Chỉ số</h3><div class="card stats">
       <span>Sinh lực</span><span>${fmt(P.life)}</span><span>Nội lực</span><span>${fmt(P.mana)}</span>
       <span>Sát thương vũ khí</span><span>${Math.round(P.wmin)}–${Math.round(P.wmax)}</span>
       <span>Chiêu chính</span><span>${esc(P.main.n)} (${fmt(P.main.tot)})</span>
       <span>Chính xác</span><span>${Math.round(P.ar)}</span><span>Né tránh</span><span>${Math.round(P.def)}</span>
       <span>Chí mạng</span><span>${Math.round(P.main.crit)}%</span><span>Tốc độ đánh</span><span>${P.aspd.toFixed(2)}</span>${res}</div>`;
-  document.querySelectorAll('#t-char .plus').forEach(b => b.onclick = () => { if (!S.attrPts) return; S.attrPts--; S.attr[b.dataset.a]++; R.dirty = true; recalc(); renderChar(); });
-  $('#bTitle').onclick = () => titleModal(); $('#bPower').onclick = powerModal; $('#bSugAt').onclick = suggestModal;
+  document.querySelectorAll('#t-char .plus').forEach(b => b.onclick = () => { const k = b.dataset.a; if (!S.attrPts) return; S.attr[k]++; S.attrPts--; R.dirty = true; recalc(); renderChar(); });
+  document.querySelectorAll('#t-char [data-edit-a]').forEach(b => b.onclick = () => { attrEditKey = b.dataset.editA; attrEditValue = String(S.attr[attrEditKey] || 0); renderChar(); const input = $('#attrPointInput'); if (input) { input.focus(); input.select(); } });
+  const attrPointInput = $('#attrPointInput');
+  if (attrPointInput) {
+    attrPointInput.oninput = e => { const max = S.attrPts; if (e.target.value !== '' && Number(e.target.value) > max) e.target.value = String(max); attrEditValue = e.target.value; };
+    attrPointInput.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); const ap = document.querySelector('#t-char [data-apply-a]'); if (ap) ap.click(); } if (e.key === 'Escape') { attrEditKey = null; renderChar(); } };
+    document.querySelector('#t-char [data-cancel-a]').onclick = () => { attrEditKey = null; renderChar(); };
+    document.querySelector('#t-char [data-apply-a]').onclick = () => {
+      const target = Number(attrPointInput.value), k = attrEditKey, current = S.attr[k] || 0, delta = target - current;
+      if (!attrPointInput.value.trim() || !Number.isInteger(target) || target < 0) { toast('Nhập số điểm từ 0 trở lên'); attrPointInput.focus(); return; }
+      if (delta > S.attrPts) { toast(`Bạn chỉ còn ${S.attrPts} điểm tiềm năng`); attrPointInput.focus(); attrPointInput.select(); return; }
+      const refund = Math.max(0, -delta), fee = refund * pointRefundCost('attr');
+      if (refund && S.gold < fee) { toast(`Cần ${fmt(fee)} lượng để rút ${refund} điểm`); attrPointInput.focus(); attrPointInput.select(); return; }
+      S.gold -= fee; S.attrPts -= delta; S.attr[k] = target; R.dirty = true; attrEditKey = null; attrEditValue = '0'; recalc(); renderChar(); save();
+      if (refund) toast(`Đã giảm ${refund} điểm ${ATTR_VI[k]} · −${fmt(fee)} lượng`);
+    };
+  }
+  $('#bTitle').onclick = () => titleModal(); $('#bPower').onclick = powerModal; $('#bSugAt').onclick = suggestModal; $('#bRespecAt').onclick = () => respecModal('attr', renderChar);
   document.querySelectorAll('#t-char .minus').forEach(b => b.onclick = () => unspendAttr(b.dataset.a));
   document.querySelectorAll('#t-char .slot .it').forEach(b => b.onclick = () => itemModal(findItem(b.dataset.uid), b.parentNode.dataset.slot));
 }
