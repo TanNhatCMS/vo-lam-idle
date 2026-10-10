@@ -62,7 +62,7 @@ object OtaManager {
         val remove: List<String>,
     )
 
-    class Manifest(val version: String, val data: ZipPart, val assets: ZipPart, val patch: Patches)
+    class Manifest(val version: String, val data: ZipPart, val assets: ZipPart, val patch: Patches, val notes: String)
 
     /** Bản vá từng gói: data hay đổi (~4MB), assets ít đổi (~115MB). */
     class Patches(val data: PatchPart?, val assets: PatchPart?)
@@ -74,7 +74,7 @@ object OtaManager {
         val files: Map<String, String>,
     )
 
-    class ReleaseInfo(val tag: String, val url: String, val apkUrl: String?, val apkSize: Long)
+    class ReleaseInfo(val tag: String, val url: String, val apkUrl: String?, val apkSize: Long, val notes: String)
 
     private val http: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)
@@ -147,7 +147,7 @@ object OtaManager {
             patchJson?.optJSONObject("data")?.let { parsePatch(it) },
             patchJson?.optJSONObject("assets")?.let { parsePatch(it) },
         )
-        Manifest(obj.getString("version"), zipPart("data"), zipPart("assets"), patches)
+        Manifest(obj.getString("version"), zipPart("data"), zipPart("assets"), patches, obj.optString("notes", ""))
     } catch (e: Exception) {
         Log.w(TAG, "fetchManifest: ${e.message}")
         null
@@ -207,7 +207,7 @@ object OtaManager {
                     }
                 }
                 if (apkUrl != null) {
-                    return ReleaseInfo(obj.getString("tag_name"), obj.getString("html_url"), apkUrl, apkSize)
+                    return ReleaseInfo(obj.getString("tag_name"), obj.getString("html_url"), apkUrl, apkSize, obj.optString("body", ""))
                 }
             }
             null

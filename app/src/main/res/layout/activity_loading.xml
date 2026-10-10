@@ -65,6 +65,18 @@
             android:layout_marginTop="10dp"
             android:visibility="gone"
             android:text="Cập nhật app" />
+
+        <TextView
+            android:id="@+id/otaApkNotes"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center"
+            android:maxLines="4"
+            android:scrollbars="vertical"
+            android:textColor="#9AA79B"
+            android:textSize="11sp"
+            android:visibility="gone" />
     </LinearLayout>
 
     <TextView

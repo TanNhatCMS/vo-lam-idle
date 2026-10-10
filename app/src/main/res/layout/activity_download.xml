@@ -55,6 +55,17 @@
                 android:textColor="#E8D8A8"
                 android:textSize="13sp"
                 android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/otaNotes"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:maxLines="6"
+                android:scrollbars="vertical"
+                android:textColor="#C8D4C8"
+                android:textSize="12sp"
+                android:visibility="gone" />
         </LinearLayout>
 
         <ProgressBar
