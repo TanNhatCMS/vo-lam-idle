@@ -421,26 +421,52 @@ class MainActivity : ComponentActivity() {
             val manifest = OtaManager.fetchManifest()
             val rel = OtaManager.fetchNewestApkRelease()   // chỉ release CÓ file APK — bản chỉ-vá-data không rao update APK
             val idx = OtaManager.loadIndex(this)
+            // Kiểm tra hash từng file tài nguyên đã cài (theo index —
+            // không cần mạng): phát hiện file hỏng/thiếu để đề nghị
+            // sửa lỗi trước khi vào game.
+            var verified = false
+            val broken = if (idx.files.isNotEmpty()) {
+                verified = true
+                OtaManager.verifyInstalled(this) { d, t ->
+                    runOnUiThread { showVerifyProgress(ui, d, t) }
+                }
+            } else emptyList()
+            Log.d(TAG, "ota: manifest=${manifest != null} rel=${rel?.tag} idx=${idx.dataVersion != null}/${idx.assetsVersion != null} broken=${broken.size}")
             runOnUiThread {
+                hideVerifyProgress(ui)
                 if (rel != null) {
                     val current = try {
                         packageManager.getPackageInfo(packageName, 0).versionName
                     } catch (e: Exception) {
                         null
                     }
+                    Log.d(TAG, "ota: current=$current newer=${current != null && isNewerVersion(rel.tag, current)}")
                     if (current != null && isNewerVersion(rel.tag, current)) {
                         apkRelease = rel
                         showApkUpdateButton(ui)
                     }
                 }
+                // Cùng bản data+assets (dù file có hỏng) → không phải
+                // cập nhật, chỉ cần sửa (nếu hỏng) rồi vào game.
+                val sameVersion = manifest != null &&
+                    idx.dataVersion == manifest.data.sha256 && idx.assetsVersion == manifest.assets.sha256
                 when {
                     // Mất mạng nhưng đã từng cài đủ (data + assets) → chơi tiếp
-                    manifest == null && idx.dataVersion != null && idx.assetsVersion != null -> startGame()
+                    manifest == null && idx.dataVersion != null && idx.assetsVersion != null -> {
+                        if (broken.isNotEmpty()) showRepairDialog(broken, null, idx) else startGame()
+                    }
                     manifest == null ->
                         showLoadingError(ui, "Không tải được dữ liệu game.\nCần kết nối mạng cho lần chạy đầu tiên.")
-                    OtaManager.installedUpToDate(this, manifest) -> {
+                    sameVersion && broken.isNotEmpty() -> {
+                        // Cùng bản nhưng có file hỏng/thiếu → đề nghị sửa trước khi vào game
+                        Log.d(TAG, "ota: sameVersion broken=${broken.size} -> repair dialog")
+                        showRepairDialog(broken, manifest, idx)
+                    }
+                    sameVersion -> {
+                        Log.d(TAG, "ota: upToDate apkRelease=${apkRelease?.tag}")
                         loadingBaseStatus = "Đã sẵn sàng"
                         status.text = loadingBaseStatus
+                        if (verified) dotsHandler.postDelayed(dotsRunnable, 450) // nháy chấm như cũ (verify đã tạm dừng)
                         if (apkRelease != null) {
                             // Có bản APK mới — dừng lại để user thấy nút cập nhật; "Vào game" để bỏ qua
                             ui.findViewById<Button>(R.id.loadingRetry).apply {
@@ -450,7 +476,7 @@ class MainActivity : ComponentActivity() {
                             }
                         } else dotsHandler.postDelayed(pendingStart, 500)
                     }
-                    else -> showUpdateScreen(manifest, idx)
+                    else -> showUpdateScreen(manifest, idx, broken)
                 }
             }
         }.start()
@@ -501,6 +527,83 @@ class MainActivity : ComponentActivity() {
         ui.findViewById<Button>(R.id.loadingRetry).visibility = View.VISIBLE
     }
 
+    /** Thanh loading trên màn loading: đang kiểm tra hash từng file tài nguyên đã cài. */
+    private fun showVerifyProgress(ui: View, done: Int, total: Int) {
+        val bar = ui.findViewById<ProgressBar>(R.id.loadingBar)
+        if (bar.visibility != View.VISIBLE) {
+            bar.visibility = View.VISIBLE
+            ui.findViewById<View>(R.id.loadingSpinner).visibility = View.INVISIBLE
+            dotsHandler.removeCallbacks(dotsRunnable) // giữ text progress, bỏ chấm nhấp nháy
+        }
+        bar.max = total
+        bar.progress = done
+        ui.findViewById<TextView>(R.id.loadingStatus).text =
+            String.format(Locale.US, "Đang kiểm tra tài nguyên… %d/%d", done, total)
+    }
+
+    private fun hideVerifyProgress(ui: View) {
+        ui.findViewById<ProgressBar>(R.id.loadingBar).visibility = View.GONE
+    }
+
+    /**
+     * Mở app phát hiện file tài nguyên bị lỗi/thiếu (verify theo
+     * index) — đề nghị sửa: «Sửa lỗi» tải lại các gói có file lỗi
+     * (giữ nguyên phần lành), «Tải lại toàn bộ» xóa và tải lại từ
+     * đầu, «Để sau» vào game luôn. manifest null = mất mạng.
+     */
+    private fun showRepairDialog(
+        broken: List<String>,
+        manifest: OtaManager.Manifest?,
+        idx: OtaManager.InstalledIndex,
+    ) {
+        val dataPaths = manifest?.data?.files?.mapTo(HashSet()) { it.path } ?: emptySet()
+        val nData = broken.count { it in dataPaths }
+        val nAssets = broken.size - nData
+        val repairBytes =
+            (if (nData > 0 && manifest != null) manifest.data.size else 0L) +
+                (if (nAssets > 0 && manifest != null) manifest.assets.size else 0L)
+        val fullBytes = if (manifest != null) manifest.data.size + manifest.assets.size else 0L
+        val msg = buildString {
+            append("Phát hiện ${broken.size} file tài nguyên bị lỗi hoặc thiếu.")
+            if (manifest != null) {
+                if (nData > 0) append("\n• Gói Dữ liệu: $nData file")
+                if (nAssets > 0) append("\n• Gói Assets: $nAssets file")
+                append(String.format(
+                    Locale.US,
+                    "\n\n«Sửa lỗi»: tải lại các gói bị lỗi (~%.1f MB), giữ nguyên phần lành.",
+                    repairBytes / 1048576.0,
+                ))
+                append(String.format(
+                    Locale.US,
+                    "\n«Tải lại toàn bộ»: tải lại từ đầu (~%.1f MB).",
+                    fullBytes / 1048576.0,
+                ))
+            } else {
+                append("\n\nĐang mất mạng — không tải sửa được ngay.")
+            }
+        }
+        val builder = AlertDialog.Builder(this)
+            .setTitle("Tài nguyên bị lỗi")
+            .setMessage(msg)
+            .setCancelable(false)
+        if (manifest == null) {
+            builder
+                .setNegativeButton("Để sau") { _, _ -> startGame() }
+                .setPositiveButton("Thử lại") { _, _ -> startOtaFlow() }
+        } else {
+            builder
+                .setNegativeButton("Để sau") { _, _ -> startGame() }
+                .setNeutralButton("Tải lại toàn bộ") { _, _ ->
+                    OtaManager.resetInstalled(this)
+                    startOtaFlow()
+                }
+                .setPositiveButton(
+                    String.format(Locale.US, "Sửa lỗi (~%.1f MB)", repairBytes / 1048576.0),
+                ) { _, _ -> showUpdateScreen(manifest, idx, broken) }
+        }
+        builder.show()
+    }
+
     /** "App v1.4.0 · Tài nguyên v1.4.0" — phiên bản app + bộ tài nguyên đã cài. */
     private fun versionCornerText(): String {
         val app = try {
@@ -514,28 +617,40 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * Có bản mới (hoặc lần chạy đầu) → chuyển từ loading sang màn cập nhật:
-     * thẻ phiên bản (đã cài → máy chủ + dung lượng bản vá/full), tự chạy cập
-     * nhật qua Wi-Fi; mạng đo lượng thì hỏi trước.
+     * Có bản mới (hoặc lần chạy đầu, hoặc sửa file hỏng) → chuyển từ
+     * loading sang màn cập nhật: thẻ phiên bản (đã cài → máy chủ +
+     * dung lượng bản vá/full), tự chạy cập nhật qua Wi-Fi; mạng đo
+     * lượng thì hỏi trước. broken = file hỏng/thiếu phát hiện ở boot
+     * (chế độ sửa lỗi: chỉ tải gói nào có file lỗi, luôn tải đầy đủ).
      */
-    private fun showUpdateScreen(manifest: OtaManager.Manifest, idx: OtaManager.InstalledIndex) {
+    private fun showUpdateScreen(
+        manifest: OtaManager.Manifest,
+        idx: OtaManager.InstalledIndex,
+        broken: List<String> = emptyList(),
+    ) {
         stopLoadingFx()
         val ui = layoutInflater.inflate(R.layout.activity_download, null)
         screenRoot = ui
         setContentView(ui)
 
         val fresh = idx.dataVersion == null && idx.assetsVersion == null
-        fun partLine(name: String, full: OtaManager.ZipPart, patch: OtaManager.PatchPart?, cur: String?): String? =
-            when {
-                cur == full.sha256 -> null
-                patch != null && cur == patch.from ->
-                    String.format(Locale.US, "%s ~%.1f MB (bản vá)", name, patch.size / 1048576.0)
-                else ->
-                    String.format(Locale.US, "%s ~%.1f MB (đầy đủ)", name, full.size / 1048576.0)
-            }
+        val brokenSet = broken.toHashSet()
+        val dataPaths = manifest.data.files.mapTo(HashSet()) { it.path }
+        fun partLine(
+            name: String, full: OtaManager.ZipPart, patch: OtaManager.PatchPart?,
+            cur: String?, partBroken: Boolean,
+        ): String? = when {
+            brokenSet.isNotEmpty() ->
+                if (partBroken) String.format(Locale.US, "%s ~%.1f MB (đầy đủ)", name, full.size / 1048576.0) else null
+            cur == full.sha256 -> null
+            patch != null && cur == patch.from ->
+                String.format(Locale.US, "%s ~%.1f MB (bản vá)", name, patch.size / 1048576.0)
+            else ->
+                String.format(Locale.US, "%s ~%.1f MB (đầy đủ)", name, full.size / 1048576.0)
+        }
         val lines = listOfNotNull(
-            partLine("Dữ liệu", manifest.data, manifest.patch.data, idx.dataVersion),
-            partLine("Assets", manifest.assets, manifest.patch.assets, idx.assetsVersion),
+            partLine("Dữ liệu", manifest.data, manifest.patch.data, idx.dataVersion, brokenSet.any { it in dataPaths }),
+            partLine("Assets", manifest.assets, manifest.patch.assets, idx.assetsVersion, brokenSet.any { it !in dataPaths }),
         ).ifEmpty {
             listOf(
                 String.format(
@@ -545,11 +660,16 @@ class MainActivity : ComponentActivity() {
             )
         }
 
-        ui.findViewById<TextView>(R.id.otaTitle).text = if (fresh) "Tải dữ liệu game" else "Cập nhật game"
-        ui.findViewById<TextView>(R.id.otaVerCurrent).text = if (fresh) {
-            "Máy chưa có dữ liệu game (lần đầu cài đặt)"
-        } else {
-            "Đã cài: Tài nguyên v${idx.resVersion ?: idx.dataVersion?.take(8)}"
+        ui.findViewById<TextView>(R.id.otaTitle).text = when {
+            brokenSet.isNotEmpty() -> "Sửa tài nguyên bị lỗi"
+            fresh -> "Tải dữ liệu game"
+            else -> "Cập nhật game"
+        }
+        ui.findViewById<TextView>(R.id.otaVerCurrent).text = when {
+            fresh -> "Máy chưa có dữ liệu game (lần đầu cài đặt)"
+            brokenSet.isNotEmpty() ->
+                "Đã cài: Tài nguyên v${idx.resVersion ?: idx.dataVersion?.take(8)} — ${brokenSet.size} file bị lỗi/thiếu"
+            else -> "Đã cài: Tài nguyên v${idx.resVersion ?: idx.dataVersion?.take(8)}"
         }
         ui.findViewById<TextView>(R.id.otaVerNew).text = "Trên máy chủ: Tài nguyên v${manifest.version}"
         ui.findViewById<TextView>(R.id.otaVerSize).text = "Cần tải:\n" + lines.joinToString("\n")
@@ -579,7 +699,7 @@ class MainActivity : ComponentActivity() {
         resetBtn.visibility = View.VISIBLE
         showApkUpdateButton(ui)
 
-        if (isMetered()) confirmMeteredDownload(ui, manifest, idx) else runUpdate(ui, manifest)
+        if (isMetered()) confirmMeteredDownload(ui, manifest, idx, broken) else runUpdate(ui, manifest)
     }
 
     private fun isMetered(): Boolean = try {
@@ -593,17 +713,22 @@ class MainActivity : ComponentActivity() {
         ui: View,
         manifest: OtaManager.Manifest,
         idx: OtaManager.InstalledIndex,
+        broken: List<String> = emptyList(),
     ) {
         val fresh = idx.dataVersion == null && idx.assetsVersion == null
-        // Dung lượng cần tải = tổng các gói chưa có (khớp from → bản vá, không → full)
-        fun partBytes(full: OtaManager.ZipPart, patch: OtaManager.PatchPart?, cur: String?): Long = when {
+        val brokenSet = broken.toHashSet()
+        val dataPaths = manifest.data.files.mapTo(HashSet()) { it.path }
+        // Dung lượng cần tải = tổng các gói chưa có (khớp from → bản vá,
+        // không → full); chế độ sửa lỗi: gói nào có file lỗi thì tải full.
+        fun partBytes(full: OtaManager.ZipPart, patch: OtaManager.PatchPart?, cur: String?, partBroken: Boolean): Long = when {
+            brokenSet.isNotEmpty() -> if (partBroken) full.size else 0L
             cur == full.sha256 -> 0L
             patch != null && cur == patch.from -> patch.size
             else -> full.size
         }
         val mb = (
-            partBytes(manifest.data, manifest.patch.data, idx.dataVersion) +
-                partBytes(manifest.assets, manifest.patch.assets, idx.assetsVersion)
+            partBytes(manifest.data, manifest.patch.data, idx.dataVersion, brokenSet.any { it in dataPaths }) +
+                partBytes(manifest.assets, manifest.patch.assets, idx.assetsVersion, brokenSet.any { it !in dataPaths })
             ) / 1048576.0
         val builder = AlertDialog.Builder(this)
         if (fresh) {
@@ -617,6 +742,17 @@ class MainActivity : ComponentActivity() {
                     )
                 )
                 .setNegativeButton("Thoát") { _, _ -> moveTaskToBack(true) }
+        } else if (brokenSet.isNotEmpty()) {
+            builder
+                .setTitle("Sửa tài nguyên bị lỗi")
+                .setMessage(
+                    String.format(
+                        Locale.US,
+                        "Tải lại ~%.0f MB để sửa %d file bị lỗi/thiếu.\nQua mạng di động có thể mất phí dữ liệu.",
+                        mb, brokenSet.size
+                    )
+                )
+                .setNegativeButton("Để sau") { _, _ -> startGame() }
         } else {
             val notes = cleanNotes(manifest.notes, 400)
             builder
@@ -719,6 +855,7 @@ class MainActivity : ComponentActivity() {
         btn.setOnClickListener { confirmApkInstall(rel) }
         // Mô tả bản cập nhật (release notes) — hiện dưới nút trên màn loading
         val notes = cleanNotes(rel.notes, 600)
+        Log.d(TAG, "otaApkNotes[$rel.tag]: $notes")
         val notesView = root.findViewById<TextView>(R.id.otaApkNotes)
         if (notesView != null && notes.isNotEmpty()) {
             notesView.text = notes
@@ -750,6 +887,7 @@ class MainActivity : ComponentActivity() {
             if (notes.isNotEmpty()) append("\n\n").append(notes)
             append("\nTiến trình chơi trong game được giữ nguyên.")
         }
+        Log.d(TAG, "apkDialog[$rel.tag]: $msg")
         AlertDialog.Builder(this)
             .setTitle("Cập nhật app ${rel.tag}")
             .setMessage(msg)

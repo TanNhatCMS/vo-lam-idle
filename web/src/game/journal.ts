@@ -1,13 +1,15 @@
 // @ts-nocheck — chuyen tu vanilla JS: bat lai check tung file dan dan (xem README muc TypeScript)
 import { $, esc, fmt } from './core';
 import { S } from './save';
-import { modal, toast } from './ui';
-import { openGiftTab, unlocked } from './rewards';
+import { modal } from './ui';
+import { openGiftTab, txLuotCon, unlocked } from './rewards';
 import { clanModal } from './depth';
 import { codexModal } from './guide';
 import { stashModal } from './stash';
 import { svIntro } from './survival';
-import { forgeModal } from './forge';
+import { htModal } from './forge';
+import { forgeReadyCounts } from './auto';
+import { uiSfx } from './audio';
 import { tkBadge, ytBadge } from './activities';
 
 /* ======================= SO TAY: thong ke 7 ngay gan nhat (luu trong save) =======================
@@ -52,21 +54,30 @@ export function jrModal() {
 }
 
 /* ---------- hàng nút nhanh thẻ Giang hồ (port từ journal.js gốc) ----------
-   Đưa các chức năng hay dùng ra ngoài, khỏi phải mở menu lồng nhau. Badge '!' khi có việc làm được. */
+   Đưa các chức năng hay dùng ra ngoài, khỏi phải mở menu lồng nhau.
+   Badge '!' khi có việc làm được. Thứ tự + badge theo bản gốc:
+   Tháp I/II (gốc badge số lượt tuần — bản port tháp không giới
+   hạn lượt nên để trống), Tống Kim, Dã Tẩu, Bang hội, Sổ tay,
+   Lò rèn (mở Lò Huyền Tinh như gốc, badge '!' khi có việc chờ),
+   Kho, Bách khoa, Gia tộc, Tài Xỉu (badge = số lượt còn lại),
+   Luyện Công, Đồng hành. */
+const forgeBadge = () => { try { return Object.values(forgeReadyCounts()).some(Boolean) ? '!' : ''; } catch (e) { return ''; } };
+const txBadge = () => { try { const n = txLuotCon(); return n > 0 ? String(n) : ''; } catch (e) { return ''; } };
 function quickBarItems() {
   return [
     ['ui/quick/tower.png', 'Tháp I', () => openGiftTab('tower'), ''],
-    ['ui/quick/tower.png', 'Tháp II', () => openGiftTab('tower2'), ''],
+    ['ui/quick/tower.png', 'Tháp II', () => openGiftTab('tower'), ''],
     ['ui/quick/tong-kim.png', 'Tống Kim', () => openGiftTab('tk'), tkBadge()],
     ['ui/quick/quest.png', 'Dã Tẩu', () => openGiftTab('yt'), ytBadge()],
     ['ui/quick/guild.png', 'Bang hội', () => openGiftTab('guild'), ''],
     ['ui/quick/journal.png', 'Sổ tay', () => jrModal(), ''],
-    ['ui/quick/forge.png', 'Lò rèn', () => { const w = S.eq && S.eq.weapon; if (w) forgeModal(w); else toast('Chưa có vũ khí để rèn'); }, ''],
+    ['ui/quick/forge.png', 'Lò rèn', () => htModal(), forgeBadge()],
     ['ui/quick/storage.png', 'Kho', () => stashModal(), ''],
     ['ui/quick/encyclopedia.png', 'Bách khoa', () => codexModal(), ''],
     ['ui/quick/clan.png', 'Gia tộc', () => clanModal(), ''],
-    ['ui/quick/spare.png', 'Đồng hành', () => openGiftTab('pet'), ''],
+    ['ui/quick/tai-xiu.png', 'Tài Xỉu', () => openGiftTab('tx'), txBadge()],
     ['ui/quick/training.png', 'Luyện Công', () => svIntro(), ''],
+    ['ui/quick/spare.png', 'Đồng hành', () => openGiftTab('pet'), ''],
   ];
 }
 export function quickBarHTML() {
@@ -74,5 +85,5 @@ export function quickBarHTML() {
 }
 export function bindQuickBar() {
   const list = quickBarItems();
-  document.querySelectorAll('#qBar .qb').forEach(b => b.onclick = () => list[+b.dataset.q][2]());
+  document.querySelectorAll('#qBar .qb').forEach(b => b.onclick = () => { uiSfx('click'); list[+b.dataset.q][2](); });
 }

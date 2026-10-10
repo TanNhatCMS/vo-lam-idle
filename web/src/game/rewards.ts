@@ -1000,7 +1000,7 @@ function txState() {
   return r.tx;
 }
 const txLuotMax = () => TX_LUOT + (txState().bonus || 0);
-const txLuotCon = () => Math.max(0, txLuotMax() - txState().luot);
+export const txLuotCon = () => Math.max(0, txLuotMax() - txState().luot);
 const txCuocMax = () => 20000 + S.lvl * 4000;
 const txCuocMin = () => Math.round(txCuocMax() / 10);   // = mức cược thấp nhất trên giao diện
 function txQua(bac) {                       // bac 1 = van thuong, 2 = bo ba
