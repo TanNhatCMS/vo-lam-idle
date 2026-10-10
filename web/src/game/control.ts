@@ -162,8 +162,10 @@ export function renderPad() {
 export function updatePadCd() { uiBump(); }   // hoi chieu thuoc do React ve theo tick
 export function bindControls() {
   const pos = ev => { const r = CV.getBoundingClientRect(), k = uiScale(); return [(ev.clientX - r.left) / k, (ev.clientY - r.top) / k]; }; // toa do man hinh (CSS logic)
-  // toa do AR (pixel canvas) cho ban do nho — luc CHUA mo, #miniFloat la display:none nen phai bat o canvas
-  const mpos = ev => { const r = CV.getBoundingClientRect(), k = CV.width / Math.max(1, r.width); return [(ev.clientX - r.left) * k, (ev.clientY - r.top) * k]; };
+  // toa do AR (pixel canvas) cho ban do nho — luc CHUA mo, #miniFloat la display:none nen phai bat o canvas.
+  // clientX/Y la CSS px; AR.w cung don vi CSS px (layout) — dung AR.w/r.width de chuan hoa transform scale .8 cua body.mob.
+  // (dung CV.width/r.width = DPR se lech hit box DPR lan tren moi man DPR != 1 — minimap ve o phai tren nhung an o lech trai.)
+  const mpos = ev => { const r = CV.getBoundingClientRect(), k = AR.w / Math.max(1, r.width); return [(ev.clientX - r.left) * k, (ev.clientY - r.top) * k]; };
   CV.addEventListener('pointerdown', ev => {
     
     if (INPUT.active) return;
