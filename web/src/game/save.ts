@@ -45,6 +45,7 @@ export function newSave() {
     kps: 0.2, totalKills: 0, autoEquip: true, autoPts: false, diff: 1, autoForge: false, autoBuy: true, tut: 0, hints: {}, bakAt: 0, potOff: false, potUsed: 0, potStock: { life: {}, mana: {} }, ctrl: 'auto', joy: 'fixed', slots: [0, 0, 0, 0], fieldMode: false,
     autoFind: true, autoBossPriority: true, autoRange: 'medium', autoSkillSlots: [true, true, true, true],
     autoHpPotion: true, hpPotionAt: 50, autoMpPotion: true, mpPotionAt: 30, autoTownHp: false, townHpAt: 20,
+    invExpansions: 0, invOrder: [], invSort: 'new',
     snd: { on: true, vol: 0.7, music: true, mvol: 0.4 }, lootF: { minRar: 1, minLvl: 1, groups: [], series: [], auto: true, always: false }, ground: [], mats: { ht: {}, ore: {}, shard: {}, misc: {} }, last: Date.now() };
 }
 /* Chu ky file luu (cyrb53 + muoi): phat hien sua tay localStorage / ma xuat. Khong ngan duoc nguoi quyet tam (game chay hoan toan o may nguoi choi) nhung chan sua vo tinh va nhap ma da bi doi. */
@@ -93,6 +94,10 @@ function migrate(o) {
   s.hpPotionAt = clamp(Math.round(+s.hpPotionAt) || 50, 1, 100);
   s.mpPotionAt = clamp(Math.round(+s.mpPotionAt) || 30, 1, 100);
   s.townHpAt = clamp(Math.round(+s.townHpAt) || 20, 1, 100);
+  // vi tri / thu tu o trong hanh trang + mo rong: file cu chua co -> mac dinh (sap xep "Moi nhặt", chua mo rong)
+  s.invExpansions = clamp(Math.floor(+s.invExpansions) || 0, 0, 4);
+  s.invOrder = Array.isArray(s.invOrder) ? s.invOrder : [];
+  if (!['new', 'rar', 'lvl', 'slot', 'pow'].includes(s.invSort)) s.invSort = 'new';
   // Dong hanh: o trang bi (save cu chua co) — chi giu mon hop le (co base/mag, khong phai ngua d 10)
   s.rw.pet = s.rw.pet && typeof s.rw.pet === 'object' ? s.rw.pet : null;
   /* Dong hanh: chuan hoa o trang bi cua MOI con trong roster — save cu co the dung key petW/petA/petJ

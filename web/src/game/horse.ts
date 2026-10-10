@@ -1,5 +1,6 @@
 // @ts-nocheck — chuyen tu vanilla JS: bat lai check tung file dan dan (xem README muc TypeScript)
-import { $, ATTR_ID, INV_MAX, J, RAR_COL, attrText, clamp, esc, fmt } from './core';
+import { $, ATTR_ID, J, RAR_COL, attrText, clamp, esc, fmt } from './core';
+import { invMax } from './invs';
 import { addItem, log, toast } from './ui';
 import { dropToGround } from './loot';
 import { stashRead } from './stash';
@@ -104,7 +105,7 @@ function thanMaClaim(id) {
   if (S.lvl < def[4]) return { ok: false, msg: `Cần đạt cấp ${def[4]} mới thỉnh được ${def[3]}.` };
   if (thanMaOwns(id)) return { ok: false, msg: `Bạn đang sở hữu ${def[3]} rồi.` };
   if (thanMaPending(id)) return { ok: false, msg: `${def[3]} đang nằm trên bản đồ. Hãy nhặt trước khi thỉnh thêm.` };
-  if (S.inv.length >= INV_MAX) return { ok: false, msg: 'Hành trang đầy. Hãy trống một ô trước khi thỉnh Thần Mã.' };
+  if (S.inv.length >= invMax()) return { ok: false, msg: 'Hành trang đầy. Hãy trống một ô trước khi thỉnh Thần Mã.' };
   const book = thanMaBook(), cost = thanMaCost(def), reclaim = !!book[id];
   if (!reclaim && RW().fd < cost.fd) return { ok: false, msg: `Cần ${cost.fd} Phúc Duyên (hiện có ${RW().fd}).` };
   if (S.gold < cost.gold) return { ok: false, msg: `Cần ${fmt(cost.gold)} lượng (hiện có ${fmt(S.gold)}).` };

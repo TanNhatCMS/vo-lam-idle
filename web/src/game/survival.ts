@@ -39,7 +39,7 @@ import {
   wpick,
 } from './core';
 import { canReroll } from './forge';
-import { moneyDrop } from './loot';
+import { moneyDrop, rollDrops } from './loot';
 import { OBS, obsChase, obsFrame, obsLoad, obsMove } from './mapobs';
 import {
   CAM,

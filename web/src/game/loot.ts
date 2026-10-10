@@ -35,10 +35,18 @@ import { setInvDirty } from './ui';
 /* ======================= ROI DO (settings/droprate/*.ini + magicattriblevel.txt) ======================= */
 'use strict';
 const FACTION_WEAPON_SHARE = 0.5;
-function dropFile(L) {
+export function dropFile(L) {
   const b = L < 110 ? clamp(Math.floor(L / 10) * 10, 10, 90) : (L < 119 ? 110 : 119);
   return J.drop['npcdroprate' + b + '.ini'] || J.drop['npcdroprate.ini'];
 }
+/* He so vang theo cap: noi suy nhan giua MONEY_BASE va MONEY_TOP (MoneyScale cao nhat cua cac tep roi do)
+   trong khoang cap 100-130 — dung cho gia mo rong hanh trang / kho cho bám theo luongvang kỳ vọng. */
+const MONEY_BASE = 50, MONEY_TOP = Math.max(MONEY_BASE, ...Object.values(J.drop).map(f => (f.main && f.main.MoneyScale) || MONEY_BASE)), MONEY_RAMP = [100, 130];
+export function moneyScale(L, file) {
+  if (MONEY_TOP <= MONEY_BASE) return (file.main.MoneyScale || MONEY_BASE);
+  return MONEY_BASE * Math.pow(MONEY_TOP / MONEY_BASE, clamp((L - MONEY_RAMP[0]) / (MONEY_RAMP[1] - MONEY_RAMP[0]), 0, 1));
+}
+export const goldRateScale = (L = S.lvl) => moneyScale(L, dropFile(L)) / MONEY_BASE;
 /* Cap vat pham 1..10 theo cap quai, gioi han boi MinItemLevel/MaxItemLevel cua tep roi do */
 function itemTier(L, df) {
   const m = df.main;

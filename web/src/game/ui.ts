@@ -21,7 +21,8 @@ import {
   ELEM_VI,
   FAC,
   FACTIONS,
-  INV_MAX,
+  INV_EXPANSION_MAX,
+  INV_EXPANSION_STEP,
   J,
   MAX_LEVEL,
   RAR_COL,
@@ -43,8 +44,11 @@ import {
   isAttack,
   skVal,
 } from './core';
+import { invExpansionCount, invMax, invUsed } from './invs';
+import { potionInventoryModal, potionKinds, potSlotsUsed, potStock, sellPotionStack, sellPotionStock } from './shop';
 import { forgeModal } from './forge';
 import { donKhoModal } from './donkho';
+import { THAN_MA_MAX, THAN_MA_TRAIN_BONUS, horseLevel, isThanMa } from './horse';
 import { logModal } from './consolelog';
 import { bindQuickBar, jrModal, quickBarHTML } from './journal';
 import { titleModal, titleProgress, titleWorn } from './rewards';
@@ -87,7 +91,7 @@ import {
   switchCharacter,
   writeSlot,
 } from './save';
-import { stashDeposit, stashModal } from './stash';
+import { inventoryUpgradeModal, stashDeposit, stashDepositPotion, stashDone, stashModal, stashWithdrawPotion } from './stash';
 import { SV } from './survival';
 import {
   activeInfo,
@@ -114,14 +118,130 @@ export let curTab = 'log', invDirty = true;
 export function setInvDirty(v) { invDirty = v; }
 export function log(h) { if (R.quiet) return; R.logs.unshift(h); if (R.logs.length > 40) R.logs.pop(); R.logDirty = true; if (typeof window.syncWorldChatSystem === 'function') window.syncWorldChatSystem(R.logs); }
 export let toastT; export function toast(t) { const el = $('#toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('on'), 1800); }
-export function modal(html, bind?, locked?) { const m = $('#modal'); m.classList.remove('modal-entering'); void m.offsetWidth; m.classList.add('modal-entering'); $('#mBody').innerHTML = html; m.classList.remove('hidden'); m.dataset.locked = locked ? '1' : ''; if (bind) bind(); try { $('#modal .mbox').focus({ preventScroll: true }); } catch (e) { /* bo qua */ } }
+export function modal(html, bind?, locked?, focus = true) { const m = $('#modal'); m.classList.remove('modal-entering'); void m.offsetWidth; m.classList.add('modal-entering'); m.classList.remove('hidden', 'item-preview-modal', 'item-tooltip-preview', 'chat-item-tooltip', 'inventory-item-tooltip'); m.style.removeProperty('--chat-tooltip-left'); m.style.removeProperty('--chat-tooltip-top'); sharedItemTooltipPanel = null; sharedItemTooltipAnchor = null; sharedItemTooltipKind = ''; $('#mBody').innerHTML = html; m.dataset.locked = locked ? '1' : ''; if (bind) bind(); if (focus) try { $('#modal .mbox').focus({ preventScroll: true }); } catch (e) { /* bo qua */ } }
 export function closeModal(force?) { if ($('#modal').dataset.locked && !force) return; $('#modal').classList.remove('modal-entering'); $('#modal').classList.add('hidden'); }
+
+/* ---------- tooltip noi cua do (xem truoc khi re chuột / chia se chat) ---------- */
+let sharedItemTooltipPanel = null, sharedItemTooltipAnchor = null, sharedItemTooltipKind = '', itemTooltipDismissBound = false;
+function positionSharedItemTooltip() {
+  const overlay = $('#modal'), box = overlay.querySelector('.mbox'), panel = sharedItemTooltipPanel;
+  if (!panel || !box || overlay.classList.contains('hidden') || (!overlay.classList.contains('chat-item-tooltip') && !overlay.classList.contains('inventory-item-tooltip'))) return;
+  const panelRect = panel.getBoundingClientRect(), boxRect = box.getBoundingClientRect(), margin = 8, gap = 8;
+  const anchorRect = sharedItemTooltipAnchor?.getBoundingClientRect();
+  let left = sharedItemTooltipKind === 'inventory' ? panelRect.left - boxRect.width - gap : panelRect.right + gap;
+  if (sharedItemTooltipKind === 'inventory' && left < margin && panelRect.right + boxRect.width + gap < window.innerWidth - margin) left = panelRect.right + gap;
+  else if (sharedItemTooltipKind !== 'inventory' && left + boxRect.width > window.innerWidth - margin) left = panelRect.left - boxRect.width - gap;
+  left = Math.max(margin, Math.min(left, window.innerWidth - boxRect.width - margin));
+  let top = sharedItemTooltipKind === 'inventory' && anchorRect ? anchorRect.top : panelRect.bottom - boxRect.height;
+  top = Math.max(margin, Math.min(top, window.innerHeight - boxRect.height - margin));
+  for (let attempt = 0; attempt < 4; attempt++) {
+    overlay.style.setProperty('--chat-tooltip-left', `${left}px`); overlay.style.setProperty('--chat-tooltip-top', `${top}px`);
+    const placed = box.getBoundingClientRect(), dx = left - placed.left, dy = top - placed.top;
+    if (Math.abs(dx) < .5 && Math.abs(dy) < .5) break;
+    left += dx; top += dy;
+  }
+}
+window.addEventListener('resize', positionSharedItemTooltip);
+function setItemTooltipPreview(anchor = null) {
+  const overlay = $('#modal');
+  overlay.classList.remove('item-preview-modal'); overlay.classList.add('item-tooltip-preview');
+  overlay.setAttribute('aria-modal', 'false');
+  if (!itemTooltipDismissBound) {
+    document.addEventListener('pointerdown', event => {
+      const current = $('#modal');
+      if (current.classList.contains('hidden') || !current.classList.contains('item-tooltip-preview')) return;
+      const box = current.querySelector('.mbox');
+      if (event.target instanceof Node && box?.contains(event.target)) return;
+      closeModal();
+    }, true);
+    itemTooltipDismissBound = true;
+  }
+  const desktop = document.body.classList.contains('deskland');
+  const chatPanel = desktop && anchor instanceof Element ? anchor.closest('.wc-panel') : null;
+  const inventoryCell = desktop && anchor instanceof Element ? anchor.closest('#t-inv button.it[data-uid]') : null;
+  const panel = chatPanel || (inventoryCell ? $('#panel') : null);
+  if (panel && !panel.hidden) {
+    sharedItemTooltipPanel = panel; sharedItemTooltipAnchor = anchor;
+    sharedItemTooltipKind = chatPanel ? 'chat' : 'inventory';
+    overlay.classList.add(chatPanel ? 'chat-item-tooltip' : 'inventory-item-tooltip');
+    requestAnimationFrame(positionSharedItemTooltip);
+  }
+}
+
+/* ---------- select giao dien (dropdown tu ve, dung cho nut Sap xep tui do) ---------- */
+let activeUISelect = null, uiSelectEventsBound = false;
+function uiSelectMarkup(id, options, value, label) {
+  const selected = options.find(([option]) => String(option) === String(value)) || options[0];
+  return `<div class="ui-select" data-ui-select="${esc(id)}">
+    <button type="button" class="ui-select-trigger" id="${esc(id)}" aria-label="${esc(label)}" aria-haspopup="listbox" aria-expanded="false" aria-controls="${esc(id)}Menu"><span>${esc(selected ? selected[1] : '')}</span><i aria-hidden="true"></i></button>
+    <div class="ui-select-menu" id="${esc(id)}Menu" role="listbox" aria-label="${esc(label)}" hidden>${options.map(([option, text]) => `<button type="button" class="ui-select-option${String(option) === String(selected && selected[0]) ? ' is-selected' : ''}" role="option" aria-selected="${String(option) === String(selected && selected[0])}" data-ui-value="${esc(String(option))}">${esc(text)}</button>`).join('')}</div>
+  </div>`;
+}
+function uiSelectClose() {
+  if (!activeUISelect) return;
+  const { wrapper, trigger, menu } = activeUISelect;
+  menu.hidden = true; menu.style.cssText = '';
+  wrapper.appendChild(menu); wrapper.classList.remove('is-open');
+  trigger.setAttribute('aria-expanded', 'false'); activeUISelect = null;
+}
+function uiSelectOpen(wrapper, trigger, menu) {
+  uiSelectClose();
+  const rect = trigger.getBoundingClientRect(), vw = window.innerWidth, vh = window.innerHeight;
+  const width = Math.min(Math.max(rect.width, 136), Math.max(80, vw - 16));
+  const left = Math.max(8, Math.min(rect.left, vw - width - 8));
+  const naturalHeight = Math.min(menu.children.length * 36 + 8, 260, vh - 16);
+  const below = vh - rect.bottom - 8, above = rect.top - 8;
+  let top, maxHeight;
+  if (below >= naturalHeight || below >= above) {
+    maxHeight = Math.max(48, Math.min(260, below - 4)); top = Math.max(8, rect.bottom + 4);
+  } else {
+    maxHeight = Math.max(48, Math.min(260, above - 4)); top = Math.max(8, rect.top - Math.min(naturalHeight, maxHeight) - 4);
+  }
+  menu.hidden = false; menu.style.position = 'fixed'; menu.style.left = `${left}px`; menu.style.top = `${top}px`;
+  menu.style.width = `${width}px`; menu.style.maxHeight = `${maxHeight}px`; menu.style.zIndex = '9999';
+  document.body.appendChild(menu); wrapper.classList.add('is-open'); trigger.setAttribute('aria-expanded', 'true');
+  activeUISelect = { wrapper, trigger, menu };
+}
+function bindUISelect(root, id, onChange) {
+  const wrapper = root.querySelector(`[data-ui-select="${id}"]`), trigger = wrapper && wrapper.querySelector(`#${id}`), menu = wrapper && wrapper.querySelector(`#${id}Menu`);
+  if (!wrapper || !trigger || !menu) return;
+  if (!uiSelectEventsBound) {
+    document.addEventListener('pointerdown', e => { if (activeUISelect && !activeUISelect.trigger.contains(e.target) && !activeUISelect.menu.contains(e.target)) uiSelectClose(); }, true);
+    document.addEventListener('keydown', e => {
+      if (!activeUISelect) return;
+      if (e.key === 'Escape') { const trigger = activeUISelect.trigger; uiSelectClose(); trigger.focus(); e.preventDefault(); return; }
+      if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key) && activeUISelect.menu.contains(e.target)) {
+        const items = [...activeUISelect.menu.querySelectorAll('[data-ui-value]')], i = items.indexOf(document.activeElement);
+        const next = e.key === 'Home' ? 0 : e.key === 'End' ? items.length - 1 : (i + (e.key === 'ArrowUp' ? -1 : 1) + items.length) % items.length;
+        items[next]?.focus(); e.preventDefault();
+      }
+    });
+    document.addEventListener('focusin', e => { if (activeUISelect && !activeUISelect.trigger.contains(e.target) && !activeUISelect.menu.contains(e.target)) uiSelectClose(); }, true);
+    window.addEventListener('resize', uiSelectClose);
+    window.addEventListener('scroll', uiSelectClose, true);
+    uiSelectEventsBound = true;
+  }
+  trigger.onclick = e => {
+    e.preventDefault(); e.stopPropagation();
+    if (activeUISelect && activeUISelect.trigger === trigger) uiSelectClose(); else uiSelectOpen(wrapper, trigger, menu);
+  };
+  trigger.onkeydown = e => {
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+    e.preventDefault(); e.stopPropagation(); uiSelectOpen(wrapper, trigger, menu);
+    menu.querySelector('[aria-selected="true"]')?.focus();
+  };
+  menu.onclick = e => {
+    const option = e.target.closest('[data-ui-value]'); if (!option) return;
+    const value = option.dataset.uiValue; uiSelectClose(); onChange(value);
+  };
+}
 
 /* ---------- tui do ---------- */
 /* Do thua: khong dung duoc va khong manh hon do dang mac cung o (tru do bo, do Tim dang kham, Bach Kim); vu khi sai loai cua phai.
    Nhan / day chuyen / ngoc boi yeu van giu toi da 6 mon lam nguyen lieu hop Huyen Tinh. */
 const FUSE_KEEP = 6;
 function isJunk(it) {
+  if (it.locked || (it.enh | 0) > 0) return false;  // khoa tay / cuong hoa van luon duoc giu
   if (it.set || it.vio || it.plv || it.petOnly) return false;
   if (petWants(it)) return false;                      // mon phu hop o trang bi Dong hanh: giu lai, khong tu ban
   if (!sexOk(it)) return true;                         // trang phuc khac gioi tinh: khong bao gio mac duoc
@@ -136,16 +256,21 @@ function isJunk(it) {
 export function sweepJunk() {
   if (S.autoJunk === false) return 0;
   let n = 0;
-  for (let guard = 0; guard < INV_MAX; guard++) {
+  for (let guard = 0; guard < invMax(); guard++) {
     const j = S.inv.filter(isJunk).sort((a, b) => itemPower(a) - itemPower(b))[0]; if (!j) break;
     S.inv.splice(S.inv.indexOf(j), 1); S.gold += itemValue(j); n++;
   }
   if (n) invDirty = true; return n;
 }
 export function addItem(it, quiet, picked, keep) {
+  // Do da khoa / cuong hoa (tu file luu hoac thao tac chuyen do) khong duoc tu ban, ke ca khi tui day.
+  if (it.locked || (it.enh | 0) > 0) {
+    if (invUsed() >= invMax()) makeRoom(it, true);
+    S.inv.unshift(it); invDirty = true; return true;
+  }
   if (!picked && !lootMatch(it)) { S.gold += itemValue(it); return false; } // khong qua mat dat (offline): mon khong khop bo loc tu ban
-  if (S.inv.length >= INV_MAX && (it.set || it.vio || it.plv || it.petOnly)) makeRoom(it, true);   // do quy (bo / Tim / Bach Kim): nhuong cho bang cach ban mon yeu nhat
-  if (S.inv.length >= INV_MAX) { S.gold += itemValue(it); if (!quiet) log('<span class="dim">Túi đầy, tự bán ' + esc(it.n) + '</span>'); return false; }
+  if (invUsed() >= invMax() && (it.set || it.vio || it.plv || it.petOnly)) makeRoom(it, true);   // do quy (bo / Tim / Bach Kim): nhuong cho bang cach ban mon yeu nhat
+  if (invUsed() >= invMax()) { S.gold += itemValue(it); if (!quiet) log('<span class="dim">Túi đầy, tự bán ' + esc(it.n) + '</span>'); return false; }
   if (!keep && S.autoJunk !== false && isJunk(it)) { S.gold += itemValue(it); return false; }   // do thua: tu ban, khong chat hanh trang
   S.inv.unshift(it); invDirty = true;
   if (!quiet && it.r >= 2) log(`Nhặt được <span style="color:${RAR_COL[it.r]}">${esc(it.n)}</span>`);
@@ -153,17 +278,18 @@ export function addItem(it, quiet, picked, keep) {
   return true;
 }
 /* So sanh bang luc chien that (tinh ca mon vu khi cua phai, khang, ...), khong chi chi so cua mon do */
-export function equipGain(it) {
-  if (!reqOk(it)) return -1;
+export function equipGain(it, currentPower = null, requirementsChecked = false) {
+  if (!requirementsChecked && !reqOk(it)) return -1;
   const eq = Object.assign({}, S.eq); eq[slotFor(it)] = it;
-  return power(calc(eq)) / Math.max(1, power(calc(S.eq))) - 1;
+  const basePower = currentPower == null ? power(calc(S.eq)) : currentPower;
+  return power(calc(eq)) / Math.max(1, basePower) - 1;
 }
 // tu mac chi doi vu khi cung loai voi mon vu khi cua phai (Con cho Thieu Lam, am khi cho Duong Mon...);
 // nguoi choi van mac tay duoc moi loai
-export function betterThanEquipped(it) {
+export function betterThanEquipped(it, currentPower = null, requirementsChecked = false) {
   const f = FAC[S.fac];
   if (DETAIL_SLOT[it.d] === 'weapon' && f && f.wcode >= 0 && weaponCode({ weapon: it }) !== f.wcode) return false;
-  return equipGain(it) > 0.01;
+  return equipGain(it, currentPower, requirementsChecked) > 0.01;
 }
 export function equip(it, quiet) {
   if (!reqOk(it)) { if (!quiet) toast('Chưa mặc được: ' + reqProblems(it).join('; ')); return; }
@@ -172,7 +298,7 @@ export function equip(it, quiet) {
   S.eq[slot] = it; R.dirty = true; invDirty = true; if (!quiet) uiSfx(it.d <= 1 ? 'equipWeapon' : 'equipCloth');
   if (!quiet) { closeModal(); refresh(); }
 }
-function unequip(slot) { const it = S.eq[slot]; if (!it) return; if (S.inv.length >= INV_MAX) { toast('Túi đầy'); return; } delete S.eq[slot]; S.inv.unshift(it); R.dirty = true; invDirty = true; closeModal(); refresh(); }
+function unequip(slot) { const it = S.eq[slot]; if (!it) return; if (invUsed() >= invMax()) { toast('Túi đầy'); return; } delete S.eq[slot]; S.inv.unshift(it); R.dirty = true; invDirty = true; closeModal(); refresh(); }
 /* Ban mon khong khop bo loc (nut trong the Hanh trang, cua hang, Tho Dia Phu): khong bao gio ban do bo, do Tim dang kham, Bach Kim da thang cap */
 export const sellProtected = it => !!(it.set || it.vio || it.plv || it.petOnly);
 export function sellUnmatched() {
@@ -181,15 +307,209 @@ export function sellUnmatched() {
   S.gold += g; S.inv = S.inv.filter(i => !w.includes(i)); invDirty = true;
   return { n: w.length, gold: g, kept: S.inv.filter(i => !lootMatch(i)).length };
 }
-export function sell(it) { if (!S.inv.includes(it)) { closeModal(); return; } S.inv = S.inv.filter(x => x !== it); S.gold += itemValue(it); invDirty = true; closeModal(); refresh(); }
+export function sellSingle(it) {
+  if (!S.inv.includes(it)) return { ok: false, msg: 'Món không còn trong hành trang' };
+  if (it.locked) return { ok: false, msg: 'Món đang khóa 🔒 — mở khóa trước khi bán' };
+  const gold = itemValue(it); S.inv = S.inv.filter(x => x !== it); S.gold += gold; invDirty = true; save();
+  return { ok: true, gold, msg: `Đã bán ${it.n} · nhận ${fmt(gold)} lượng` };
+}
+export function sell(it) { if (!S.inv.includes(it)) { closeModal(); return; }
+  const result = sellSingle(it); if (!result.ok) { toast(result.msg); return; } closeModal(); refresh(); }
+export function sellChoiceModal(afterSell = refresh, source = 'inv') { donKhoModal(source, afterSell); }
 export function findItem(uid) { uid = +uid; return S.inv.find(i => i.uid === uid) || Object.values(S.eq).find(i => i && i.uid === uid) || Object.values((S.rw && S.rw.pet && S.rw.pet.eq) || {}).find(i => i && i.uid === uid) || (R.ground.find(d => d.it.uid === uid) || {}).it; }
-export function itemCell(it) {
+function itemRequiredLevel(it) {
+  const required = (it && it.req || []).find(([id]) => id === 36);
+  return required ? Math.max(0, +required[1] || 0) : null;
+}
+function itemLevelBadge(it) {
+  const required = itemRequiredLevel(it);
+  return required > 0 ? required : '—';
+}
+function itemLevelLabel(it) {
+  const required = itemRequiredLevel(it);
+  return required > 0 ? `yêu cầu cấp ${required} · bậc đồ ${it.lvl}` : `không yêu cầu cấp · bậc đồ ${it.lvl}`;
+}
+export function itemCell(it, orderIndex = null, currentPower = null) {
   if (!it) return '';
-  return `<button class="it r${it.r}${reqOk(it) ? '' : ' bad'}" data-uid="${it.uid}"${reqOk(it) ? '' : ` title="${esc('Chưa mặc được: ' + reqProblems(it).join('; '))}"`}>${it.ic ? `<img src="${esc(it.ic)}" alt="">` : ''}<i>${it.lvl}</i>${it.s >= 0 ? `<b class="s5" style="background:${SERIES_COL[it.s]}"></b>` : ''}${betterThanEquipped(it) && S.inv.includes(it) ? '<em>▲</em>' : ''}</button>`;
+  const orderable = Number.isInteger(orderIndex);
+  const frame = it.set && it.set.kind === 'gold' ? ' goldset' : it.set && it.set.kind === 'platina' ? ' platinaset' : !it.set && it.r === 1 ? ' magicitem' : '';
+  const eligible = reqOk(it), itemTitle = [itemLevelLabel(it), !eligible ? 'Chưa mặc được: ' + reqProblems(it).join('; ') : ''].filter(Boolean).join(' · ');
+  const better = orderable && eligible && betterThanEquipped(it, currentPower, true);
+  return `<button class="it${orderable ? ' inv-reorder-cell' : ''} r${it.r}${frame}${eligible ? '' : ' bad'}" data-uid="${it.uid}" title="${esc(itemTitle)}"${orderable ? ` data-inv-order="${orderIndex}"` : ''}>${it.ic ? `<img src="${esc(it.ic)}" alt="" draggable="false">` : ''}<i>${itemLevelBadge(it)}</i>${it.s >= 0 ? `<b class="s5" style="background:${SERIES_COL[it.s]}"></b>` : ''}${better ? '<em>▲</em>' : ''}${it.locked ? '<u class="lk">🔒</u>' : ''}</button>`;
+}
+/* ---------- keo tha xep lai hanh trang (con tro + cam ung, co ban ma hoa, cuon tu dong, keo sang Kho chung / Ban do) ---------- */
+let invOrderSuppressClickUntil = 0, invOrderDragState = null, invOrderPointerPending = null, invOrderDragEventsBound = false;
+function invOrderClearHighlights() {
+  document.querySelectorAll('#t-inv .inv-reorder-target').forEach(el => el.classList.remove('inv-reorder-target'));
+  document.querySelectorAll('#t-inv .inv-drop-hover').forEach(el => el.classList.remove('inv-drop-hover'));
+}
+function invOrderClearTargets() {
+  invOrderClearHighlights(); document.querySelectorAll('#t-inv .inv-drop-ready').forEach(el => el.classList.remove('inv-drop-ready'));
+}
+function invOrderDropAction(source, targetId) {
+  if (source && typeof source === 'object') {
+    const r = targetId === 'bStash' ? stashDepositPotion(source.kind, source.tier) : sellPotionStack(source.kind, source.tier);
+    if (targetId === 'bStash') stashDone(r, false); else { toast(r.msg); if (r.ok) refresh(); }
+    return;
+  }
+  const uid = source;
+  const it = S.inv.find(x => +x.uid === +uid);
+  if (!it) { toast('Món không còn trong hành trang'); refresh(); return; }
+  if (targetId === 'bStash') { stashDone(stashDeposit(it), false); return; }
+  if (targetId === 'bSellAll') {
+    const result = sellSingle(it); toast(result.msg); if (result.ok) refresh();
+  }
+}
+function invOrderMove(sourceUid, target) {
+  const uid = +sourceUid, to = +target.dataset.invOrder;
+  if (!uid || !Number.isInteger(to)) return false;
+  const { order, byUid } = invPositionLayout();
+  const switchToManualOrder = S.invSort !== 'new';
+  if (switchToManualOrder) {
+    order.fill(null);
+    invSortedEntries(S.invSort).forEach(({ it }, index) => { order[index] = +it.uid; });
+  }
+  const from = order.indexOf(uid);
+  if (from < 0 || from === to) return false;
+  if (target.dataset.uid) {
+    if (+order[to] !== +target.dataset.uid || order[to] === uid) return false;
+    [order[from], order[to]] = [order[to], order[from]];
+  } else {
+    if (order[to]) return false;
+    order[from] = null; order[to] = uid;
+  }
+  S.invSort = 'new';
+  while (order.length && !order[order.length - 1]) order.pop();
+  S.invOrder = order;
+  S.inv = order.filter(Boolean).map(itemUid => byUid.get(+itemUid)).filter(Boolean);
+  invDirty = true; save(); renderInv(); return true;
+}
+function invOrderDragCleanup(state) {
+  if (!state) return;
+  clearTimeout(state.timer); if (state.scrollFrame) cancelAnimationFrame(state.scrollFrame); state.button.classList.remove('dragging');
+  if (state.ghost) state.ghost.remove();
+  invOrderClearTargets();
+  if (invOrderDragState === state) invOrderDragState = null;
+  if (invOrderPointerPending === state) invOrderPointerPending = null;
+}
+function invOrderDragHighlight(state) {
+  invOrderClearHighlights();
+  const hit = document.elementFromPoint(state.x, state.y);
+  const action = hit?.closest?.('#t-inv #bStash, #t-inv #bSellAll');
+  if (action) action.classList.add('inv-drop-hover');
+  else {
+    const target = hit?.closest?.('#t-inv [data-inv-order]');
+    if (typeof state.source !== 'object' && target && +target.dataset.uid !== state.uid) target.classList.add('inv-reorder-target');
+  }
+}
+function invOrderDragAutoScroll(state) {
+  if (state.scrollFrame) return;
+  const step = () => {
+    state.scrollFrame = 0;
+    if (invOrderDragState !== state || !state.active) return;
+    const tab = document.querySelector('#t-inv'); if (!tab) return;
+    const rect = tab.getBoundingClientRect(), edge = Math.min(56, rect.height * 0.14);
+    const scale = rect.height / Math.max(1, tab.clientHeight);
+    const bottom = rect.bottom - state.y, top = state.y - rect.top;
+    const delta = bottom < edge ? (edge - bottom) * 0.32 / scale : top < edge ? -(edge - top) * 0.32 / scale : 0;
+    if (!delta) return;
+    const previous = tab.scrollTop; tab.scrollTop += Math.max(-22, Math.min(22, delta));
+    if (tab.scrollTop === previous) return;
+    invOrderDragHighlight(state);
+    state.scrollFrame = requestAnimationFrame(step);
+  };
+  state.scrollFrame = requestAnimationFrame(step);
+}
+function invOrderDragBegin(state, x, y) {
+  if (!state || invOrderDragState && invOrderDragState !== state) return;
+  invOrderDragState = state; state.active = true; state.x = x; state.y = y;
+  state.button.classList.add('dragging'); invOrderSuppressClickUntil = Date.now() + 1000;
+  document.querySelectorAll('#t-inv #bStash, #t-inv #bSellAll').forEach(b => b.classList.add('inv-drop-ready'));
+  const rect = state.button.getBoundingClientRect(), ghost = document.createElement('div'), clone = state.button.cloneNode(true);
+  clone.draggable = false; clone.removeAttribute('data-inv-order'); clone.classList.remove('dragging', 'inv-reorder-cell');
+  ghost.className = 'stash-drag-ghost'; ghost.style.width = rect.width + 'px'; ghost.style.height = rect.height + 'px'; ghost.style.left = x + 'px'; ghost.style.top = y + 'px'; ghost.appendChild(clone); document.body.appendChild(ghost); state.ghost = ghost;
+  invOrderDragHighlight(state); invOrderDragAutoScroll(state);
+}
+function invOrderDragUpdate(state, x, y) {
+  state.x = x; state.y = y;
+  if (state.ghost) { state.ghost.style.left = x + 'px'; state.ghost.style.top = y + 'px'; }
+  invOrderDragHighlight(state); invOrderDragAutoScroll(state);
+}
+function invOrderDragFinish(state, x, y) {
+  if (!state || !state.active) { invOrderDragCleanup(state); return; }
+  const hit = document.elementFromPoint(x, y);
+  const action = hit?.closest?.('#t-inv #bStash, #t-inv #bSellAll');
+  const target = hit?.closest?.('#t-inv [data-inv-order]');
+  invOrderSuppressClickUntil = Date.now() + 1000;
+  invOrderDragCleanup(state);
+  if (action) invOrderDropAction(state.source, action.id);
+  else if (target && typeof state.source !== 'object') invOrderMove(state.uid, target);
+}
+function invOrderBind() {
+  const cells = document.querySelectorAll('#t-inv [data-inv-order][data-uid], #t-inv [data-potion-tier]'); if (!cells.length) return;
+  if (!invOrderDragEventsBound) {
+    document.addEventListener('pointermove', e => {
+      const state = invOrderPointerPending;
+      if (!state || e.pointerId !== state.id) return;
+      if (!state.active && Math.hypot(e.clientX - state.startX, e.clientY - state.startY) >= 5) invOrderDragBegin(state, e.clientX, e.clientY);
+      if (state.active) { if (e.cancelable) e.preventDefault(); invOrderDragUpdate(state, e.clientX, e.clientY); }
+    }, { passive: false });
+    document.addEventListener('pointerup', e => {
+      const state = invOrderPointerPending;
+      if (!state || e.pointerId !== state.id) return;
+      invOrderDragFinish(state, e.clientX, e.clientY);
+    });
+    document.addEventListener('pointercancel', e => {
+      const state = invOrderPointerPending;
+      if (state && e.pointerId === state.id) invOrderDragCleanup(state);
+    });
+    document.addEventListener('touchmove', e => {
+      const state = invOrderDragState;
+      if (!state || state.pointerType !== 'touch') return;
+      const touch = Array.from(e.changedTouches).find(t => t.identifier === state.id); if (!touch) return;
+      if (!state.active) {
+        if (Math.hypot(touch.clientX - state.startX, touch.clientY - state.startY) > 12) invOrderDragCleanup(state);
+        return;
+      }
+      if (e.cancelable) e.preventDefault(); invOrderDragUpdate(state, touch.clientX, touch.clientY);
+    }, { passive: false });
+    document.addEventListener('touchend', e => {
+      const state = invOrderDragState; if (!state || state.pointerType !== 'touch') return;
+      const touch = Array.from(e.changedTouches).find(t => t.identifier === state.id); if (!touch) return;
+      if (!state.active) { invOrderDragCleanup(state); return; }
+      if (e.cancelable) e.preventDefault(); invOrderDragFinish(state, touch.clientX, touch.clientY);
+    }, { passive: false });
+    document.addEventListener('touchcancel', () => {
+      const state = invOrderDragState; if (state?.pointerType === 'touch') invOrderDragCleanup(state);
+    }, { passive: true });
+    document.addEventListener('click', e => {
+      if (Date.now() <= invOrderSuppressClickUntil && e.target.closest?.('#t-inv [data-inv-order], #t-inv [data-potion-tier], #t-inv #bStash, #t-inv #bSellAll')) { e.preventDefault(); e.stopImmediatePropagation(); invOrderSuppressClickUntil = 0; }
+    }, true);
+    invOrderDragEventsBound = true;
+  }
+  cells.forEach(cell => {
+    cell.draggable = false;
+    cell.addEventListener('pointerdown', e => {
+      if (e.pointerType === 'touch' || !e.isPrimary || e.button !== 0 || invOrderPointerPending || invOrderDragState) return;
+      invOrderPointerPending = { button: cell, uid: +cell.dataset.uid, source: cell.dataset.potionTier ? { kind: cell.dataset.potionKind, tier: +cell.dataset.potionTier } : +cell.dataset.uid, pointerType: e.pointerType || 'mouse', x: e.clientX, y: e.clientY, startX: e.clientX, startY: e.clientY, id: e.pointerId, active: false, scrollFrame: 0, ghost: null };
+    });
+    cell.addEventListener('touchstart', e => {
+      if (e.touches.length !== 1 || invOrderDragState || invOrderPointerPending) return;
+      const t = e.changedTouches[0], state = invOrderDragState = { button: cell, uid: +cell.dataset.uid, source: cell.dataset.potionTier ? { kind: cell.dataset.potionKind, tier: +cell.dataset.potionTier } : +cell.dataset.uid, pointerType: 'touch', x: t.clientX, y: t.clientY, startX: t.clientX, startY: t.clientY, id: t.identifier, active: false, timer: 0, scrollFrame: 0, ghost: null };
+      state.timer = setTimeout(() => {
+        if (invOrderDragState !== state) return;
+        invOrderDragBegin(state, state.x, state.y);
+      }, 350);
+    }, { passive: true });
+  });
 }
 export function itemHTML(it) {
-  return `<div class="idet"><div class="pic r${it.r}">${it.ic ? `<img src="${esc(it.ic)}" alt="">` : ''}</div><div><h4 style="color:${RAR_COL[it.r]}">${esc(it.n)}${it.enh ? ` <span class="enh">+${it.enh}</span>` : ''}</h4>
-  <small class="dim">${esc(J.items[it.d].n)} · cấp ${it.lvl}${it.s >= 0 ? ` · <span style="color:${SERIES_COL[it.s]}">hệ ${SERIES[it.s]}</span>` : ''}</small></div></div>
+  const isPlatina = it.set && it.set.kind === 'platina';
+  const frame = it.set && it.set.kind === 'gold' ? ' goldset' : isPlatina ? ' platinaset' : !it.set && it.r === 1 ? ' magicitem' : '';
+  const titleColor = isPlatina ? '#ffed35' : RAR_COL[it.r];
+  const horseMeta = it.d === 10 && (it.hlv || it.thanma) ? `<small class="tm-item-level">${isThanMa(it) ? 'Thần Mã' : 'Ngựa'} · thuần dưỡng ${horseLevel(it)}/${THAN_MA_MAX} · chỉ số gốc +${Math.round(horseLevel(it) * THAN_MA_TRAIN_BONUS * 100)}%${isThanMa(it) ? (it.locked ? ' · đã khóa bảo vệ' : ' · đang mở khóa') : ''}</small>` : '';
+  return `<div class="idet" data-item-uid="${Number(it.uid)}"><div class="pic r${it.r}${frame}">${it.ic ? `<img src="${esc(it.ic)}" alt="" draggable="false">` : ''}</div><div><h4 class="${isPlatina ? 'platina-name' : ''}" style="color:${titleColor}">${esc(it.n)}${it.enh ? ` <span class="enh">+${it.enh}</span>` : ''}</h4>
+  <small class="dim">${esc(J.items[it.d].n)} · ${itemLevelLabel(it)}${it.s >= 0 ? ` · <span style="color:${SERIES_COL[it.s]}">hệ ${SERIES[it.s]}</span>` : ''}</small>${horseMeta}</div></div>
   <div class="sl">${itemLines(it).map(([k, t]) => `<div class="${k}">${escRich(t)}</div>`).join('')}</div>`;
 }
 /* Cong diem tiem nang de du yeu cau Suc manh / Than phap / Sinh khi / Noi cong cua mon do (neu du diem) */
@@ -226,14 +546,145 @@ export function autoEquipAll() {
   }
   if (n) { invDirty = true; R.dirty = true; } return n;
 }
-function itemModal(it, slot) {
+function itemSharePayload(it) {
+  const number = value => Number.isFinite(Number(value)) ? Number(value) : 0;
+  const triples = rows => (Array.isArray(rows) ? rows : []).map(row => [number(row[0]), number(row[1]), number(row[2])]);
+  const pairs = rows => (Array.isArray(rows) ? rows : []).map(row => [number(row[0]), number(row[1])]);
+  const magic = rows => (Array.isArray(rows) ? rows : []).map(row => ({
+    a: number(row.a), p: (Array.isArray(row.p) ? row.p : []).slice(0, 3).map(number)
+  }));
+  return {
+    snapshot_version: 2,
+    name: String(it.n || '').slice(0, 120), detail: number(it.d), particular: number(it.k),
+    icon: String(it.ic || '').slice(0, 200), tier: number(it.lvl), series: number(it.s),
+    rarity: number(it.r), enhancement: number(it.enh), platinum: number(it.plv),
+    base: triples(it.base), requirements: pairs(it.req), magic: magic(it.mag),
+    set_lines: magic(it.ext),
+    ...(it.set ? { set: {
+      kind: it.set.kind, group: number(it.set.grp), need_each: number(it.set.n1),
+      need_full: number(it.set.n2), sid: number(it.set.sid), local_power_tier: number(it.set.localPowerTier)
+    } } : {}),
+    ...(it.vio ? { violet: true } : {}), ...(it.leg ? { legendary: true } : {}),
+    ...(it.thanma ? { horse_id: String(it.thanma).slice(0, 24) } : {}),
+    ...(it.locked ? { locked: true } : {})
+  };
+}
+function itemModal(it, slot, view = 'item', presentation = 'modal', anchor = null) {
+  if (!it) return;
   const cur = !slot && S.eq[slotFor(it)];
   const pcur = petWearingOf(it);          // mon Dong hanh dang mang o cung loai (so sanh khi xem do)
-  modal(`${itemHTML(it)}${cmpLines(it, slot)}${cur ? `<div class="cmp"><small class="dim">Đang mặc:</small>${itemHTML(cur)}</div>` : ''}${pcur ? `<div class="cmp"><small class="dim">Đồng hành đang mặc:</small>${itemHTML(pcur)}</div>` : ''}
-    <div class="btnrow">${slot ? `<button class="btn" id="bUn">Tháo</button>` : `<button class="btn" id="bEq" ${reqOk(it) ? '' : 'disabled'}>Trang bị</button>${!reqOk(it) && Object.keys(reqDeficit(it)).length && reqProblems(it).length === Object.keys(reqDeficit(it)).length ? '<button class="btn" id="bReqPts">Cộng điểm</button>' : ''}${S.inv.includes(it) && petCanEquip(it) ? '<button class="btn" id="bPetEq">Gắn cho Đồng hành</button>' : ''}<button class="btn red" id="bSell">Bán (${fmt(itemValue(it))})</button>${S.inv.includes(it) ? '<button class="btn" id="bStashIt">Gửi kho</button>' : ''}`}${findItem(it.uid) && it.d <= 10 ? '<button class="btn" id="bForge">Rèn đồ</button>' : ''}</div>`,
-  () => { const b1 = $('#bEq'), b2 = $('#bSell'), b3 = $('#bUn'), b4 = $('#bForge'); const bs = $('#bStashIt'); if (bs) bs.onclick = () => { const r = stashDeposit(it); toast(r.msg); if (r.ok) { closeModal(); refresh(); } }; const bp = $('#bReqPts'); if (bp) bp.onclick = () => { if (fixReqPoints(it)) { if (reqOk(it)) equip(it); else itemModal(it, slot); } };
+  const hasCompare = !!(cur && S.inv.includes(it)), showEquipped = hasCompare && view === 'worn', shown = showEquipped ? cur : it;
+  const inert = !showEquipped && slot && !reqOk(it) ? `<div class="reqbad"><b>Đang mặc nhưng CHƯA ĐỦ ĐIỀU KIỆN nên món này KHÔNG có tác dụng gì:</b><br>${reqProblems(it).map(esc).join('<br>')}</div>` : '';   // truoc do mon bi calc() bo qua mot cach im lang
+  const segment = hasCompare && presentation !== 'tooltip' ? `<div class="item-segment" role="tablist" aria-label="Chọn món để xem">
+    <button class="${showEquipped ? '' : 'on'}" role="tab" aria-selected="${showEquipped ? 'false' : 'true'}" data-item-view="item">Đang xem</button>
+    <button class="${showEquipped ? 'on' : ''}" role="tab" aria-selected="${showEquipped ? 'true' : 'false'}" data-item-view="worn">Đang mặc</button></div>` : '';
+  const compare = showEquipped ? '' : `${inert}${cmpLines(it, slot)}`;
+  const petCompare = showEquipped || !pcur ? '' : `<div class="cmp"><small class="dim">Đồng hành đang mặc:</small>${itemHTML(pcur)}</div>`;
+  const wornCompare = showEquipped || !cur || hasCompare ? '' : `<div class="cmp"><small class="dim">Đang mặc:</small>${itemHTML(cur)}</div>`;
+  const gearActions = showEquipped || view === 'inspect' ? '' : `${slot ? `<button class="btn" id="bUn">Tháo</button>` : `<button class="btn" id="bEq" ${reqOk(it) ? '' : 'disabled'}>Trang bị</button>${!reqOk(it) && Object.keys(reqDeficit(it)).length && reqProblems(it).length === Object.keys(reqDeficit(it)).length ? '<button class="btn" id="bReqPts">Cộng điểm</button>' : ''}${S.inv.includes(it) && petCanEquip(it) ? '<button class="btn" id="bPetEq">Gắn cho Đồng hành</button>' : ''}<button class="btn red" id="bSell">Bán (${fmt(itemValue(it))})</button>${S.inv.includes(it) ? '<button class="btn" id="bStashIt">Gửi kho</button>' : ''}`}${findItem(it.uid) && it.d <= 10 ? '<button class="btn" id="bForge">Rèn đồ</button>' : ''}${findItem(it.uid) ? `<button class="btn item-lock-btn" id="bLock">${it.locked ? 'Mở khóa' : 'Khóa'}</button>` : ''}`;
+  const actions = `<div class="btnrow">${gearActions}${view === 'inspect' ? '' : '<button type="button" class="btn" id="bShareItem">Đăng thế giới</button>'}</div>`;
+  modal(`${segment}${itemHTML(shown)}${compare}${petCompare}${wornCompare}${actions}`,
+  () => { document.querySelectorAll('#mBody [data-item-view]').forEach(b => b.onclick = () => itemModal(it, slot, b.dataset.itemView));
+    const b1 = $('#bEq'), b2 = $('#bSell'), b3 = $('#bUn'), b4 = $('#bForge'); const bs = $('#bStashIt'); if (bs) bs.onclick = () => { const r = stashDeposit(it); toast(r.msg); if (r.ok) { closeModal(); refresh(); } }; const bp = $('#bReqPts'); if (bp) bp.onclick = () => { if (fixReqPoints(it)) { if (reqOk(it)) equip(it); else itemModal(it, slot); } };
     const bpe = $('#bPetEq'); if (bpe) bpe.onclick = () => petEquipItem(it);
-    if (b1) b1.onclick = () => equip(it); if (b2) b2.onclick = () => sell(it); if (b3) b3.onclick = () => unequip(slot); if (b4) b4.onclick = () => forgeModal(it); });
+    const share = $('#bShareItem'); if (share) share.onclick = () => {
+      if (typeof window.prepareWorldChatItem !== 'function') { toast('Chat thế giới chưa sẵn sàng'); return; }
+      if (window.prepareWorldChatItem(itemSharePayload(shown))) closeModal();
+    };
+    const bl = $('#bLock'); if (bl) bl.onclick = () => { it.locked = !it.locked; invDirty = true; save(); toast(it.locked ? 'Đã khóa: không bị tự bán / bán hàng loạt' : 'Đã mở khóa'); itemModal(it, slot); };
+    if (b1) b1.onclick = () => equip(it); if (b2) b2.onclick = () => sell(it); if (b3) b3.onclick = () => unequip(slot); if (b4) b4.onclick = () => forgeModal(it); }, undefined, presentation !== 'tooltip');
+  if (presentation === 'tooltip') setItemTooltipPreview(anchor);
+  else $('#modal').classList.add('item-preview-modal');
+}
+/* ---------- menu chuot phai tren o hanh trang ---------- */
+let invContextMenu = null, invContextMenuBound = false, invContextMenuOpener = null;
+function closeInvContextMenu() {
+  if (!invContextMenu) return;
+  invContextMenu.remove(); invContextMenu = null; invContextMenuOpener = null;
+}
+function openInvContextMenu(it, x, y, opener) {
+  closeInvContextMenu();
+  const canAddPoints = !reqOk(it) && Object.keys(reqDeficit(it)).length && reqProblems(it).length === Object.keys(reqDeficit(it)).length;
+  const action = (key, label, extra = '', disabled = false) => `<button type="button" class="inv-context-action${extra ? ` ${extra}` : ''}" role="menuitem" data-inv-context-action="${key}"${disabled ? ' disabled' : ''}>${label}</button>`;
+  const menu = document.createElement('div');
+  menu.className = 'inv-context-menu'; menu.setAttribute('role', 'menu'); menu.setAttribute('aria-label', `Thao tác: ${esc(it.n)}`);
+  menu.innerHTML = `<div class="inv-context-title">${esc(it.n)}</div>
+    ${action('equip', 'Trang bị', '', !reqOk(it))}
+    ${canAddPoints ? action('points', 'Cộng điểm') : ''}
+    ${action('sell', `Bán (${fmt(itemValue(it))})`, 'danger')}
+    ${S.inv.includes(it) ? action('stash', 'Gửi kho') : ''}
+    ${findItem(it.uid) && it.d <= 10 ? action('forge', 'Rèn đồ') : ''}
+    ${findItem(it.uid) ? action('lock', it.locked ? 'Mở khóa' : 'Khóa') : ''}
+    ${findItem(it.uid) ? action('share', 'Đăng thế giới', 'share') : ''}`;
+  menu.addEventListener('click', event => {
+    const button = event.target.closest('[data-inv-context-action]'); if (!button || button.disabled) return;
+    const selected = S.inv.find(item => +item.uid === +it.uid);
+    if (!selected) { closeInvContextMenu(); toast('Món không còn trong hành trang'); return; }
+    const key = button.dataset.invContextAction;
+    closeInvContextMenu();
+    if (key === 'equip') equip(selected);
+    else if (key === 'points') { if (fixReqPoints(selected)) { if (reqOk(selected)) equip(selected); else itemModal(selected); } }
+    else if (key === 'sell') sell(selected);
+    else if (key === 'stash') { const result = stashDeposit(selected); toast(result.msg); if (result.ok) refresh(); }
+    else if (key === 'forge') forgeModal(selected);
+    else if (key === 'lock') { selected.locked = !selected.locked; invDirty = true; save(); toast(selected.locked ? 'Đã khóa: không bị tự bán / bán hàng loạt' : 'Đã mở khóa'); refresh(); }
+    else if (key === 'share') {
+      if (typeof window.prepareWorldChatItem !== 'function') toast('Chat thế giới chưa sẵn sàng');
+      else window.prepareWorldChatItem(itemSharePayload(selected));
+    }
+  });
+  document.body.appendChild(menu); invContextMenu = menu; invContextMenuOpener = opener;
+  const rect = menu.getBoundingClientRect(), margin = 8;
+  menu.style.left = `${Math.max(margin, Math.min(x, window.innerWidth - rect.width - margin))}px`;
+  menu.style.top = `${Math.max(margin, Math.min(y, window.innerHeight - rect.height - margin))}px`;
+  menu.querySelector('[data-inv-context-action]:not(:disabled)')?.focus({ preventScroll: true });
+}
+function bindInvContextMenu() {
+  const root = $('#t-inv'); if (!root || invContextMenuBound) return;
+  root.addEventListener('contextmenu', event => {
+    const cell = event.target.closest('button.it[data-uid]');
+    if (!cell || !root.contains(cell)) return;
+    const it = S.inv.find(item => +item.uid === +cell.dataset.uid); if (!it) return;
+    const rect = cell.getBoundingClientRect();
+    event.preventDefault(); openInvContextMenu(it, event.clientX || rect.left, event.clientY || rect.bottom, cell);
+  });
+  document.addEventListener('pointerdown', event => { if (invContextMenu && !invContextMenu.contains(event.target)) closeInvContextMenu(); }, true);
+  document.addEventListener('keydown', event => { if (event.key === 'Escape' && invContextMenu) { const opener = invContextMenuOpener; closeInvContextMenu(); opener?.focus({ preventScroll: true }); event.preventDefault(); } });
+  document.addEventListener('scroll', closeInvContextMenu, true);
+  window.addEventListener('resize', closeInvContextMenu);
+  invContextMenuBound = true;
+}
+/* ---------- xem truoc do khi re chuột (may tinh, co the tat trong Thiết lập) ---------- */
+let invHoverPreviewTimer = 0, invHoverPreviewCell = null, invHoverPreviewBound = false;
+function scheduleInvHoverPreviewClose() {
+  clearTimeout(invHoverPreviewTimer);
+  invHoverPreviewTimer = setTimeout(() => {
+    const overlay = $('#modal'), box = overlay.querySelector('.mbox');
+    if (!overlay.classList.contains('inventory-item-tooltip')) return;
+    if (invHoverPreviewCell?.matches(':hover') || box?.matches(':hover')) return;
+    closeModal(); invHoverPreviewCell = null;
+  }, 260);
+}
+function bindInvHoverPreview() {
+  const root = $('#t-inv'); if (!root || invHoverPreviewBound) return;
+  root.addEventListener('pointerover', event => {
+    if (uiPrefs().invHoverPreview !== true || !document.body.classList.contains('deskland') || (event.pointerType && event.pointerType !== 'mouse') || event.buttons) return;
+    const cell = event.target.closest('button.it[data-uid]');
+    if (!cell || !root.contains(cell) || cell.contains(event.relatedTarget)) return;
+    clearTimeout(invHoverPreviewTimer); invHoverPreviewCell = cell;
+    const it = S.inv.find(item => +item.uid === +cell.dataset.uid); if (it) itemModal(it, undefined, 'inspect', 'tooltip', cell);
+  });
+  root.addEventListener('pointerout', event => {
+    const cell = event.target.closest('button.it[data-uid]');
+    if (!cell || !root.contains(cell) || cell.contains(event.relatedTarget)) return;
+    const box = $('#modal .mbox');
+    if (event.relatedTarget instanceof Node && box?.contains(event.relatedTarget)) return;
+    scheduleInvHoverPreviewClose();
+  });
+  const box = $('#modal .mbox');
+  box.addEventListener('pointerenter', () => clearTimeout(invHoverPreviewTimer));
+  box.addEventListener('pointerleave', scheduleInvHoverPreviewClose);
+  invHoverPreviewBound = true;
 }
 
 /* ---------- the: chien truong ---------- */
@@ -395,20 +846,74 @@ function renderSkill() {
 }
 
 /* ---------- the: tui do ---------- */
+const INV_SORTS = [['new', 'Mới nhặt'], ['rar', 'Độ hiếm'], ['lvl', 'Cấp đồ'], ['slot', 'Loại'], ['pow', 'Sức mạnh']];
+const INV_SLOT_ORDER = Object.assign(Object.fromEntries(SLOTS.map(([key], index) => [key, index])), { ring: SLOTS.findIndex(([key]) => key === 'ring1') });
+function invPositionLayout() {
+  const byUid = new Map(S.inv.map(it => [+it.uid, it]));
+  const capacity = Math.max(Math.max(0, invMax() - potSlotsUsed()), S.inv.length);
+  const stored = Array.isArray(S.invOrder) ? S.invOrder : [];
+  const order = Array.from({ length: Math.min(stored.length, capacity) }, (_, i) => {
+    const uid = stored[i] == null ? 0 : +stored[i]; return Number.isSafeInteger(uid) && byUid.has(uid) ? uid : null;
+  });
+  const seen = new Set();
+  for (let i = 0; i < order.length; i++) {
+    if (order[i] == null || seen.has(order[i])) order[i] = null;
+    else seen.add(order[i]);
+  }
+  for (const it of S.inv) {
+    const uid = +it.uid; if (seen.has(uid)) continue;
+    let slot = order.indexOf(null);
+    if (slot < 0) { if (order.length >= capacity) break; slot = order.length; order.push(null); }
+    order[slot] = uid; seen.add(uid);
+  }
+  while (order.length && order[order.length - 1] == null) order.pop();
+  S.invOrder = order;
+  return { order, byUid, capacity };
+}
+function invSortedEntries(sort = S.invSort || 'new') {
+  const entries = S.inv.map((it, index) => ({ it, index }));
+  const byLevel = (a, b) => b.it.lvl - a.it.lvl || b.it.r - a.it.r || a.index - b.index;
+  if (sort === 'rar') entries.sort((a, b) => b.it.r - a.it.r || byLevel(a, b));
+  else if (sort === 'lvl') entries.sort(byLevel);
+  else if (sort === 'slot') entries.sort((a, b) => (INV_SLOT_ORDER[DETAIL_SLOT[a.it.d]] ?? 99) - (INV_SLOT_ORDER[DETAIL_SLOT[b.it.d]] ?? 99) || byLevel(a, b));
+  else if (sort === 'pow') entries.sort((a, b) => itemPower(b.it) - itemPower(a.it) || a.index - b.index);
+  return entries;
+}
 export function renderInv() {
+  uiSelectClose();
   invDirty = false;
+  const invSort = INV_SORTS.some(([key]) => key === S.invSort) ? S.invSort : 'new';
+  const potionCells = J.potions.filter(p => (potStock(p.kind)[p.tier] || 0) > 0)
+    .map(p => `<button type="button" class="it potion-inv-cell" data-potion-kind="${p.kind}" data-potion-tier="${p.tier}" title="${esc(p.n)} · còn ${potStock(p.kind)[p.tier]} bình" aria-label="${esc(p.n)}, còn ${potStock(p.kind)[p.tier]} bình"><img src="${esc(p.ic || '')}" alt="" draggable="false"><i>${potStock(p.kind)[p.tier]}</i></button>`).join('');
   const onGround = R.ground.length;
-  $('#t-inv').innerHTML = `<div class="invbar"><span class="inv-capacity"><span>${S.inv.length}/${INV_MAX}</span><span class="sp"></span>
-    <button class="btn sm" id="bDonKho">Dọn kho</button><button class="btn sm" id="bStash">Kho chung</button></span><span class="inv-actions">
-    <button class="btn sm" id="bBest">Mặc đồ tốt</button><button class="btn sm" id="bGrabAll" ${onGround ? '' : 'disabled'}>Lấy hết đồ (${onGround})</button><button class="btn sm red" id="bSellAll">Bán đồ không khớp lọc</button></span></div>
-    <div class="invgrid">${S.inv.map(itemCell).join('')}</div>` + lootPanelHTML();
+  const currentPower = S.inv.length ? (R.dirty || !R.P ? power(calc(S.eq)) : power(R.P)) : 0;
+  const layout = invPositionLayout();
+  const emptyCell = index => `<div class="it inv-empty-slot" data-inv-order="${index}" aria-hidden="true"></div>`;
+  const visibleOrder = invSort === 'new'
+    ? Array.from({ length: layout.capacity }, (_, index) => layout.byUid.get(layout.order[index]) || null)
+    : invSortedEntries(invSort).map(({ it }) => it);
+  const itemCells = Array.from({ length: layout.capacity }, (_, index) => {
+    const it = visibleOrder[index]; return it ? itemCell(it, index, currentPower) : emptyCell(index);
+  }).join('');
+  const sortLabel = (INV_SORTS.find(([key]) => key === invSort) || INV_SORTS[0])[1];
+  $('#t-inv').innerHTML = `<div class="invbar"><div class="inv-capacity"><span>Túi đồ: ${invUsed()}/${invMax()}</span><span class="sp"></span>
+    <button class="btn sm" id="bExpandInv" ${invExpansionCount() >= INV_EXPANSION_MAX ? 'disabled' : ''}>${invExpansionCount() >= INV_EXPANSION_MAX ? 'Túi đã tối đa' : 'Mở rộng túi'}</button></div>
+    <div class="inv-actions"><button class="btn sm" id="bStash">Kho chung</button><button class="btn sm" id="bBest">Mặc đồ tốt</button><button class="btn sm" id="bGrabAll" ${onGround ? '' : 'disabled'}>Lấy hết đồ (${onGround})</button><button class="btn sm red" id="bSellAll">Bán đồ</button></div></div>
+    <div class="inv-tools"><span>Sắp xếp</span>${uiSelectMarkup('iSort', INV_SORTS, invSort, 'Sắp xếp túi đồ')}</div>
+    <div class="dim small inv-reorder-hint">${invSort === 'new' ? 'Kéo món vào ô bất kỳ, kể cả ô trống; kéo bình sang Bán đồ hoặc Kho chung · điện thoại: nhấn giữ rồi kéo' : `Đang sắp xếp: ${sortLabel} · kéo món để chuyển sang "Mới nhặt" và giữ vị trí mới · điện thoại: nhấn giữ rồi kéo`}</div><div class="invgrid">${potionCells}${itemCells}</div>` + lootPanelHTML();
   $('#bStash').onclick = () => stashModal();
-  $('#bDonKho').onclick = () => donKhoModal('inv');
+  $('#bExpandInv').onclick = () => inventoryUpgradeModal();
   $('#bBest').onclick = () => { for (const it of S.inv.slice()) if (betterThanEquipped(it)) equip(it, true); refresh(); };
   $('#bGrabAll').onclick = () => { const n = pickAllGround(); toast(n ? `Đã lấy ${n} món từ đất` : 'Không lấy thêm được (túi đầy?)'); refresh(); };
-  $('#bSellAll').onclick = () => { const r = sellUnmatched(); toast(`Bán ${r.n} món${r.kept ? ` (giữ ${r.kept} món bộ / Tím / Bạch Kim)` : ''}`); refresh(); };
-  document.querySelectorAll('#t-inv .it').forEach(b => b.onclick = () => itemModal(findItem(b.dataset.uid)));
+  $('#bSellAll').onclick = () => sellChoiceModal();
+  bindUISelect($('#t-inv'), 'iSort', value => { S.invSort = value; save(); renderInv(); });
+  bindInvContextMenu();
+  bindInvHoverPreview();
+  document.querySelectorAll('#t-inv button.it').forEach(b => b.onclick = () => b.dataset.potionTier
+    ? potionInventoryModal(b.dataset.potionKind, +b.dataset.potionTier)
+    : itemModal(findItem(b.dataset.uid)));
   bindLootPanel($('#t-inv'));
+  invOrderBind();
 }
 
 /* ---------- Thiết lập Auto (trang #t-auto — giống bản nguồn) ---------- */
@@ -576,6 +1081,8 @@ function renderMore() {
     <h3>Trợ năng</h3><div class="card lootf">
       <div class="row">Cỡ chữ <select id="uFs">${UI_FS.map((v, i) => `<option value="${i}" ${uiPrefs().fs === i ? 'selected' : ''}>${UI_FS_NAME[i]}</option>`).join('')}</select> <small class="dim">áp dụng cho bảng thông tin, thẻ và hộp thoại</small></div>
       <label><input type="checkbox" id="uSaver" ${uiPrefs().saver ? 'checked' : ''}> Tiết kiệm pin (vẽ 30 khung/giây, ngừng vẽ khi ẩn tab)</label>
+      <label><input type="checkbox" id="uInvGlow" ${uiPrefs().invBorderGlow ? 'checked' : ''}> Viền sáng đồ bộ (bộ Vàng / Bạch Kim trong túi)</label>
+      <label><input type="checkbox" id="uInvHover" ${uiPrefs().invHoverPreview ? 'checked' : ''}> Xem trước đồ khi rê chuột (máy tính)</label>
       <small class="dim">Tay cầm: cần analog / D-pad để đi, A B X Y dùng chiêu 1–4, LB / RB uống thuốc HP / MP, Start tạm dừng Luyện Công. Phím Esc đóng hộp thoại.</small></div>
     <h3>Điều khiển & Hiển thị</h3><div class="card"><label><input type="checkbox" id="cJoy" ${joyFixed() ? 'checked' : ''}> Joystick cố định ở góc trái dưới (bỏ chọn: joystick nổi theo ngón tay)</label><br>
       <label><input type="checkbox" id="cLowFx" ${S.lowFx ? 'checked' : ''}> Giảm hiệu ứng (mượt hơn trên máy yếu / đông quái)</label></div>
@@ -595,6 +1102,8 @@ function renderMore() {
   $('#bStashM').onclick = () => stashModal(); $('#bClan').onclick = () => clanModal(); $('#bJournal').onclick = () => jrModal(); $('#bLog').onclick = () => logModal(); $('#bTut').onclick = () => tutorialModal(0); $('#bCodex').onclick = () => codexModal(); $('#bSug').onclick = suggestModal;
   $('#bAdmin').onclick = () => adminModal();
   $('#uFs').onchange = e => { setUiPref({ fs: +e.target.value }); }; $('#uSaver').onchange = e => setUiPref({ saver: e.target.checked });
+  $('#uInvGlow').onchange = e => setUiPref({ invBorderGlow: e.target.checked });
+  $('#uInvHover').onchange = e => setUiPref({ invHoverPreview: e.target.checked });
   $('#bSwitch').onclick = () => switchCharacter();
   $('#bReset').onclick = () => modal(`<h3>Xóa nhân vật?</h3><p class="desc">Xóa nhân vật ở slot ${SLOT + 1} (${esc(FAC[S.fac] ? FAC[S.fac].n : '')} cấp ${S.lvl}). Toàn bộ tiến trình của slot này sẽ mất; các slot khác không ảnh hưởng.</p><div class="btnrow"><button class="btn red" id="bYes">Xóa</button></div>`, () => $('#bYes').onclick = () => deleteSlot(SLOT));
 }

@@ -45,9 +45,10 @@ let UIP: any = null;
 export function uiPrefs() {
   if (!UIP) { try { UIP = JSON.parse(localStorage.getItem(UI_KEY) || '{}') || {}; } catch (e) { UIP = {}; } }
   UIP.fs = Number.isInteger(UIP.fs) && UIP.fs >= 0 && UIP.fs < UI_FS.length ? UIP.fs : 1; UIP.saver = !!UIP.saver; UIP.compact = !!UIP.compact;
+  UIP.invBorderGlow = !!UIP.invBorderGlow; UIP.invHoverPreview = UIP.invHoverPreview === true;
   return UIP;
 }
-export function applyUiPrefs() { const p = uiPrefs(); document.documentElement.style.setProperty('--fs', String(UI_FS[p.fs])); document.body.classList.toggle('saver', p.saver); document.body.classList.toggle('compact', p.compact); }
+export function applyUiPrefs() { const p = uiPrefs(); document.documentElement.style.setProperty('--fs', String(UI_FS[p.fs])); document.body.classList.toggle('saver', p.saver); document.body.classList.toggle('compact', p.compact); document.body.classList.toggle('inv-border-glow', p.invBorderGlow); }
 export function setUiPref(o) { Object.assign(uiPrefs(), o); try { localStorage.setItem(UI_KEY, JSON.stringify(UIP)); } catch (e) { /* che do rieng tu */ } applyUiPrefs(); fitApp(); }
 export function onZoneChange(z) { obsLoad(z.id); [H.x, H.y] = inWorld(H.x, H.y); for (const e of R.enemies) [e.x, e.y] = inWorld(e.x, e.y); for (const d of R.ground) [d.x, d.y] = inWorld(d.x, d.y); snapCamera(); R.bgImg = z.bg ? img(z.bg) : null; playMusic(z.id); preloadZoneSounds(z); if (curTab === 'log') refresh(); }
 export function onStageChange() { if (curTab === 'log') refresh(); }
