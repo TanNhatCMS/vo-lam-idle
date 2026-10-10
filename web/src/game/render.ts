@@ -211,12 +211,16 @@ function drawMinimap(c) {
   }
   const r = miniRect(), left = r.x - 4, top = r.y - 28, w = r.s + 8, h = r.s + 34;
   if (!el || !cv) return;
-  // MINI lam viec bang don vi AR (pixel canvas). style.left/top tinh bang pixel LOCAL cua khung app
-  // (clientWidth khong bi transform scale .8 cua body.mob anh huong), khong dung rect visual keo bi lech.
-  const ratio = CV && CV.width ? (CV.clientWidth || CV.width) / CV.width : 1;
-  el.style.left = `${left * ratio}px`; el.style.top = `${top * ratio}px`; el.classList.add('open');
-  cv.style.width = `${w * ratio}px`; cv.style.height = `${h * ratio}px`;
-  const scale = Math.min(2, window.devicePixelRatio || 1), pw = Math.round(w * ratio * scale), ph = Math.round(h * ratio * scale);
+  // #miniFloat la con truc tiep cua #battle nen style.left/top don vi = px LOCAL = AR px
+  // (cung don vi voi AR.w, KHONG bi transform scale .8 cua body.mob anh huong).
+  // DUNG AR px truc tiep — phien truoc dung CV.clientWidth/CV.width (= 1/DPR) nen tren may
+  // DPR != 1 (Android WebView DPR 2-3) khung noi bi dat lech 1/DPR lan: mat nut dong,
+  // vung bam khong khop vi tri hien thi (user bao "mini map hien lech, khong dong duoc,
+  // khong chon diem de di chuyen").
+  el.style.left = `${left}px`; el.style.top = `${top}px`; el.classList.add('open');
+  cv.style.width = `${w}px`; cv.style.height = `${h}px`;
+  // backing store = style px x DPR hieu dung (da nhan uiScale) de net tren man hinh
+  const scale = DPR || Math.min(2, window.devicePixelRatio || 1), pw = Math.round(w * scale), ph = Math.round(h * scale);
   if (cv.width !== pw || cv.height !== ph) { cv.width = pw; cv.height = ph; }
   const c2 = cv.getContext('2d'); c2.setTransform(scale, 0, 0, scale, 0, 0); c2.clearRect(0, 0, w, h);
   c2.save(); c2.translate(4 - r.x, 28 - r.y); drawMinimapLayer(c2, r.x, r.y, r.s, true); c2.restore();
@@ -324,7 +328,10 @@ export function draw(dt) {
       const jxH = R.jx ? drawJxHero(H.act || 'st', H.dir || 0, H.actT || 0, H.x, H.y, HERO_SCALE * 0.6, R.deadT > 0 ? 0.35 : 1, H.animKey) : false;
       const drawn = jxH !== false ? jxH : (hw && hw.anim && drawAnim(hw.anim, H.act || 'st', H.dir || 0, H.actT || 0, H.x, H.y, HERO_SCALE));
       const tw = titleWorn();
-      label(H.x, H.y - (drawn ? Math.min(drawn, 90) * 0.9 : 52) - 6, `${tw ? `«${tw.n}» ` : ''}${S.name || (FAC[S.fac] && FAC[S.fac].n) || ''} · Lv${S.lvl}`, NAME_COL.hero, 12, R.life / Math.max(1, R.P.life), '#4fd04f');
+      // danh hieu tren ten (2 dong rieng): «Ten danh hieu» o tren, ten nhan vat o duoi
+      const ly = H.y - (drawn ? Math.min(drawn, 90) * 0.9 : 52) - 6;
+      if (tw) label(H.x, ly - 13, `«${tw.n}»`, '#f3d88a', 11, -1, null);
+      label(H.x, ly, `${S.name || (FAC[S.fac] && FAC[S.fac].n) || ''} · Lv${S.lvl}`, NAME_COL.hero, 12, R.life / Math.max(1, R.P.life), '#4fd04f');
       if (!drawn && !(hw && drawSprite(img(hw.img), hw.sz, H.x, H.y, 0.9, H.face < 0, R.deadT > 0 ? 0.35 : 1))) { c.fillStyle = SERIES_COL[heroSeries()]; c.beginPath(); c.arc(H.x, H.y - 20, 14, 0, 7); c.fill(); }
       if (R.hurtT > 0) { c.fillStyle = '#f004'; c.beginPath(); c.arc(H.x, H.y - 24, 20, 0, 7); c.fill(); }
       continue;

@@ -4,9 +4,8 @@ import { R } from './combat';
 /* Chat the gioi ban OFFLINE: kenh chat da TAT (ban vinarpg noi server qua
    EventSource/POST — ban ngoai tuyen khong co server nen bo), khung chat
    chi dung de xem Nhat ky he thong (R.logs — cung nhat ky voi the Giang ho).
-   Port tu js/chat.js ban vinarpg, giu lai: nut toggle, tab Thế giới / Nhật ký /
-   Zalo, phóng to ⛶, khung mờ khi không chạm 5s, Enter mở Nhật ký, Esc đóng. */
-const ZALO_GROUP = 'https://zalo.me/g/48ggpuf4wcawqxen1qln';
+   Port tu js/chat.js ban vinarpg, giu lai: nut toggle, tab Thế giới / Nhật ký,
+   phóng to ⛶, khung mờ khi không chạm 5s, Enter mở Nhật ký, Esc đóng. */
 const IDLE_FRAME_MS = 5000;
 let root = null, panel, toggle, maximizeButton, list, systemList;
 let idleFrameTimer = 0, activeTab = 'system';
@@ -70,7 +69,6 @@ export function initWorldChat() {
         <nav class="wc-tabs" aria-label="Các tab chat">
           <button class="wc-tab" type="button" data-chat-tab="world" aria-pressed="false">Thế giới</button>
           <button class="wc-tab active" type="button" data-chat-tab="system" aria-pressed="true">Nhật ký</button>
-          <button class="wc-tab wc-zalo" type="button" aria-label="Mở nhóm Zalo của Võ Lâm Idle" title="Tham gia nhóm Zalo">Zalo</button>
         </nav>
         <div class="wc-header-right">
           <small class="wc-online">Offline</small>
@@ -89,7 +87,6 @@ export function initWorldChat() {
   systemList = root.querySelector('.wc-system-list');
   toggle.addEventListener('click', () => setOpen(panel.hidden));
   maximizeButton.addEventListener('click', () => setMaximized(!panel.classList.contains('wc-maximized')));
-  root.querySelector('.wc-zalo').addEventListener('click', () => window.open(ZALO_GROUP, '_blank', 'noopener,noreferrer'));
   root.querySelectorAll('[data-chat-tab]').forEach(b => b.addEventListener('click', () => { setTab(b.dataset.chatTab); showFrameAndStartIdle(); }));
   for (const type of ['pointerdown', 'pointermove', 'click', 'keydown', 'focusin', 'wheel'])
     panel.addEventListener(type, showFrameAndStartIdle, { passive: type === 'pointermove' || type === 'wheel' });

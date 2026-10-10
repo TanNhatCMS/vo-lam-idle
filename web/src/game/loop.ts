@@ -137,10 +137,13 @@ export async function boot() {
   try { (window as any).__G = { get R() { return R; }, get H() { return H; }, get S() { return S; } }; } catch (e) { /* bo qua */ }
   /* Du lieu mo ta media (hieu ung fx, vat can ban do, am thanh) nam trong goi assets —
      cho nap xong moi dung chi muc / bat dau ve. Thieu file thi van chay (khong hieu ung/am thanh). */
-  await loadJData();
+  /* Nap save NGAY (dong bo — load() chi doc localStorage, khong can
+     du lieu jdata): S la save that truoc khi bat ki handler nao cua
+     island co the goi (cua so React mount -> boot, HMR dev). */
   const pk = pickSlot(); setSlot(pk.slot);
   if (pk.menu) setS(newSave());          // man hinh chon nhan vat: chua nap nhan vat nao
   const had = pk.menu ? false : load();
+  await loadJData();
   setCanvas($('#arena'));
   applyUiPrefs();
   fitApp();
