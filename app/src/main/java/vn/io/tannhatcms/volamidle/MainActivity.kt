@@ -23,6 +23,7 @@ import android.util.Base64
 import android.util.Log
 import android.view.View
 import android.view.WindowManager
+import android.text.method.ScrollingMovementMethod
 import android.webkit.ConsoleMessage
 import android.webkit.JavascriptInterface
 import android.webkit.ValueCallback
@@ -552,6 +553,13 @@ class MainActivity : ComponentActivity() {
         }
         ui.findViewById<TextView>(R.id.otaVerNew).text = "Trên máy chủ: Tài nguyên v${manifest.version}"
         ui.findViewById<TextView>(R.id.otaVerSize).text = "Cần tải:\n" + lines.joinToString("\n")
+        val notes = cleanNotes(manifest.notes, 1500)
+        val notesView = ui.findViewById<TextView>(R.id.otaNotes)
+        if (notes.isNotEmpty()) {
+            notesView.text = notes
+            notesView.movementMethod = ScrollingMovementMethod.getInstance()
+            notesView.visibility = View.VISIBLE
+        }
         ui.findViewById<TextView>(R.id.versionCorner).text = versionCornerText()
 
         ui.findViewById<Button>(R.id.otaRetry).setOnClickListener { startOtaFlow() }
@@ -610,14 +618,15 @@ class MainActivity : ComponentActivity() {
                 )
                 .setNegativeButton("Thoát") { _, _ -> moveTaskToBack(true) }
         } else {
+            val notes = cleanNotes(manifest.notes, 400)
             builder
                 .setTitle("Có bản cập nhật game mới")
                 .setMessage(
-                    String.format(
-                        Locale.US,
-                        "Bộ cập nhật ~%.0f MB.\nTải qua mạng di động?",
-                        mb
-                    )
+                    buildString {
+                        append(String.format(Locale.US, "Bộ cập nhật ~%.0f MB.", mb))
+                        if (notes.isNotEmpty()) append("\n\n").append(notes)
+                        append("\n\nTải qua mạng di động?")
+                    }
                 )
                 .setNegativeButton("Để sau") { _, _ -> startGame() }
         }
@@ -708,6 +717,28 @@ class MainActivity : ComponentActivity() {
         else "Cập nhật app ${rel.tag}"
         btn.visibility = View.VISIBLE
         btn.setOnClickListener { confirmApkInstall(rel) }
+        // Mô tả bản cập nhật (release notes) — hiện dưới nút trên màn loading
+        val notes = cleanNotes(rel.notes, 600)
+        val notesView = root.findViewById<TextView>(R.id.otaApkNotes)
+        if (notesView != null && notes.isNotEmpty()) {
+            notesView.text = notes
+            notesView.movementMethod = ScrollingMovementMethod.getInstance()
+            notesView.visibility = View.VISIBLE
+        }
+    }
+
+    /** Release notes (markdown) → text thuần, cắt ngắn còn [max] ký tự. */
+    private fun cleanNotes(raw: String, max: Int): String {
+        var t = raw
+            .replace("`", "")                                  // bỏ dấu code
+            .replace(Regex("\\*\\*([^*]+)\\*\\*"), "$1")      // **đậm** → đậm
+            .replace(Regex("(?m)^#{1,6}\\s*"), "")             // bỏ tiêu đề #
+            .replace(Regex("(?m)^\\s*[-*]\\s+"), "• ")         // gạch đầu dòng → •
+            .replace(Regex("(?m)^\\s+"), "")                   // bỏ thụt đầu dòng
+            .replace(Regex("[ \\t]+"), " ")
+            .trim()
+        if (t.length > max) t = t.take(max - 1).trimEnd() + "…"
+        return t
     }
 
     /** Hỏi xác nhận rồi tải APK bản mới về và mở trình cài đặt luôn. */
@@ -715,6 +746,8 @@ class MainActivity : ComponentActivity() {
         val msg = buildString {
             append("Tải về và cài đặt bản ${rel.tag}?")
             if (rel.apkSize > 0) append(String.format(Locale.US, "%nDung lượng ~%.1f MB.", rel.apkSize / 1048576.0))
+            val notes = cleanNotes(rel.notes, 400)
+            if (notes.isNotEmpty()) append("\n\n").append(notes)
             append("\nTiến trình chơi trong game được giữ nguyên.")
         }
         AlertDialog.Builder(this)

@@ -2,7 +2,6 @@ import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
 }
 
@@ -15,14 +14,14 @@ val keystoreProps = Properties().apply {
 
 android {
     namespace = "vn.io.tannhatcms.volamidle"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "vn.io.tannhatcms.volamidle"
         minSdk = 24
         targetSdk = 35
-        versionCode = 2
-        versionName = "1.8.0"
+        versionCode = 3
+        versionName = "2.3.7"
     }
 
     compileOptions {
@@ -73,11 +72,13 @@ android {
 
     // Ten file APK kep phien ban: volam-idle-v1.3.0-debug.apk / volam-idle-v1.3.0-release.apk
     // (mac dinh la app-debug.apk / app-release.apk — kho phan biet cac ban khi luu tru)
-    applicationVariants.all {
-        val variantName = name
-        outputs.all {
-            (this as com.android.build.gradle.internal.api.BaseVariantOutputImpl).outputFileName =
-                "volam-idle-v$versionName-$variantName.apk"
+    // AGP 9: applicationVariants da bi xoa — dung androidComponents.onVariants
+    val vn = defaultConfig.versionName ?: "?"
+    androidComponents {
+        onVariants { variant ->
+            variant.outputs.forEach { output ->
+                output.outputFileName.set("volam-idle-v$vn-${variant.name}.apk")
+            }
         }
     }
 }

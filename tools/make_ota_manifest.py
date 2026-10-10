@@ -15,10 +15,12 @@ Manifest v6 — tài nguyên tách 2 gói theo tần suất thay đổi, mỗi g
 
 Quy trình phát hành:
   1. Copy file game mới vào game/
-  2. python tools/make_ota_manifest.py --version 1.4.0
-     (tool đọc manifest bản trước từ git HEAD để tính bản vá)
+  2. python tools/make_ota_manifest.py --version 1.4.0 --notes "Mô tả bản cập nhật"
+     (tool đọc manifest bản trước từ git HEAD để tính bản vá;
+      --notes ghi vào manifest để app hiện mô tả khi có bản mới —
+      cùng nội dung --notes của gh release create bước 4)
   3. git add assets-manifest.json && git commit && git push
-  4. gh release create v1.4.0 <apk> ota-data-1.4.0.zip ota-assets-1.4.0.zip
+  4. gh release create v1.4.0 <apk> ota-data-1.4.0.zip ota-assets-1.4.0.zip --notes "…"
      (chỉ đính kèm ZIP gói có thay đổi — gói không đổi không cần ZIP mới)
 ZIP tạo với timestamp cố định nên deterministic.
 """
@@ -90,6 +92,23 @@ def build_zip(kind: str, files: list, sources: dict) -> dict:
     }
 
 
+def release_notes(ver: str, explicit: str | None) -> str:
+    """Mô tả bản cập nhật ghi vào manifest — app hiện khi có bản mới.
+    Ưu tiên --notes (chạy TRƯỚC gh release create nên release chưa có);
+    không có thì thử đọc release đã tạo (chạy lại sau bước 4); không được
+    thì để trống. Cắt 2000 ký tự cho manifest gọn."""
+    if explicit is not None:
+        return explicit.strip()[:2000]
+    try:
+        r = subprocess.run(
+            ["gh", "release", "view", f"v{ver}", "--json", "body", "--jq", ".body"],
+            capture_output=True, check=True,
+        ).stdout.decode("utf-8", errors="replace")
+        return r.strip()[:2000]
+    except Exception:
+        return ""
+
+
 def previous_manifest() -> dict | None:
     """Manifest của bản phát hành trước (commit ở HEAD), trả None nếu không đọc được."""
     try:
@@ -148,6 +167,9 @@ def main() -> int:
     global version
     ap = argparse.ArgumentParser()
     ap.add_argument("--version", required=True, help="phien ban OTA, vd 1.4.0")
+    ap.add_argument("--notes", default=None,
+                    help="mo ta ban cap nhat ghi vao manifest (app hien khi co ban moi); "
+                         "nen dung cung noi dung --notes cua gh release create")
     args = ap.parse_args()
     version = args.version
 
@@ -188,6 +210,7 @@ def main() -> int:
     payload = {
         "otaVersion": 6,
         "version": version,
+        "notes": release_notes(version, args.notes),
         "data": data_desc,
         "assets": assets_desc,
         "patch": patches,
