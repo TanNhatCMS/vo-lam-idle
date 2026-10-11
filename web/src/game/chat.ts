@@ -4,8 +4,10 @@ import { R } from './combat';
 import { S } from './save';
 
 /* ======================= CHAT THE GIOI (port tu volam.vinarpg.com/js/chat.js) =======================
-   Ket noi server chat qua Cloudflare Worker proxy same-origin /api/chat/* (Worker do phan khac lam,
-   chi can goi URL tuong doi — Worker lo CORS):
+   Ket noi server chat qua Cloudflare Worker proxy: /api/chat/* tuyet doi ve
+   https://vo-lam-idle.tannhatcms.io.vn (Worker lo CORS). PHAI DUNG URL TUYET DOI
+   vi tren Android WebView chay o origin androidplatform.net (WebViewAssetLoader) —
+   URL tuong doi se resolve thanh androidplatform.net/api/chat/* -> 404:
    - GET  /api/chat/status            kiem tra API san sang (fallback GET /api/chat/messages?limit=1)
    - GET  /api/chat/stream?client_id  EventSource SSE: open / ready {messages,online} / message / presence / error
    - POST /api/chat/messages          gui tin {name,faction,level,message,client_id,item?}
@@ -16,8 +18,8 @@ import { S } from './save';
    KHONG doc o top-level module (bi crash "at module evaluation" + SSR next build).
    Kill switch: window.JX_CHAT_OFFLINE = true -> bo ket noi, khung chi con tab Nhat ky he thong.
    Tab "Nhat ky" = R.logs (cung nhat ky voi the Giang ho; ui.ts log() goi window.syncWorldChatSystem).
-   Tab "Zalo" = mo nhom Zalo (giong ban goc). Chia se trang bi: window.prepareWorldChatItem (ui.ts
-   "Dang the gioi" goi), xem tin chia se: window.showSharedItem (ui.ts). */
+   Chia se trang bi: window.prepareWorldChatItem (ui.ts "Dang the gioi" goi),
+   xem tin chia se: window.showSharedItem (ui.ts). */
 
 /* Viet tat ten mon phai (giong chat.js ban nguon). */
 const FACTION_SHORT = {
@@ -28,6 +30,9 @@ const CHAT_SHOW_TIME_KEY = 'jxidle_chat_show_time';
 const GM_TOKEN_SESSION_KEY = 'jxidle_chat_gm_token';
 const CLIENT_ID_KEY = 'jxidle_chat_client_id';
 const IDLE_FRAME_MS = 5000;
+/* Base URL tuyet doi cua Worker proxy (xem comment tren — de chat chay duoc
+   tren WebViewAssetLoader cua Android, origin khac voi domain web). */
+const CHAT_API = 'https://vo-lam-idle.tannhatcms.io.vn';
 const MAX_MESSAGES = 80;
 
 /* Ten mien (JX_VI.names: Han -> Viet) — giong core.js ban nguon; duong du lieu nay
@@ -49,7 +54,7 @@ const viMessage = s => {
 
 /* Con tro DOM (null cho den khi initWorldChat — khoi tao trong boot, sau khi nap save). */
 let root = null, battle = null, inputModeButton = null;
-let toggle = null, panel = null, maximizeButton = null, zaloButton = null;
+let toggle = null, panel = null, maximizeButton = null;
 let list = null, systemList = null, form = null, input = null, sendButton = null;
 let emojiToggle = null, emojiPicker = null, emojiGrid = null, emojiClose = null;
 let unreadBadge = null, onlineLabel = null, statusLabel = null;
@@ -337,7 +342,7 @@ function scheduleReconnect(callback) {
 function connect() {
   if (source || stopped || !apiAvailable) return;
   clearTimeout(reconnectTimer);
-  source = new EventSource(`/api/chat/stream?client_id=${encodeURIComponent(clientId())}`);
+  source = new EventSource(`${CHAT_API}/api/chat/stream?client_id=${encodeURIComponent(clientId())}`);
   const currentSource = source;
   source.addEventListener('open', () => {
     showStatus('', 'ok');
@@ -375,11 +380,11 @@ async function start() {
     return;
   }
   try {
-    let response = await fetch('/api/chat/status', { cache: 'no-store' });
+    let response = await fetch(`${CHAT_API}/api/chat/status`, { cache: 'no-store' });
     // Keep chat available if the new app shell arrives before the origin
     // process has been restarted with the async backend.
     if (response.status === 404 || !response.headers.get('content-type')?.includes('application/json')) {
-      response = await fetch('/api/chat/messages?limit=1', { cache: 'no-store' });
+      response = await fetch(`${CHAT_API}/api/chat/messages?limit=1`, { cache: 'no-store' });
     }
     if (!response.headers.get('content-type')?.includes('application/json')) {
       if (response.status >= 500) scheduleReconnect(start);
@@ -473,7 +478,7 @@ async function send(event, overrideText = null, itemPayload = null) {
   try {
     const headers = { 'Content-Type': 'application/json' };
     if (gmToken()) headers['X-Chat-GM-Token'] = gmToken();
-    const response = await fetch('/api/chat/messages', {
+    const response = await fetch(`${CHAT_API}/api/chat/messages`, {
       method: 'POST',
       headers,
       body: JSON.stringify({ ...who, message, ...(attachedItem ? { item: attachedItem } : {}), client_id: clientId() })
@@ -517,7 +522,6 @@ export function initWorldChat() {
         <nav class="wc-tabs" aria-label="Các tab chat">
           <button class="wc-tab active" type="button" data-chat-tab="world" aria-pressed="true">Thế giới</button>
           <button class="wc-tab" type="button" data-chat-tab="system" aria-pressed="false">Nhật ký</button>
-          <button class="wc-tab wc-zalo" type="button" aria-label="Mở nhóm Zalo của Võ Lâm Idle" title="Tham gia nhóm Zalo">Zalo</button>
         </nav>
         <div class="wc-header-right">
           <small class="wc-online">Online 0</small>
@@ -545,7 +549,6 @@ export function initWorldChat() {
   toggle = root.querySelector('.wc-toggle');
   panel = root.querySelector('.wc-panel');
   maximizeButton = root.querySelector('.wc-maximize');
-  zaloButton = root.querySelector('.wc-zalo');
   list = root.querySelector('.wc-list');
   systemList = root.querySelector('.wc-system-list');
   form = root.querySelector('.wc-form');
@@ -578,9 +581,6 @@ export function initWorldChat() {
     } else {
       setOpen(false);
     }
-  });
-  if (zaloButton) zaloButton.addEventListener('click', () => {
-    window.open('https://zalo.me/g/48ggpuf4wcawqxen1qln', '_blank', 'noopener,noreferrer');
   });
   maximizeButton.addEventListener('click', () => setMaximized(!panel.classList.contains('wc-maximized')));
   emojiToggle.addEventListener('click', () => setEmojiPicker(emojiPicker.hidden));
