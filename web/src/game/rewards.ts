@@ -433,6 +433,7 @@ function doReborn() {
   const r = RW();
   if (S.lvl < rebornLevelAt(r.stat.reborn) || r.stat.reborn >= REBORN_MAX) return;
   if (R.tower || R.tk) { toast('Hãy rời trận trước khi chuyển sinh'); return; }
+  if (R.tyvo) { toast('Hãy dừng chuỗi Tỷ Võ trước khi chuyển sinh'); return; }
   if (!confirm('Chuyển sinh: về cấp 1, giữ trang bị, võ công và điểm từ Tẩy Tỵ Kinh. Tiếp tục?')) return;
   const t = bookPoints();               // điểm sách được giữ qua chuyển sinh (upstream Ky())
   r.stat.reborn++;
