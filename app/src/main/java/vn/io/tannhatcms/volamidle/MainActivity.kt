@@ -430,35 +430,51 @@ class MainActivity : ComponentActivity() {
             // vẹn chạy khi bấm "Vào game" / "Sửa lỗi tài nguyên" trên menu.
             Log.d(TAG, "ota: manifest=${manifest != null} rel=${rel?.tag} idx=${idx.dataVersion != null}/${idx.assetsVersion != null}")
             runOnUiThread {
-                if (rel != null) {
-                    val current = try {
-                        packageManager.getPackageInfo(packageName, 0).versionName
-                    } catch (e: Exception) {
-                        null
-                    }
-                    Log.d(TAG, "ota: current=$current newer=${current != null && isNewerVersion(rel.tag, current)}")
-                    if (current != null && isNewerVersion(rel.tag, current)) {
-                        apkRelease = rel
-                        showApkUpdateButton(screenRoot ?: ui)
-                    }
+                otaContinued = false
+                // UU TIEN kiem tra cap nhat APK truoc OTA data/assets: co APK
+                // moi -> hoi cai dung ngay tren man loading; OTA data chi chay
+                // sau khi nguoi choi chon "De sau" (hoac sau khi cai APK xong —
+                // app khoi dong lai, startOtaFlow chay tu dau).
+                val current = try {
+                    packageManager.getPackageInfo(packageName, 0).versionName
+                } catch (e: Exception) {
+                    null
                 }
-                // Cùng bản data+assets → không phải cập nhật, vào menu.
-                val sameVersion = manifest != null &&
-                    idx.dataVersion == manifest.data.sha256 && idx.assetsVersion == manifest.assets.sha256
-                when {
-                    // Mất mạng nhưng đã từng cài đủ (data + assets) → menu (Vào game chơi offline được)
-                    manifest == null && idx.dataVersion != null && idx.assetsVersion != null ->
-                        showMainMenu(null, idx)
-                    manifest == null ->
-                        showLoadingError(ui, "Không tải được dữ liệu game.\nCần kết nối mạng cho lần chạy đầu tiên.")
-                    sameVersion -> {
-                        Log.d(TAG, "ota: sameVersion -> main menu")
-                        showMainMenu(manifest, idx)
-                    }
-                    else -> showUpdateScreen(manifest, idx)
+                Log.d(TAG, "ota: current=$current apkRel=${rel?.tag} newer=${rel != null && current != null && isNewerVersion(rel.tag, current)}")
+                if (rel != null && current != null && isNewerVersion(rel.tag, current)) {
+                    apkRelease = rel
+                    showApkUpdateButton(screenRoot ?: ui)
+                    confirmApkInstall(rel) { continueOtaFlow(manifest, idx) }
+                    return@runOnUiThread
                 }
+                continueOtaFlow(manifest, idx)
             }
         }.start()
+    }
+
+    private var otaContinued = false
+
+    /** Tiếp tục flow OTA data/assets — gọi 1 lần, sau khi ưu tiên cập nhật
+     *  APK xong (chọn "Để sau") hoặc khi không có APK mới. */
+    private fun continueOtaFlow(manifest: OtaManager.Manifest?, idx: OtaManager.InstalledIndex) {
+        if (otaContinued) return
+        otaContinued = true
+        val ui = screenRoot ?: return
+        // Cùng bản data+assets → không phải cập nhật, vào menu.
+        val sameVersion = manifest != null &&
+            idx.dataVersion == manifest.data.sha256 && idx.assetsVersion == manifest.assets.sha256
+        when {
+            // Mất mạng nhưng đã từng cài đủ (data + assets) → menu (Vào game chơi offline được)
+            manifest == null && idx.dataVersion != null && idx.assetsVersion != null ->
+                showMainMenu(null, idx)
+            manifest == null ->
+                showLoadingError(ui, "Không tải được dữ liệu game.\nCần kết nối mạng cho lần chạy đầu tiên.")
+            sameVersion -> {
+                Log.d(TAG, "ota: sameVersion -> main menu")
+                showMainMenu(manifest, idx)
+            }
+            else -> showUpdateScreen(manifest, idx)
+        }
     }
 
     // ----- Hiệu ứng loading: logo thở, title mờ dần, chấm nhấp nháy -----
@@ -925,8 +941,10 @@ class MainActivity : ComponentActivity() {
         return t
     }
 
-    /** Hỏi xác nhận rồi tải APK bản mới về và mở trình cài đặt luôn. */
-    private fun confirmApkInstall(rel: OtaManager.ReleaseInfo) {
+    /** Hỏi xác nhận rồi tải APK bản mới về và mở trình cài đặt luôn.
+     *  onSkip gọi khi chọn "Để sau"/đóng dialog — để flow OTA data chạy
+     *  tiếp (khi APK được hỏi ưu tiên trước OTA). */
+    private fun confirmApkInstall(rel: OtaManager.ReleaseInfo, onSkip: (() -> Unit)? = null) {
         val msg = buildString {
             append("Tải về và cài đặt bản ${rel.tag}?")
             if (rel.apkSize > 0) append(String.format(Locale.US, "%nDung lượng ~%.1f MB.", rel.apkSize / 1048576.0))
@@ -935,11 +953,14 @@ class MainActivity : ComponentActivity() {
             append("\nTiến trình chơi trong game được giữ nguyên.")
         }
         Log.d(TAG, "apkDialog[$rel.tag]: $msg")
+        var skipped = false
+        val skip = { if (!skipped) { skipped = true; onSkip?.invoke() } }
         AlertDialog.Builder(this)
             .setTitle("Cập nhật app ${rel.tag}")
             .setMessage(msg)
-            .setNegativeButton("Hủy", null)
+            .setNegativeButton("Để sau") { _, _ -> skip() }
             .setPositiveButton("Tải về & cài") { _, _ -> installUpdateApk(rel) }
+            .setOnCancelListener { skip() }
             .show()
     }
 

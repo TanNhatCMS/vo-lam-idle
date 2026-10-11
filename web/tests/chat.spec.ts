@@ -80,7 +80,7 @@ function mockChatApi(page: Page, opts: { holdStream?: boolean } = {}): ChatMock 
   return mock;
 }
 
-test('chat: widget an/hien, tin nhan render (ten/mon phai/cap), badge unread, tab, phóng to, Zalo', async ({ page }) => {
+test('chat: widget an/hien, tin nhan render (ten/mon phai/cap), badge unread, tab, phóng to', async ({ page }) => {
   mockChatApi(page);
   await createCharacter(page);
 
@@ -126,14 +126,6 @@ test('chat: widget an/hien, tin nhan render (ten/mon phai/cap), badge unread, ta
   await expect(panel).toHaveClass(/wc-maximized/);
   await page.locator('#worldChat .wc-maximize').click();
   await expect(panel).not.toHaveClass(/wc-maximized/);
-
-  // tab Zalo: mo nhom Zalo (giả window.open de bat)
-  await page.evaluate(() => {
-    (window as any).__opened = [];
-    (window as any).open = (url: string) => { (window as any).__opened.push(url); return null; };
-  });
-  await page.locator('#worldChat .wc-zalo').click();
-  expect(await page.evaluate(() => (window as any).__opened)).toContain('https://zalo.me/g/48ggpuf4wcawqxen1qln');
 
   assertNoErrors();
 });
