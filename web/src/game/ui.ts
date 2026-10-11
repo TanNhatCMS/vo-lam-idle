@@ -1296,3 +1296,11 @@ function starterGear() {
   if (it) S.eq.weapon = it;
   const ar = makeItem(2, sexPart(2, 0), 1, 0); if (ar && sexOk(ar)) S.eq.armor = ar;
 }
+
+/* Cho vỏ Android (MainActivity — menu Backup/Import khi chưa vào game):
+   gọi hàm lưu từ native qua evaluateJavascript. Gắn ở top-level module
+   (không đọc S/R) — chạy ngay khi bundle tải, trước khi vào game. */
+(window as any).__vlShell = {
+  exportSave: () => downloadSaveFile(),
+  importSave: () => pickSaveFile(null),
+};

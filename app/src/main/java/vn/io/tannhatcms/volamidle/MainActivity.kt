@@ -255,6 +255,10 @@ class MainActivity : ComponentActivity() {
     // Màn hình hiện tại (loading hoặc update) — callback bất đồng bộ gắn nút đúng chỗ
     private var screenRoot: View? = null
 
+    // JS chạy 1 lần sau khi trang game tải xong (menu Backup/Import:
+    // gọi hàm lưu của game từ native — xem __vlShell trong ui.ts)
+    @Volatile private var shellActionJs: String? = null
+
     // Bản APK mới trên GitHub Releases (nếu có) — hiện nút trên màn đang mở
     @Volatile private var apkRelease: OtaManager.ReleaseInfo? = null
     private var apkDownloading = false
@@ -421,19 +425,11 @@ class MainActivity : ComponentActivity() {
             val manifest = OtaManager.fetchManifest()
             val rel = OtaManager.fetchNewestApkRelease()   // chỉ release CÓ file APK — bản chỉ-vá-data không rao update APK
             val idx = OtaManager.loadIndex(this)
-            // Kiểm tra hash từng file tài nguyên đã cài (theo index —
-            // không cần mạng): phát hiện file hỏng/thiếu để đề nghị
-            // sửa lỗi trước khi vào game.
-            var verified = false
-            val broken = if (idx.files.isNotEmpty()) {
-                verified = true
-                OtaManager.verifyInstalled(this) { d, t ->
-                    runOnUiThread { showVerifyProgress(ui, d, t) }
-                }
-            } else emptyList()
-            Log.d(TAG, "ota: manifest=${manifest != null} rel=${rel?.tag} idx=${idx.dataVersion != null}/${idx.assetsVersion != null} broken=${broken.size}")
+            // KHÔNG kiểm tra toàn vẹn (hash từng file) ở đây — mất nhiều phút
+            // với 230MB assets. Boot chỉ so manifest (nhanh); kiểm tra toàn
+            // vẹn chạy khi bấm "Vào game" / "Sửa lỗi tài nguyên" trên menu.
+            Log.d(TAG, "ota: manifest=${manifest != null} rel=${rel?.tag} idx=${idx.dataVersion != null}/${idx.assetsVersion != null}")
             runOnUiThread {
-                hideVerifyProgress(ui)
                 if (rel != null) {
                     val current = try {
                         packageManager.getPackageInfo(packageName, 0).versionName
@@ -443,40 +439,23 @@ class MainActivity : ComponentActivity() {
                     Log.d(TAG, "ota: current=$current newer=${current != null && isNewerVersion(rel.tag, current)}")
                     if (current != null && isNewerVersion(rel.tag, current)) {
                         apkRelease = rel
-                        showApkUpdateButton(ui)
+                        showApkUpdateButton(screenRoot ?: ui)
                     }
                 }
-                // Cùng bản data+assets (dù file có hỏng) → không phải
-                // cập nhật, chỉ cần sửa (nếu hỏng) rồi vào game.
+                // Cùng bản data+assets → không phải cập nhật, vào menu.
                 val sameVersion = manifest != null &&
                     idx.dataVersion == manifest.data.sha256 && idx.assetsVersion == manifest.assets.sha256
                 when {
-                    // Mất mạng nhưng đã từng cài đủ (data + assets) → chơi tiếp
-                    manifest == null && idx.dataVersion != null && idx.assetsVersion != null -> {
-                        if (broken.isNotEmpty()) showRepairDialog(broken, null, idx) else startGame()
-                    }
+                    // Mất mạng nhưng đã từng cài đủ (data + assets) → menu (Vào game chơi offline được)
+                    manifest == null && idx.dataVersion != null && idx.assetsVersion != null ->
+                        showMainMenu(null, idx)
                     manifest == null ->
                         showLoadingError(ui, "Không tải được dữ liệu game.\nCần kết nối mạng cho lần chạy đầu tiên.")
-                    sameVersion && broken.isNotEmpty() -> {
-                        // Cùng bản nhưng có file hỏng/thiếu → đề nghị sửa trước khi vào game
-                        Log.d(TAG, "ota: sameVersion broken=${broken.size} -> repair dialog")
-                        showRepairDialog(broken, manifest, idx)
-                    }
                     sameVersion -> {
-                        Log.d(TAG, "ota: upToDate apkRelease=${apkRelease?.tag}")
-                        loadingBaseStatus = "Đã sẵn sàng"
-                        status.text = loadingBaseStatus
-                        if (verified) dotsHandler.postDelayed(dotsRunnable, 450) // nháy chấm như cũ (verify đã tạm dừng)
-                        if (apkRelease != null) {
-                            // Có bản APK mới — dừng lại để user thấy nút cập nhật; "Vào game" để bỏ qua
-                            ui.findViewById<Button>(R.id.loadingRetry).apply {
-                                text = "Vào game"
-                                visibility = View.VISIBLE
-                                setOnClickListener { startGame() }
-                            }
-                        } else dotsHandler.postDelayed(pendingStart, 500)
+                        Log.d(TAG, "ota: sameVersion -> main menu")
+                        showMainMenu(manifest, idx)
                     }
-                    else -> showUpdateScreen(manifest, idx, broken)
+                    else -> showUpdateScreen(manifest, idx)
                 }
             }
         }.start()
@@ -527,22 +506,90 @@ class MainActivity : ComponentActivity() {
         ui.findViewById<Button>(R.id.loadingRetry).visibility = View.VISIBLE
     }
 
-    /** Thanh loading trên màn loading: đang kiểm tra hash từng file tài nguyên đã cài. */
-    private fun showVerifyProgress(ui: View, done: Int, total: Int) {
-        val bar = ui.findViewById<ProgressBar>(R.id.loadingBar)
-        if (bar.visibility != View.VISIBLE) {
-            bar.visibility = View.VISIBLE
-            ui.findViewById<View>(R.id.loadingSpinner).visibility = View.INVISIBLE
-            dotsHandler.removeCallbacks(dotsRunnable) // giữ text progress, bỏ chấm nhấp nháy
+    /**
+     * Menu chính sau khi kiểm tra nhanh (so manifest — không hash file):
+     * Vào game / Sửa lỗi tài nguyên / Backup-Import data game. Toàn vẹn
+     * tài nguyên chỉ được kiểm tra khi bấm nút (xem checkIntegrity) —
+     * boot không mất nhiều phút hash 230MB assets.
+     */
+    private fun showMainMenu(
+        manifest: OtaManager.Manifest?,
+        idx: OtaManager.InstalledIndex,
+    ) {
+        stopLoadingFx()
+        val ui = layoutInflater.inflate(R.layout.activity_menu, null)
+        screenRoot = ui
+        setContentView(ui)
+        val res = idx.resVersion ?: idx.dataVersion?.take(8) ?: "—"
+        ui.findViewById<TextView>(R.id.menuStatus).text = "Tài nguyên v$res — đã sẵn sàng"
+        ui.findViewById<TextView>(R.id.versionCorner).text = versionCornerText()
+        ui.findViewById<Button>(R.id.menuPlay).setOnClickListener { checkIntegrity(manifest, idx) { startGame() } }
+        ui.findViewById<Button>(R.id.menuRepair).setOnClickListener {
+            if (manifest == null) {
+                Toast.makeText(this, "Đang mất mạng — không kiểm tra được", Toast.LENGTH_LONG).show()
+                return@setOnClickListener
+            }
+            checkIntegrity(manifest, idx) {
+                Toast.makeText(this, "Kiểm tra xong: không có lỗi", Toast.LENGTH_SHORT).show()
+            }
         }
-        bar.max = total
-        bar.progress = done
-        ui.findViewById<TextView>(R.id.loadingStatus).text =
-            String.format(Locale.US, "Đang kiểm tra tài nguyên… %d/%d", done, total)
+        ui.findViewById<Button>(R.id.menuBackup).setOnClickListener { showBackupImportDialog() }
+        showApkUpdateButton(ui)
     }
 
-    private fun hideVerifyProgress(ui: View) {
-        ui.findViewById<ProgressBar>(R.id.loadingBar).visibility = View.GONE
+    /** Kiểm tra toàn vẹn tài nguyên (hash từng file theo index) với thanh
+     *  tiến trình trên menu: có file lỗi/thiếu → đề nghị sửa; không → [onOk]
+     *  (Vào game, hoặc thông báo không có lỗi). */
+    private fun checkIntegrity(
+        manifest: OtaManager.Manifest?,
+        idx: OtaManager.InstalledIndex,
+        onOk: () -> Unit,
+    ) {
+        val ui = screenRoot ?: return
+        val bar = ui.findViewById<ProgressBar>(R.id.menuBar)
+        val status = ui.findViewById<TextView>(R.id.menuStatus)
+        val playBtn = ui.findViewById<Button>(R.id.menuPlay)
+        bar.visibility = View.VISIBLE
+        status.text = "Đang kiểm tra toàn vẹn tài nguyên…"
+        playBtn.isEnabled = false
+        Thread {
+            val broken = OtaManager.verifyInstalled(this) { d, t ->
+                runOnUiThread { bar.max = t; bar.progress = d }
+            }
+            runOnUiThread {
+                bar.visibility = View.GONE
+                playBtn.isEnabled = true
+                if (broken.isNotEmpty()) {
+                    status.text = "Tài nguyên v${idx.resVersion ?: "—"} — ⚠ ${broken.size} file bị lỗi/thiếu"
+                    showRepairDialog(broken, manifest, idx)
+                } else {
+                    status.text = "Tài nguyên v${idx.resVersion ?: "—"} — đã sẵn sàng"
+                    onOk()
+                }
+            }
+        }.start()
+    }
+
+    /** Bấm "Backup / Import data game": xuất file lưu (.jxsave) qua SAF hoặc
+     *  nạp file lưu đã có. Cả hai cần trang game đã tải (đọc/ghi localStorage)
+     *  → vào game rồi chạy hành động shell (__vlShell) ngay khi trang xong. */
+    private fun showBackupImportDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("Backup / Import data game")
+            .setMessage("• Xuất file lưu: tải file .jxsave (sao lưu / chuyển sang thiết bị khác).\n• Nạp từ file: chọn file .jxsave để nạp vào 1 trong 3 slot.\n\nMở game để đọc/ghi dữ liệu lưu.")
+            .setNegativeButton("Hủy", null)
+            .setNeutralButton("Nạp từ file (Import)") { _, _ ->
+                startGameWithShellAction("try{window.__vlShell.importSave()}catch(e){}")
+            }
+            .setPositiveButton("Xuất file lưu (Backup)") { _, _ ->
+                startGameWithShellAction("try{window.__vlShell.exportSave()}catch(e){}")
+            }
+            .show()
+    }
+
+    private fun startGameWithShellAction(js: String) {
+        shellActionJs = js
+        startGame()
     }
 
     /**
@@ -1011,6 +1058,8 @@ class MainActivity : ComponentActivity() {
             override fun onPageFinished(view: WebView, url: String) {
                 view.evaluateJavascript(SAVE_HOOK_JS, null)
                 view.evaluateJavascript(RESTORE_CHECK_JS, null)
+                // Menu Backup/Import: chạy hành động shell 1 lần ngay khi game sẵn sàng
+                shellActionJs?.let { js -> shellActionJs = null; view.evaluateJavascript(js, null) }
             }
 
             override fun shouldOverrideUrlLoading(
