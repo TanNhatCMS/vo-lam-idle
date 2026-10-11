@@ -86,9 +86,9 @@ import type { SurvivalState } from './types';
    Trum o phut 2 / 4 / 6 / 8. Ket thuc: ngan luong + kinh nghiem + do ve nhan vat treo may, quy doi theo toc do ha quai
    khi treo (S.kps) de khong lan at treo may: 0.5 .. 2.5 lan luong treo may cung thoi gian (thang tran x1.3). */
 'use strict';
-const SV_DUR = 600, SV_BOSS_T = [120, 240, 360, 480], SV_MAX_EN = 320, SV_CELL = 64, SV_STAR_MAX = 5, SV_GEM_MAX = 350, SV_MAX_TRAPS = 30;
+const SV_DUR = 600, SV_TIME_BONUS_MAX = 60, SV_TIME_GEM_MAX = 12, SV_BOSS_T = [120, 240, 360, 480], SV_MAX_EN = 320, SV_CELL = 64, SV_STAR_MAX = 5, SV_GEM_MAX = 350, SV_MAX_TRAPS = 30;
 const SV_REWARD_MIN = 0.5, SV_REWARD_MAX = 2.5, SV_WIN_BONUS = 1.3;
-export const SV: SurvivalState = { on: false, up: {}, traps: [], chests: [] };
+export const SV: SurvivalState = { on: false, up: {}, traps: [], chests: [], timeGems: [], evo: {}, combos: 0, timeBonus: 0 };
 const svNeed = l => Math.round(3 + l * 2 + l * l * 0.15);
 const SV_REGEN = 0.005; // hoi 0.5% sinh luc / giay
 
@@ -101,6 +101,54 @@ const SV_UPS = {
   mirror: { n: 'Hộ Tâm Kính',   ic: 'ui/slot.png', desc: 'Giảm sát thương nhận 6%',        stat: s => `-${6 * s}%` },
   med:    { n: 'Kim Sáng Dược', ic: 'ui/slot.png', desc: 'Hồi sinh lực +0.3%/giây',       stat: s => `+${(0.3 * s).toFixed(1)}%/s` },
 };
+/* Bieu tuong chieu: data JX da co ic (img/s/*.png); vai chieu thieu icon trong goi assets nay
+   (goc co ui/training/*.svg nhung goi port chua kem) -> giua fallback la asset co trong port. */
+const SV_SKILL_ICON_FALLBACK = { 22: 'ui/ic_skill.png' };
+function svSkillIcon(id, skill) { return (skill && skill.ic) || SV_SKILL_ICON_FALLBACK[id] || ''; }
+
+/* ---------- tien hoa: bien the chieu (mo khi chieu dat 5 sao, chi chon 1) ---------- */
+const SV_EVOLUTIONS = {
+  trap: [
+    { id: 'trap_extra', n: 'Liên Hoàn Trận', d: 'Mỗi lần thi triển đặt thêm 1 bẫy.' },
+    { id: 'trap_wide', n: 'Địa Võng', d: 'Bán kính nổ của bẫy tăng 20%.' },
+  ],
+  radial: [
+    { id: 'radial_rays', n: 'Bách Ảnh', d: 'Đạn nổ tỏa thêm 2 tia.' },
+    { id: 'radial_pierce', n: 'Xuyên Vân', d: 'Tia con xuyên thêm 1 quái.' },
+  ],
+  melee: [
+    { id: 'melee_targets', n: 'Trảm Liên Hoàn', d: 'Mỗi lần chém trúng thêm 2 mục tiêu.' },
+    { id: 'melee_wide', n: 'Phá Trận', d: 'Vùng chém rộng hơn 20%.' },
+  ],
+  around: [
+    { id: 'around_wide', n: 'Địa Chấn', d: 'Bán kính chiêu tăng 20%.' },
+    { id: 'around_power', n: 'Nội Kình', d: 'Sát thương chiêu tăng 20%.' },
+  ],
+  projectile: [
+    { id: 'shot_extra', n: 'Liên Châu', d: 'Mỗi lần thi triển bắn thêm 1 đạn.' },
+    { id: 'shot_pierce', n: 'Xuyên Tâm', d: 'Đạn xuyên thêm 1 quái.' },
+  ],
+};
+function svEvoKind(id) {
+  if (isTrap(id)) return 'trap';
+  const a = svInfo(id);
+  if (a.around) return 'around';
+  if (a.melee) return 'melee';
+  if (a.radial) return 'radial';
+  return 'projectile';
+}
+function svEvoOptions(id) { return SV_EVOLUTIONS[svEvoKind(id)] || SV_EVOLUTIONS.projectile; }
+function svEvoInfo(id, evoId) { return svEvoOptions(id).find(e => e.id === evoId) || null; }
+function svEvoOf(id) { return SV.evo && SV.evo[id] ? svEvoInfo(id, SV.evo[id]) : null; }
+function svRayCount(id, a) { return (Number(a.radial) || 4) + (SV.evo && SV.evo[id] === 'radial_rays' ? 2 : 0); }
+function svRayAngles(a, b, count) { // goc cac tia phe ra tu tam a den b (tan cong radial)
+  const base = Math.atan2(b.y - a.y, b.x - a.x);
+  return Array.from({ length: count }, (_, i) => base + i * Math.PI * 2 / count);
+}
+/* Ghem bien thể vào save (S.sv.evo) de giu qua reload; S co san nen doc o day khong phai top-level module */
+function svSave() { if (S && S.fac) { S.sv = S.sv || {}; S.sv.evo = Object.assign({}, SV.evo || {}); } }
+/* Mo SV tren window.__G (getter song) de debug / test E2E dieu khien luot choi; __G tao o boot() */
+function svExpose() { try { const g = (window as any).__G; if (g && !('SV' in g)) Object.defineProperty(g, 'SV', { get: () => SV }); } catch (e) { /* bo qua */ } }
 
 /* ---------- lua chon: chieu tan cong + noi cong cua phai ---------- */
 const PAS_KIND = [ // loai thuong theo thuoc tinh chinh cua chieu noi cong goc
@@ -148,7 +196,9 @@ function svBarUpdate() {
   const cell = (id, stars, cd) => {
     if (!id) return `<div class="svcell"><img src="ui/slot.png" alt=""></div>`;
     const s = SV_UPS[id] || (id === 'mag' ? { n: 'Hấp Tinh', ic: 'ui/ring.png' } : SK[id]);
-    return `<div class="svcell" data-id="${id}"><img src="${esc(s.ic || 'ui/slot.png')}" alt=""><b class="star">${'★'.repeat(stars)}</b>${cd ? '<div class="cd"></div>' : ''}</div>`;
+    const evo = svEvoOf(id);
+    const ic = SV_UPS[id] ? (s.ic || 'ui/slot.png') : (svSkillIcon(id, s) || 'ui/slot.png');
+    return `<div class="svcell" data-id="${id}"><img src="${esc(ic)}" alt=""><b class="star">${'★'.repeat(stars)}</b>${cd ? '<div class="cd"></div>' : ''}${evo ? `<i class="svcell-evo" title="${esc(evo.n)}">✦</i>` : ''}</div>`;
   };
   const row = (ids, stars, cd) => ids.slice(0, 6).map(id => cell(id, stars(id), cd)).concat(Array(Math.max(0, 6 - Math.min(6, ids.length))).fill(cell(0))).join('');
   bar.innerHTML = `<div class="svrow act">${row(act, id => SV.picks[id], true)}</div><div class="svrow pas">${row(pas, id => SV_UPS[id] ? SV.up[id] : (id === 'mag' ? SV.mag : SV.pas[id]), false)}</div>`;
@@ -171,7 +221,8 @@ function svSlotInfo(id) {
   }
   const stars = SV.picks[id] || SV.pas[id], ser = svSkillSeries(id);
   const elemDesc = ['Kim · chí mạng +10%', 'Mộc · độc cộng dồn/giây', 'Thủy · làm chậm 30% (5★ đóng băng)', 'Hỏa · nổ lan diện rộng', 'Thổ · đẩy lùi + choáng'][ser];
-  const body = SV.picks[id] ? `${fmt(svInfo(id).tot)} sát thương/đòn${isTrap(id) ? ' · cạm bẫy' : svInfo(id).targets > 1 ? ' · nhiều mục tiêu' : ''}${svInfo(id).melee ? ' · cận chiến' : ''}${svInfo(id).around ? ' · quanh người' : ''} · <b style="color:${SERIES_COL[ser]}">${elemDesc}</b>`
+  const evo = svEvoOf(id);
+  const body = SV.picks[id] ? `${fmt(svInfo(id).tot)} sát thương/đòn${isTrap(id) ? ' · cạm bẫy' : svInfo(id).targets > 1 ? ' · nhiều mục tiêu' : ''}${svInfo(id).melee ? ' · cận chiến' : ''}${svInfo(id).around ? ' · quanh người' : ''} · <b style="color:${SERIES_COL[ser]}">${elemDesc}</b><br><small>Hợp kích: dùng chiêu khác lên cùng quái trong 2 giây để gây thêm 18% sát thương.</small>${evo ? `<br><b class="sv-evo-note">✦ ${esc(evo.n)}:</b> ${esc(evo.d)}` : ''}`
     : `Nội công · ${pasKind(id)[2]} (mỗi sao cộng thêm).`;
   const n = id === 'mag' ? 'Hấp Tinh' : SK[id].n;
   modal(`<h3>${esc(n)} <small>${'★'.repeat(stars)}</small></h3><p class="desc">${body}</p>
@@ -188,9 +239,11 @@ function svStart() {
   R.dirty = true; recalc();
   const main = R.P.main.id || svActives().sort((a, b) => SK[b].req - SK[a].req)[0];
   const L0 = Math.max(1, S.lvl);
-  Object.assign(SV, { on: true, t: 0, kills: 0, lvl: 1, xp: 0, need: svNeed(1), en: [], gems: [], shots: [], traps: [], chests: [], chestTimer: 0, bombs: 0, ultCd: 0, ultCdMax: 60, hpCd: 0, flash: 0, shake: 0, rerolls: 0, picks: { [main]: 1 }, pas: {}, up: { wrist: 0, boot: 0, pouch: 0, mag: 0, mirror: 0, med: 0 }, mag: 0,
+  Object.assign(SV, { on: true, t: 0, kills: 0, lvl: 1, xp: 0, need: svNeed(1), en: [], gems: [], timeGems: [], shots: [], traps: [], chests: [], timeBonus: 0, combos: 0, evo: {}, chestTimer: 0, bombs: 0, ultCd: 0, ultCdMax: 60, hpCd: 0, flash: 0, shake: 0, rerolls: 0, picks: { [main]: 1 }, pas: {}, up: { wrist: 0, boot: 0, pouch: 0, mag: 0, mirror: 0, med: 0 }, mag: 0,
     cds: { [main]: 0.5 }, cdMax: {}, dmg: {}, info: {}, paused: false, choosing: false, over: false, boss: 0, bossKills: 0, spawnAcc: 0,
     L0, zone: svZone(), gold: 0, grid: new Map(), hurtT: 0 });
+  svSave();                       // moi luot choi: xoa bien the cu trong save
+  svExpose();                     // mo SV cho debug / test E2E
   SV.maxhp = SV.maxhp0 = R.P.life; SV.hp = SV.maxhp;
   SV.ref = Math.max(1, svInfo(main).tot);
   SV.keep = { x: H.x, y: H.y };
@@ -202,11 +255,12 @@ function svStart() {
   log(`Vào <b>Luyện Công</b> tại ${esc(SV.zone.n)}.`);
 }
 export function svExit() {
-  SV.on = false; SV.en = []; SV.gems = []; SV.shots = []; SV.traps = []; SV.chests = []; R.fx = [];
+  SV.on = false; SV.en = []; SV.gems = []; SV.timeGems = []; SV.shots = []; SV.traps = []; SV.chests = []; R.fx = [];
   document.body.classList.remove('sv'); $('#svHud').classList.add('hidden'); $('#svBar').classList.add('hidden');
   { const z = zoneOf(Math.min(S.stage, STAGES)); obsLoad(z.id); }
   [H.x, H.y] = inWorld(SV.keep ? SV.keep.x : WORLD.w / 2, SV.keep ? SV.keep.y : WORLD.h / 2);
   resizeArena(); snapCamera(); R.enemies = []; R.spawnT = 0.5; S.wave = 1; R.zoneShown = null; R.dirty = true;
+  svSave();
   refresh(); save();
 }
 function svRewards(win) {
@@ -228,6 +282,8 @@ function svEnd(win) {
     <p class="desc">${esc(SV.zone.n)} · ${m}:${String(s).padStart(2, '0')} · hạ ${SV.kills} quái · ${SV.bossKills} trùm · cấp tu luyện ${SV.lvl}</p>
     <div class="card stats"><span>Ngân lượng</span><span>+${fmt(r.gold)}</span><span>Kinh nghiệm</span><span>+${fmt(r.xp)}</span>
     <span>Cấp nhân vật</span><span>${r.lv0} → ${r.lv1}</span><span>Vật phẩm</span><span>${r.items}</span></div>
+    ${SV.timeBonus ? `<p class="desc small">Nhặt ngọc thời gian: +${SV.timeBonus} giây.</p>` : ''}
+    ${SV.combos ? `<p class="desc small">Hợp kích: ${fmt(SV.combos)} lần.</p>` : ''}
     <p class="desc small">Thưởng quy đổi = ${r.k} quái treo máy (treo máy cùng thời gian ≈ ${r.idleK}; tối đa ×${SV_REWARD_MAX}${win ? `, thắng ×${SV_WIN_BONUS}` : ''}).</p>
     ${svStatsHTML()}
     <div class="btnrow"><button class="btn" id="svOk">Về giang hồ</button></div>`, () => { $('#svOk').onclick = () => { closeModal(true); svExit(); }; }, true);
@@ -310,6 +366,15 @@ function svSkillSeries(id) {
   return FAC[S.fac] ? FAC[S.fac].series : 0;
 }
 function svDamage(e, dmg, id, noElem) {
+  const skillId = Number(id), canCombo = !noElem && Number.isFinite(skillId);
+  const combo = canCombo && e.svLastSkill !== undefined && e.svLastSkill !== skillId && SV.t - e.svLastSkillT <= 2
+    && SV.t - (e.svComboT ?? -Infinity) >= 1;
+  if (combo) {                                             // Hop kich: chiêu khác lên cùng quái trong 2s -> +18% sát thương
+    dmg *= 1.18; e.svComboT = SV.t; SV.combos = (SV.combos || 0) + 1;
+    if (SV.t - (e.svComboLabelT ?? -Infinity) >= 2.5 && R.txt.length < 35) {
+      addText(e.x, e.y - e.r - 24, 'Hợp kích!', '#ffe078', 11); e.svComboLabelT = SV.t;
+    }
+  }
   const d = Math.min(e.hp, dmg); e.hp -= dmg; e.hitT = 0.1; SV.dmg[id] = (SV.dmg[id] || 0) + d;
   e.dmgAcc = (e.dmgAcc || 0) + dmg;
   if (!e.dmgAccT) e.dmgAccT = 0.3;
@@ -318,6 +383,7 @@ function svDamage(e, dmg, id, noElem) {
     e.dmgAcc = 0; e.dmgAccT = 0;
   }
   if (noElem || e.hp <= 0) return;
+  if (canCombo) { e.svLastSkill = skillId; e.svLastSkillT = SV.t; }
   const ser = svSkillSeries(id), st = svStar(id);
   if (ser === 2) {                                                    // Thuy: lam cham 30%, sao 5 dong bang 0.5s
     e.slow = Math.max(e.slow || 0, 2.0);
@@ -339,16 +405,17 @@ function svHit(a, id) {
   const st = svStar(id), ser = svSkillSeries(id);
   const critRate = (a.crit || 0) + (ser === 0 ? 10 : 0);              // Kim: chi mang +10%
   const crit = Math.random() * 100 < critRate ? CRIT_MULT : 1;
-  return a.tot * (1 + 0.3 * (st - 1)) * (1 + 0.12 * svBonus('dmg')) * rnd(0.9, 1.1) * crit;
+  return a.tot * (1 + 0.3 * (st - 1)) * (1 + 0.12 * svBonus('dmg')) * (SV.evo && SV.evo[id] === 'around_power' ? 1.2 : 1) * rnd(0.9, 1.1) * crit;
 }
 function svCast(id) {
   const a = svInfo(id), st = Math.max(1, svStar(id)), m = JFX.m[JFX.s[id]];
+  const evo = SV.evo && SV.evo[id];
   castFx({ id });                                                    // hieu ung tai cho ra chieu (PreCastSpr)
   const pouch = (SV.up && SV.up.pouch) || 0, wrist = (SV.up && SV.up.wrist) || 0;
   if (isTrap(id)) {                                                   // cam bay quanh muc tieu hoac duoi chan
     const t = svNearest(380);
-    const count = 1 + Math.floor((st - 1) / 2);
-    const baseRad = (40 + 12 * st) * (1 + 0.15 * wrist);
+    const count = 1 + Math.floor((st - 1) / 2) + (evo === 'trap_extra' ? 1 : 0);
+    const baseRad = (40 + 12 * st) * (1 + 0.15 * wrist) * (evo === 'trap_wide' ? 1.2 : 1);
     for (let i = 0; i < count; i++) {
       if (SV.traps.length >= SV_MAX_TRAPS) break;
       const ang = Math.random() * Math.PI * 2, dist = Math.random() * (t ? 45 : 30);
@@ -359,18 +426,26 @@ function svCast(id) {
     return true;
   }
   if (a.around) {                                                     // quanh nguoi: vong sat thuong
-    const r = clamp(a.rad, 90, 200) * (1 + 0.15 * (st - 1)) * (1 + 0.15 * wrist);
+    const r = clamp(a.rad, 90, 200) * (1 + 0.15 * (st - 1)) * (1 + 0.15 * wrist) * (evo === 'around_wide' ? 1.2 : 1);
     svNear(H.x, H.y, r, e => svDamage(e, svHit(a, id), id));
     if (m && (m.hit || m.fly)) R.fx.push({ k: 'boom', s: m.hit || m.fly, x: H.x, y: H.y - 10, t: 0, life: animDur(m.hit || m.fly) * (1 + 0.15 * wrist), dir: 0 });
     else R.fx.push({ k: 'ring', x: H.x, y: H.y, color: ELEM_COL.phys, life: 0.4 * (1 + 0.15 * wrist), max: 0.4 * (1 + 0.15 * wrist) });
     return true;
   }
-  const t = svNearest(a.melee ? 160 : 560 * (1 + 0.10 * pouch)); if (!t) return false;
+  const t = svNearest(a.radial ? a.rad * (1 + 0.10 * pouch) : a.melee ? 160 : 560 * (1 + 0.10 * pouch)); if (!t) return false;
   if (a.melee) {                                                      // can chien: chem quanh muc tieu
-    let n = 1 + st; svNear(t.x, t.y, (70 + 10 * st) * (1 + 0.15 * wrist), e => { svDamage(e, svHit(a, id), id); return --n > 0; });
+    let n = 1 + st + (evo === 'melee_targets' ? 2 : 0); svNear(t.x, t.y, (70 + 10 * st) * (1 + 0.15 * wrist) * (evo === 'melee_wide' ? 1.2 : 1), e => { svDamage(e, svHit(a, id), id); return --n > 0; });
     skillFx(H, t, a); return true;
   }
-  const shots = 1 + Math.floor((st - 1) / 2), pierce = (a.targets > 1 ? 1 : 0) + Math.floor(st / 3);
+  if (a.radial) {                                                     // tan cong radial: 1 dot bay, trung quai noi chieu tia
+    const v = 520 * (1 + 0.15 * pouch), range = a.rad * (1 + 0.10 * pouch);
+    const angle = Math.atan2(t.y - H.y, t.x - H.x);
+    SV.shots.push({ x: H.x, y: H.y - 20, vx: Math.cos(angle) * v, vy: Math.sin(angle) * v,
+      life: range / v, id, a, pierce: 0, hit: new Set(), m, t: 0, dir: dir16(Math.cos(angle), Math.sin(angle)),
+      burstRange: range });                                          // trung creep moi phong bon tia tu creep
+    return true;
+  }
+  const shots = 1 + Math.floor((st - 1) / 2) + (evo === 'shot_extra' ? 1 : 0), pierce = (a.targets > 1 ? 1 : 0) + Math.floor(st / 3) + (evo === 'shot_pierce' ? 1 : 0);
   const base = Math.atan2(t.y - H.y, t.x - H.x), v = 520 * (1 + 0.15 * pouch), life = 1.1 * (1 + 0.10 * pouch);
   for (let i = 0; i < shots; i++) {
     const ang = base + (i - (shots - 1) / 2) * 0.22;
@@ -379,11 +454,23 @@ function svCast(id) {
   return true;
 }
 function svShots(dt) {
+  const spawned = [];
   SV.shots = SV.shots.filter(s => {
     s.t += dt; s.life -= dt; s.x += s.vx * dt; s.y += s.vy * dt;
     let alive = s.life > 0;
     svNear(s.x, s.y + 20, 18, e => {
       if (s.hit.has(e)) return true; s.hit.add(e); svDamage(e, svHit(s.a, s.id), s.id);
+      if (s.burstRange) {                                            // dot radial trung quai -> phe tia theo svRayCount
+        const v = Math.hypot(s.vx, s.vy), source = { x: e.x - s.vx, y: e.y - s.vy };
+        for (const angle of svRayAngles(source, e, svRayCount(s.id, s.a))) {
+          spawned.push({ x: e.x, y: e.y - 20, vx: Math.cos(angle) * v, vy: Math.sin(angle) * v,
+            life: s.burstRange / v, id: s.id, a: s.a, pierce: 1 + Math.floor(svStar(s.id) / 3) + (SV.evo && SV.evo[s.id] === 'radial_pierce' ? 1 : 0),
+            hit: s.hit, m: s.m, t: 0, dir: dir16(Math.cos(angle), Math.sin(angle)) });
+        }
+        if (s.m && s.m.fly && R.fx.length < FX_MAX) R.fx.push({ k: 'boom', s: s.m.fly,
+          x: e.x, y: e.y - 20, t: 0, life: animDur(s.m.fly), dir: 0 });
+        alive = false; return false;
+      }
       if (s.m && s.m.hit && R.fx.length < FX_MAX) {
         R.fx.push({ k: 'boom', s: s.m.hit, x: e.x, y: e.y - 14, t: 0, life: animDur(s.m.hit), dir: 0 });
         if (!S.lowFx && R.fx.length < FX_MAX - 1 && Math.random() < 0.35) {
@@ -393,7 +480,7 @@ function svShots(dt) {
       if (s.pierce-- <= 0) { alive = false; return false; } return true;
     });
     return alive;
-  });
+  }).concat(spawned); // them sau filter, tranh mat dan con vua sinh
 }
 function svTraps(dt) {
   SV.traps = SV.traps.filter(tr => {
@@ -487,13 +574,20 @@ function svChests(dt) {
 function svOpenChest(ch) {
   uiSfx('equip');
   const roll = Math.random();
-  if (roll < 0.25) {
+  const timeReady = (SV.timeBonus || 0) < SV_TIME_BONUS_MAX && SV.timeGems.length < SV_TIME_GEM_MAX;
+  if (timeReady && roll < 0.15 && svSpawnTimeGem(ch.x, ch.y)) {
+    addText(ch.x, ch.y - 20, 'Ngọc thời gian!', '#7defff', 13);
+    return;
+  }
+  const rewardRoll = timeReady ? (roll < 0.15 ? Math.random() : (roll - 0.15) / 0.85) : roll;
+  if (rewardRoll < 0.25) {
     SV.hp = Math.min(SV.maxhp, SV.hp + SV.maxhp * 0.30);
     addText(ch.x, ch.y - 20, '+30% HP', '#4cd964', 13);
-  } else if (roll < 0.50) {
+  } else if (rewardRoll < 0.50) {
     for (const g of SV.gems) g.pull = true;
+    for (const g of SV.timeGems) g.pull = true;
     addText(ch.x, ch.y - 20, 'Nam Châm!', '#5fb8ff', 13);
-  } else if (roll < 0.75) {
+  } else if (rewardRoll < 0.75) {
     SV.bombs = (SV.bombs || 0) + 1;
     addText(ch.x, ch.y - 20, '+1 Bom!', '#ff7a45', 13);
   } else {
@@ -502,12 +596,36 @@ function svOpenChest(ch) {
     addText(ch.x, ch.y - 20, `+${g} Vàng`, '#ffd24a', 13);
   }
 }
+function svSpawnTimeGem(x, y) {
+  if ((SV.timeBonus || 0) >= SV_TIME_BONUS_MAX || SV.timeGems.length >= SV_TIME_GEM_MAX) return false;
+  const a = rnd(0, Math.PI * 2), r = rnd(30, 45);
+  const [gx, gy] = svFree((x ?? H.x) + Math.cos(a) * r, (y ?? H.y) + Math.sin(a) * r);
+  SV.timeGems.push({ x: gx, y: gy, life: 45 });
+  return true;
+}
+function svTimeGems(dt) {
+  const mag = 130 * (1 + 0.3 * ((SV.up && SV.up.mag) || SV.mag || 0));
+  SV.timeGems = SV.timeGems.filter(g => {
+    g.life -= dt;
+    if (g.life <= 0 || (SV.timeBonus || 0) >= SV_TIME_BONUS_MAX) return false;
+    const dx = H.x - g.x, dy = H.y - g.y, d = Math.hypot(dx, dy);
+    if (d <= 24) {
+      const seconds = Math.min(irnd(5, 10), SV_TIME_BONUS_MAX - (SV.timeBonus || 0));
+      SV.timeBonus = (SV.timeBonus || 0) + seconds;
+      addText(g.x, g.y - 20, `+${seconds}s`, '#7defff', 14);
+      uiSfx('learn');
+      return false;
+    }
+    if (d < mag || g.pull) { g.pull = true; const k = Math.min(1, 420 * dt / d); g.x += dx * k; g.y += dy * k; }
+    return true;
+  });
+}
 function svKill(e) {
   SV.kills++;
   const v = (e.cls === 'boss' ? 60 : e.cls === 'elite' ? 6 : 1) * (1 + Math.floor(SV.t / 120)); // ngoc to dan theo thoi gian
   if (SV.gems.length >= SV_GEM_MAX) { const g = SV.gems[irnd(0, SV.gems.length - 1)]; g.v += v; } // qua nhieu: gop ngoc
   else SV.gems.push({ x: e.x + rnd(-6, 6), y: e.y + rnd(-6, 6), v });
-  if (e.cls === 'boss') { SV.bossKills++; SV.gold += moneyDrop({ L: e.L, cls: 'boss' }) * 3; burst(e.x, e.y, '#ffd24a'); svSpawnChest(e.x, e.y); }
+  if (e.cls === 'boss') { SV.bossKills++; SV.gold += moneyDrop({ L: e.L, cls: 'boss' }) * 3; burst(e.x, e.y, '#ffd24a'); svSpawnChest(e.x, e.y); if (Math.random() < 0.25) svSpawnTimeGem(e.x, e.y); }
   else if (e.cls === 'elite' && Math.random() < 0.4) svSpawnChest(e.x, e.y);
 }
 function svGems(dt) {
@@ -528,24 +646,46 @@ function svStarInfo(id, n) { // mo ta sao ke tiep, suy ra tu chinh cong thuc sat
     if (Math.floor((n - 1) / 2) > Math.floor((n - 2) / 2)) out.push(`${1 + Math.floor((n - 1) / 2)} bẫy`);
   } else if (a.around) out.push('bán kính +15%');
   else if (a.melee) out.push(`${n} mục tiêu chém`);
+  else if (a.radial) {
+    out.push('trúng quái → 4 tia');
+    if (Math.floor(n / 3) > Math.floor((n - 1) / 3)) out.push('+1 xuyên');
+  }
   else {
     if (Math.floor((n - 1) / 2) > Math.floor((n - 2) / 2)) out.push(`${1 + Math.floor((n - 1) / 2)} đạn`);
     if (Math.floor(n / 3) > Math.floor((n - 1) / 3)) out.push('+1 xuyên');
   }
+  if (n === SV_STAR_MAX) out.push('5★ mở chọn biến thể');
   return out.join(' · ');
 }
 function svCard(o, i) {
   const stars = n => '★'.repeat(n) + '☆'.repeat(SV_STAR_MAX - n);
   if (o.t === 'all') return `<button class="svopt" data-i="${i}"><b>Nhận hết</b><small>Hồi 30% sinh lực + ngân lượng</small></button>`;
+  if (o.t === 'evo') {
+    const evo = svEvoInfo(o.id, o.evo), s = SK[o.id], ic = svSkillIcon(o.id, s) || 'ui/slot.png';
+    return `<button class="svopt" data-i="${i}"><img src="${esc(ic)}" alt=""><b>${esc(evo.n)}</b><em>✦ BIẾN THỂ</em><small>${esc(evo.d)}</small></button>`;
+  }
   if (o.t === 'up' || o.t === 'mag') {
     const id = o.t === 'mag' ? 'mag' : o.id, u = SV_UPS[id] || SV_UPS.mag, n = ((SV.up && SV.up[id]) || 0) + 1;
     return `<button class="svopt" data-i="${i}">${u.ic ? `<img src="${esc(u.ic)}" alt="">` : ''}<b>${esc(u.n)}${n === 1 ? ' <i class="new">MỚI</i>' : ''}</b><em>${stars(n)}</em><small>${u.desc} (${u.stat(n)})</small></button>`;
   }
   const s = SK[o.id];
-  if (o.t === 'pas') return `<button class="svopt" data-i="${i}">${s.ic ? `<img src="${esc(s.ic)}" alt="">` : ''}<b>${esc(s.n)}</b><em>${stars((SV.pas[o.id] || 0) + 1)}</em><small>Nội công · ${pasKind(o.id)[2]}</small></button>`;
+  if (o.t === 'pas') return `<button class="svopt" data-i="${i}">${svSkillIcon(o.id, s) ? `<img src="${esc(svSkillIcon(o.id, s))}" alt="">` : ''}<b>${esc(s.n)}</b><em>${stars((SV.pas[o.id] || 0) + 1)}</em><small>Nội công · ${pasKind(o.id)[2]}</small></button>`;
   const n = (SV.picks[o.id] || 0) + 1, tot = fmt(svInfo(o.id).tot), ser = svSkillSeries(o.id);
   const elemTag = ` · <span style="color:${SERIES_COL[ser]}">${SERIES[ser]}</span>`;
-  return `<button class="svopt" data-i="${i}">${s.ic ? `<img src="${esc(s.ic)}" alt="">` : ''}<b>${esc(s.n)}${n === 1 ? ' <i class="new">MỚI</i>' : ''}</b><em>${stars(n)}</em><small>${n === 1 ? `Chiêu mới · ${tot}/đòn${elemTag}` : `${svStarInfo(o.id, n)} · ${tot}/đòn${elemTag}`}</small></button>`;
+  const ic = svSkillIcon(o.id, s);
+  return `<button class="svopt" data-i="${i}">${ic ? `<img src="${esc(ic)}" alt="">` : ''}<b>${esc(s.n)}${n === 1 ? ' <i class="new">MỚI</i>' : ''}</b><em>${stars(n)}</em><small>${n === 1 ? `Chiêu mới · ${tot}/đòn${elemTag}` : `${svStarInfo(o.id, n)} · ${tot}/đòn${elemTag}`}</small></button>`;
+}
+function svChooseEvolution(id) {
+  const opts = svEvoOptions(id).map(e => ({ t: 'evo', id, evo: e.id }));
+  modal(`<h3>Khai mở biến thể <small>${esc(SK[id].n)} · 5★</small></h3><p class="desc">Chọn một lối phát triển cho chiêu này. Biến thể không tốn thêm cấp.</p>
+    <div class="svopts">${opts.map(svCard).join('')}</div>`, () => {
+    document.querySelectorAll('.svopt').forEach(b => b.onclick = () => {
+      const evo = svEvoInfo(id, opts[+b.dataset.i].evo);
+      SV.evo[id] = evo.id; SV.choosing = false; svBarUpdate(); uiSfx('learn');
+      svSave();                                    // ghem bien thể vao save S.sv.evo
+      addText(H.x, H.y - 58, `${evo.n}!`, '#ffd24a', 13); closeModal(true);
+    });
+  }, true);
 }
 function svChoose() {
   SV.choosing = true; INPUT.active = false; uiSfx('levelup');
@@ -557,7 +697,11 @@ function svChoose() {
     modal(`<h3>Lên cấp tu luyện ${SV.lvl}</h3><p class="desc">Chọn một:</p>
       <div class="svopts">${opts.map(svCard).join('')}</div>
       <div class="btnrow"><button class="btn" id="svReroll"${canReroll ? '' : ' disabled'}>Đổi lựa chọn (${free ? 'miễn phí' : `${cost} vàng`})</button></div>`, () => {
-      document.querySelectorAll('.svopt').forEach(b => b.onclick = () => { svApply(opts[+b.dataset.i]); SV.choosing = false; closeModal(true); });
+      document.querySelectorAll('.svopt').forEach(b => b.onclick = () => {
+        const o = opts[+b.dataset.i]; svApply(o);
+        if (o.t === 'sk' && SV.picks[o.id] === SV_STAR_MAX && !SV.evo[o.id]) { closeModal(true); svChooseEvolution(o.id); return; }
+        SV.choosing = false; closeModal(true);
+      });
       const rb = $('#svReroll');
       if (rb) rb.onclick = () => {
         if (!canReroll) return;
@@ -574,7 +718,7 @@ function svChoose() {
 export function svTick(dt) {
   if (!SV.on || SV.paused || SV.choosing || SV.over) return;
   SV.t += dt;
-  if (SV.t >= SV_DUR) { svEnd(true); return; }
+  if (SV.t >= SV_DUR + (SV.timeBonus || 0)) { svEnd(true); return; }
   const [vx, vy] = inputVec(), sp = 150 * (R.P.speed || 1) * (1 + 0.08 * svBonus('spd')) * (1 + 0.08 * ((SV.up && SV.up.boot) || 0));
   obsFrame();
   if (vx || vy) { const [nx, ny] = OBS.g ? clampWorld(H.x + vx * sp * dt, H.y + vy * sp * dt) : [H.x + vx * sp * dt, H.y + vy * sp * dt]; obsMove(H, nx, ny); H.dir = dirOf(vx, vy); }
@@ -587,7 +731,7 @@ export function svTick(dt) {
   svGrid(); svMoveEnemies(dt); svSkills(dt); svShots(dt); svTraps(dt); svChests(dt);
   for (const e of SV.en) if (e.hp <= 0 && !e.dead) { e.dead = true; svKill(e); if (R.corpses.length < (S.lowFx ? 10 : 30)) { e.act = 'die'; e.actT = 0; e.animKey = MON[e.tid].anim; R.corpses.push(e); } }
   SV.en = SV.en.filter(e => !e.dead);
-  svGems(dt);
+  svGems(dt); svTimeGems(dt);
   const medRegen = (SV.up && SV.up.med) ? SV.maxhp * 0.003 * SV.up.med : 0;
   SV.hp = Math.min(SV.maxhp, SV.hp + ((R.P.regen || 0) + SV.maxhp * SV_REGEN + medRegen) * dt); if (SV.hurtT > 0) SV.hurtT -= dt;
   if (SV.hp <= 0) { SV.hp = 0; svEnd(false); }
@@ -595,19 +739,22 @@ export function svTick(dt) {
 export function svPause() {
   if (!SV.on || SV.over || SV.choosing) return;
   SV.paused = true; INPUT.active = false;
-  modal(`<h3>Tạm dừng</h3><p class="desc">${Math.floor(SV.t / 60)}:${String(Math.floor(SV.t % 60)).padStart(2, '0')} · hạ ${SV.kills} quái · cấp tu luyện ${SV.lvl}</p>${svStatsHTML()}
-    <div class="btnrow"><button class="btn" id="svGo">Tiếp tục</button><button class="btn red" id="svQuit">Rút lui (nhận thưởng)</button></div>`, () => {
+  modal(`<div class="sv-pause"><h3 class="sv-pause-title">Tạm dừng <small>lượt Luyện Công</small></h3>
+    <div class="sv-run-meta"><span>⏱ ${Math.floor(SV.t / 60)}:${String(Math.floor(SV.t % 60)).padStart(2, '0')}</span><span>☠ ${fmt(SV.kills)} quái</span><span>✦ Cấp tu luyện ${SV.lvl}</span>${SV.combos ? `<span>⚡ Hợp kích ${fmt(SV.combos)}</span>` : ''}</div>${svStatsHTML()}
+    <div class="btnrow"><button class="btn" id="svGo">Tiếp tục</button><button class="btn red" id="svQuit">Rút lui (nhận thưởng)</button></div></div>`, () => {
     $('#svGo').onclick = () => { SV.paused = false; closeModal(true); };
     $('#svQuit').onclick = () => { SV.paused = false; closeModal(true); svEnd(false); };
   }, true);
 }
+function svStars(n) { return `<span class="sv-stars" role="img" aria-label="${n} sao">${'★'.repeat(n)}</span>`; }
 function svStatsHTML() {
   const rows = Object.keys(SV.picks).map(id => [id, SV.dmg[id] || 0]).sort((a, b) => b[1] - a[1]), tot = rows.reduce((t, r) => t + r[1], 0) || 1;
-  const pas = Object.keys(SV.pas).map(id => `${esc(SK[id].n)} ${'★'.repeat(SV.pas[id])}`)
-    .concat(Object.keys(SV_UPS).filter(id => (SV.up && SV.up[id]) || (id === 'mag' && SV.mag)).map(id => `${esc(SV_UPS[id].n)} ${'★'.repeat((SV.up && SV.up[id]) || SV.mag)}`));
-  return `<table class="svtab"><tr><th>Chiêu</th><th>Sát thương</th><th>DPS</th><th>%</th></tr>${rows.map(([id, d]) =>
-    `<tr><td>${esc(SK[id].n)} <small>${'★'.repeat(SV.picks[id])}</small></td><td>${fmt(d)}</td><td>${fmt(d / Math.max(1, SV.t))}</td><td>${Math.round(d / tot * 100)}</td></tr>`).join('')}</table>
-    ${pas.length ? `<p class="desc small">Nội công: ${pas.join(' · ')}</p>` : ''}`;
+  const pas = Object.keys(SV.pas).map(id => ({ n: SK[id].n, stars: SV.pas[id] }))
+    .concat(Object.keys(SV_UPS).filter(id => (SV.up && SV.up[id]) || (id === 'mag' && SV.mag)).map(id => ({ n: SV_UPS[id].n, stars: (SV.up && SV.up[id]) || SV.mag })));
+  return `<section class="sv-stats-panel"><div class="sv-stats-heading"><b>Hiệu suất chiêu</b><small>Sắp xếp theo sát thương</small></div>
+    <div class="sv-table-wrap"><table class="svtab"><thead><tr><th>Chiêu</th><th>Sát thương</th><th>DPS</th><th>%</th></tr></thead><tbody>${rows.map(([id, d]) =>
+    `<tr><td><span class="sv-skill"><span class="sv-skill-name">${esc(SK[id].n)}</span>${svEvoOf(id) ? `<i class="sv-evo-tag" title="${esc(svEvoOf(id).n)}">✦</i>` : ''}${svStars(SV.picks[id])}</span></td><td>${fmt(d)}</td><td>${fmt(d / Math.max(1, SV.t))}</td><td>${Math.round(d / tot * 100)}%</td></tr>`).join('')}</tbody></table></div>
+    ${pas.length ? `<div class="sv-passives"><b>Nội công & nâng cấp</b><div class="sv-perk-list">${pas.map(p => `<span class="sv-perk-chip"><span>${esc(p.n)}</span>${svStars(p.stars)}</span>`).join('')}</div></div>` : ''}</section>`;
 }
 
 /* ban do Luyen Cong: vung co khoang cap chua cap nhan vat (da mo), khong thi vung dang danh */
@@ -620,7 +767,7 @@ export function svIntro() {
   const z = svZone();
   modal(`<h3>Luyện Công</h3><p class="desc">Sống sót 10 phút tại <b>${esc(z.n)}</b> (quái mạnh dần mỗi phút theo chính sức mạnh nhân vật; trùm ở phút 2 / 4 / 6 / 8).
     Tự đánh bằng võ công của phái; kéo trên sân hoặc WASD để di chuyển, nhặt ngọc để lên cấp tu luyện và chọn chiêu / nội công (1–5 sao).
-    Kết thúc (thắng, gục hoặc rút lui) nhận ngân lượng, kinh nghiệm và vật phẩm cho nhân vật. Phím P / Esc: tạm dừng.</p>
+    Đánh bằng chiêu khác lên cùng quái trong 2 giây tạo Hợp Kích (+18% sát thương); chiêu đạt 5 sao mở lựa chọn biến thể riêng. Rương và trùm có thể rơi ngọc thời gian; nhặt được cộng 5–10 giây, tối đa +60 giây mỗi lượt. Kết thúc (thắng, gục hoặc rút lui) nhận ngân lượng, kinh nghiệm và vật phẩm cho nhân vật. Phím P / Esc: tạm dừng.</p>
     <div class="btnrow"><button class="btn" id="svGoIn">Vào Luyện Công</button></div>`, () => { $('#svGoIn').onclick = svStart; });
 }
 
@@ -667,6 +814,14 @@ export function svDraw(dt) {
   }
   for (const g of SV.gems) { if (!onScreen(g.x, g.y, 20)) continue; c.fillStyle = g.v >= 60 ? '#ffd24a' : g.v >= 6 ? '#c77bff' : '#6ad0ff';
     c.beginPath(); c.moveTo(g.x, g.y - 5); c.lineTo(g.x + 4, g.y); c.lineTo(g.x, g.y + 5); c.lineTo(g.x - 4, g.y); c.fill(); }
+  for (const g of SV.timeGems) {                                            // ngọc thoi gian: kim cương xanh, nhay nhay
+    if (!onScreen(g.x, g.y, 24)) continue;
+    const pulse = 0.78 + 0.22 * Math.sin((SV.t + g.life) * 5);
+    c.save(); c.globalAlpha = pulse; c.shadowColor = '#55eaff'; c.shadowBlur = 12;
+    c.fillStyle = '#35dff5'; c.beginPath(); c.moveTo(g.x, g.y - 9); c.lineTo(g.x + 8, g.y); c.lineTo(g.x, g.y + 9); c.lineTo(g.x - 8, g.y); c.closePath(); c.fill();
+    c.shadowBlur = 0; c.strokeStyle = '#d6fcff'; c.lineWidth = 1.5; c.beginPath(); c.arc(g.x, g.y, 4.5, 0, 7); c.moveTo(g.x, g.y); c.lineTo(g.x, g.y - 2.5); c.moveTo(g.x, g.y); c.lineTo(g.x + 2.5, g.y + 1.5); c.stroke();
+    c.restore();
+  }
   for (const e of R.corpses) { e.actT += dt; const a = clamp(1.2 - e.actT, 0, 1); if (onScreen(e.x, e.y)) drawAnim(e.animKey, 'die', e.dir || 0, e.actT, e.x, e.y, (e.cls === 'boss' ? 1.1 : 0.75) * MON_SCALE, a); }
   R.corpses = R.corpses.filter(e => e.actT < 1.2);
   const ents = SV.en.filter(e => onScreen(e.x, e.y, 80)).concat([{ hero: true, y: H.y }]).sort((a, b) => a.y - b.y);
@@ -710,9 +865,11 @@ function svDrawHero(c, dt) {
   label(H.x, H.y - (dh ? Math.min(dh, 90) * 0.9 : 50) - 6, `${S.name || (FAC[S.fac] && FAC[S.fac].n) || ''} · Lv${S.lvl}`, NAME_COL.hero, 12, SV.hp / Math.max(1, SV.maxhp), '#4fd04f');
 }
 function svHud(c) {
-  const w = AR.w, left = SV_DUR - SV.t;
+  const w = AR.w, left = Math.max(0, SV_DUR + (SV.timeBonus || 0) - SV.t), overtime = SV.t >= SV_DUR;
   bar(0, 0, w, 5, SV.xp / SV.need, '#5fb8ff');
-  c.font = '18px \"IBM Plex Mono\", monospace'; c.textAlign = 'center'; c.fillStyle = '#000'; c.fillText(`${Math.floor(left / 60)}:${String(Math.floor(left % 60)).padStart(2, '0')}`, w / 2 + 1, 27); c.fillStyle = '#f3d88a'; c.fillText(`${Math.floor(left / 60)}:${String(Math.floor(left % 60)).padStart(2, '0')}`, w / 2, 26);
+  const clock = `${Math.floor(left / 60)}:${String(Math.floor(left % 60)).padStart(2, '0')}`;
+  c.font = '18px \"IBM Plex Mono\", monospace'; c.textAlign = 'center'; c.fillStyle = '#000'; c.fillText(clock, w / 2 + 1, 27); c.fillStyle = overtime ? '#7defff' : '#f3d88a'; c.fillText(clock, w / 2, 26);
+  if (SV.timeBonus) { c.font = '10px \"IBM Plex Mono\", monospace'; c.fillStyle = '#7defff'; c.fillText(`+${SV.timeBonus}s gia hạn`, w / 2, 40); }
   c.font = '12px "IBM Plex Mono", monospace'; c.textAlign = 'left'; c.fillStyle = '#9fe3ff'; c.fillText(`Cấp ${SV.lvl}`, 8, 22);
   c.textAlign = 'right'; c.fillStyle = '#ffd7a0'; c.fillText(`☠ ${SV.kills}`, w - 44, 22);
 }

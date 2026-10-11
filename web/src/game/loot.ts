@@ -11,13 +11,16 @@ import {
   J,
   PLAT_STEP,
   RAR_COL,
+  RAR_VI,
   SERIES,
+  SLOT_VI,
   WORLD,
   attrName,
   attrText,
   clamp,
   enhMul,
   esc,
+  fmt,
   inWorld,
   irnd,
   pick,
@@ -28,13 +31,21 @@ import { obsSteer } from './mapobs';
 import { petActive, questTick } from './rewards';
 import { S } from './save';
 import { goldEnhance, setCounts, setMembers } from './sets';
-import { hiddenActive, sexOk, sexReqOk } from './stats';
-import { addItem, invDirty, log, toast } from './ui';
-import { setInvDirty } from './ui';
+import { hiddenActive, sexOk, sexReqOk, slotOfEquipped, wrongFaction } from './stats';
+import { addItem, betterThanEquipped, log, setInvDirty, toast } from './ui';
+import { canFuse, canPlatBase, enchaseCheck, fuseCost, mats, oreParse, VIO_SLOTS } from './recipes';
+import { RCP } from './rcp';
+import { invMax, invUsed } from './invs';
+import { randomForgeProfile } from './forge';
+/* forge.ts chua export RF_MUC / oreLabel (phan vung FORGE) — dung namespace de goiY
+   co the dung chung, co guard typeof giong ban goc; khi forge.ts export thi tu sang */
+import * as forgeNS from './forge';
 
 /* ======================= ROI DO (settings/droprate/*.ini + magicattriblevel.txt) ======================= */
 'use strict';
 const FACTION_WEAPON_SHARE = 0.5;
+/* Ten thuoc tinh chuan hoa (giong core.js: bo hậu tố _yan) — dung khi so sanh voi nhom loc */
+const canonAttr = n => n.replace('_yan', '');
 export function dropFile(L) {
   const b = L < 110 ? clamp(Math.floor(L / 10) * 10, 10, 90) : (L < 119 ? 110 : 119);
   return J.drop['npcdroprate' + b + '.ini'] || J.drop['npcdroprate.ini'];
@@ -154,7 +165,7 @@ export function itemLines(it) {
   const act = typeof hiddenActive === 'function' ? hiddenActive(it) : 0;
   it.mag.forEach((m, i) => {
     const hidden = i % 2 === 1, on = !hidden || Math.floor(i / 2) < act;
-    L.push([hidden ? (on ? 'h on' : 'h') : 'm', attrText(attrName(m.a), m.p.map(v => v === -1 ? 0 : v)) + (hidden && !on ? ' (ẩn)' : '')]);
+    L.push([hidden ? (on ? 'h on' : 'h') : 'm', attrText(attrName(m.a), m.p.map(v => v === -1 ? 0 : v)) + (hidden && !on ? ' (ẩn' + hiddenHint(it, Math.floor(i / 2)) + ')' : '')]);
   });
   if (it.set) {
     const ex = typeof goldEnhance === 'function' ? goldEnhance(it, S.eq) : 0, cnt = typeof setCounts === 'function' ? (setCounts(S.eq)[it.set.grp] || 0) : 0;
@@ -164,35 +175,126 @@ export function itemLines(it) {
   }
   const REQ = { 36: 'Cấp', 32: 'Sức mạnh', 33: 'Thân pháp', 34: 'Sinh khí', 35: 'Nội công', 37: 'Hệ', 38: 'Giới tính', 39: 'Môn phái' };
   for (const [id, v] of it.req) if (REQ[id] && (v > 0 || id === 39)) L.push(['r', `Yêu cầu ${REQ[id]}: ${id === 37 ? SERIES[v] : id === 39 ? ((J.factions[v] || {}).n || v) : v}`]);
+  for (const s of goiY(it)) L.push(['r', s]);
   return L;
+}
+/* ngu hanh tuong sinh va danh sach mon kich hoat dong an (giong stats.ts — chua export,
+   dinh nghia lai cuc bo de hiddenHint tinh duoc "can N nguồn hệ ...") */
+const ACCRUE = { 0: 2, 2: 1, 1: 3, 3: 4, 4: 0 }; // Kim sinh Thuy, Thuy sinh Moc, Moc sinh Hoa, Hoa sinh Tho, Tho sinh Kim
+const ACTIVATED_BY = { helm: ['armor', 'amulet'], armor: ['ring2', 'belt'], belt: ['pendant', 'cuff'], weapon: ['amulet', 'armor'],
+  boot: ['weapon', 'helm'], cuff: ['boot', 'ring1'], amulet: ['belt', 'ring2'], ring1: ['weapon', 'helm'], ring2: ['cuff', 'pendant'],
+  pendant: ['boot', 'ring1'] };
+/* Dien giai dong an: dong thu j (0, 1, 2 = dong 2, 4, 6) can (j + 1) nguồn tuong sinh */
+function hiddenHint(it, j) {
+  if (it.s == null || it.s < 0) return '';
+  const src = Object.keys(ACCRUE).map(Number).find(k => ACCRUE[k] === it.s);       // he sinh ra he cua mon
+  if (src === undefined) return '';
+  const slot = (typeof slotOfEquipped === 'function' && slotOfEquipped(it, S.eq)) || slotFor(it);
+  const links = (ACTIVATED_BY[slot] || []).map(k => SLOT_VI[k]).join(' / ');
+  return `: cần ${j + 1} nguồn hệ ${SERIES[src]} (${SERIES[src]} sinh ${SERIES[it.s]}) — nhân vật${links ? ' hoặc món ở ' + links : ''}; đủ bộ cũng mở`;
+}
+/* C: GOI Y TAN DUNG — luon kem ti le %, hien ngay trong o chu thich trang bi.
+   Dung typeof de khong phu thuoc thu tu nap file (recipes.js / forge.js nap sau loot.js). */
+function goiY(it) {
+  const out = [];
+  if (!it) return out;
+  const n = (it.mag || []).length;
+  if (typeof enchaseCheck === 'function' && typeof mats === 'function' && typeof oreParse === 'function' && typeof VIO_SLOTS === 'number') {
+    if (n >= VIO_SLOTS) out.push('Khảm: đã đủ 6 dòng — không khảm thêm được');
+    else {
+      const hts = Object.keys(mats().ht).map(Number).sort((a, b) => a - b);
+      const ores = Object.keys(mats().ore).filter(k => oreParse(k).place === n);
+      if (hts.length && ores.length) {
+        const row = enchaseCheck(it, hts[0], ores[0]);
+        out.push(typeof row === 'string'
+          ? `Khảm dòng ${n + 1}/6: ${row}`
+          : `Khảm dòng ${n + 1}/6: Huyền Tinh cấp ${hts[0]} + ${typeof forgeNS.oreLabel === 'function' ? forgeNS.oreLabel(ores[0]) : 'khoáng thạch'} · thất bại 5% mất đá`);
+      } else out.push(`Khảm dòng ${n + 1}/6: cần Huyền Tinh cấp bất kỳ + khoáng thạch dòng ${n + 1}`);
+    }
+  }
+  if (typeof canFuse === 'function' && canFuse(it)) {
+    const dv = (RCP.violet_fuse && RCP.violet_fuse.level_div) || [10, 5];
+    const s = (it.lvl || 1) * 3;
+    out.push(`Hợp Huyền Tinh: món này + 2 nhẫn/dây chuyền/ngọc bội → Huyền Tinh cấp ~${Math.max(1, Math.floor(s / dv[0]))}–${Math.max(1, Math.floor(s / dv[1]))} · phí ${fmt(typeof fuseCost === 'function' ? fuseCost() : 1000)} lượng`);
+  }
+  if (typeof canPlatBase === 'function' && canPlatBase(it)) out.push('Chế Bạch Kim: cần 2 món Hoàng Kim GIỐNG NHAU + Thủy Tinh Trắng');
+  if (forgeNS.RF_MUC) {
+    const profile = typeof randomForgeProfile === 'function' ? randomForgeProfile() : null;
+    const tier = profile && profile.reqLevel ? `mốc cấp ${profile.reqLevel}, chỉ số dương +${Math.round((profile.scale - 1) * 100)}%` : 'bậc đồ theo cấp nhân vật';
+    out.push(`Rèn ngẫu nhiên ở Lò rèn: ${tier} · mức Khá có ${Math.round(forgeNS.RF_MUC[1].ty * 100)}% thành công (3–4 dòng), trả bằng vàng`);
+  }
+  return out;
 }
 
 /* ======================= DO ROI TREN DAT + BO LOC ======================= */
-const GROUND_MAX = 40, PICK_R = 26;
+const GROUND_MAX = 40, PICK_R = 26, GROUND_LIFETIME = 120;
+export { GROUND_MAX, GROUND_LIFETIME };
 export const LOOT_ATTR_GROUPS = [ // thuoc tinh hay loc (ten trong KMagicDesc.cpp)
   ['Sinh lực', ['lifemax_v', 'lifemax_p', 'lifereplenish_v']], ['Nội lực', ['manamax_v', 'manamax_p', 'manareplenish_v']],
-  ['Sát thương', ['addphysicsdamage_v', 'addphysicsdamage_p', 'addfiredamage_v', 'addcolddamage_v', 'addlightingdamage_v', 'addpoisondamage_v']],
-  ['Kháng', ['physicsres_p', 'poisonres_p', 'coldres_p', 'fireres_p', 'lightingres_p', 'allres_p']],
-  ['Chỉ số', ['strength_v', 'dexterity_v', 'vitality_v', 'energy_v']], ['Kỹ năng', ['allskill_v', 'addphysicsmagic_v', 'addcoldmagic_v', 'addfiremagic_v', 'addlightingmagic_v', 'addpoisonmagic_v']],
+  ['Sát thương', ['skill_enhance', 'enhancehit_rate', 'addphysicsdamage_v', 'addphysicsdamage_p', 'addfiredamage_v', 'addcolddamage_v', 'addlightingdamage_v', 'addpoisondamage_v']],
+  ['Kháng', ['sorbdamage_p', 'block_rate', 'physicsres_p', 'poisonres_p', 'coldres_p', 'fireres_p', 'lightingres_p', 'allres_p']],
+  ['Chỉ số', ['strength_v', 'dexterity_v', 'vitality_v', 'energy_v']], ['Kỹ năng', ['allskill_v', 'addphysicsmagic_v', 'addcoldmagic_v', 'addfiremagic_v', 'addlightingmagic_v', 'addpoisondamage_v']],
   ['Tốc độ', ['attackspeed_v', 'castspeed_v', 'fastwalkrun_p']], ['Hút máu / nội', ['steallifeenhance_p', 'stealmanaenhance_p']],
   ['Chính xác / né', ['attackratingenhance_v', 'adddefense_v']], ['Ngũ hành', ['metalskill_v', 'woodskill_v', 'waterskill_v', 'fireskill_v', 'earthskill_v']],
 ];
-export function lootFilter() { return S.lootF || (S.lootF = { minRar: 1, minLvl: 1, groups: [], series: [], auto: true }); }
-export function lootMatch(it) {
+export function lootFilter() { return S.lootF || (S.lootF = { mode: 'custom', minRar: 2, minReqLvl: 1, groups: [], series: [], auto: true, equipment: true, materials: true, white: false, skipLowSets: false, always: false }); }
+/* Cap yeu cau cua mon (req 36); null = khong yeu cau cap */
+export function itemRequiredLevel(it) {
+  const required = (it && it.req || []).find(([id]) => id === 36);
+  return required ? Math.max(0, +required[1] || 0) : null;
+}
+export function itemLevelBadge(it) {
+  const required = itemRequiredLevel(it);
+  return required > 0 ? required : '—';
+}
+export function itemLevelLabel(it) {
+  const required = itemRequiredLevel(it);
+  return required > 0 ? `yêu cầu cấp ${required} · bậc đồ ${it.lvl}` : `không yêu cầu cấp · bậc đồ ${it.lvl}`;
+}
+/* Do bo / khoa tay / cuong hoa / Bach Kim da thang cap: khong tu ban, duoc uy tien nhặt */
+export function itemProtected(it) { return !!(it && (it.set || it.vio || it.plv || it.locked || (it.enh | 0) > 0)); }
+/* Bo loc "bỏ qua bộ yêu cầu cấp thấp hơn nhân vật" (chi Hoàng Kim / Bạch Kim) */
+export function isLowSetForAutoLoot(it) {
+  if (lootFilter().skipLowSets === false || !it.set || !['gold', 'platina'].includes(it.set.kind)) return false;
+  const required = (it.req || []).find(([id]) => id === 36);
+  return (required ? required[1] : 0) < S.lvl;
+}
+/* Ly do mon do khong khop bo loc (rong = khop). Che do Thong minh: do quy, do bo / da bao ve,
+   mon manh hon dang mac. Che do Tuy chinh: do hiem, yeu cau cap, hệ, thuoc tinh. */
+export function lootMatchReason(it) {
   const f = lootFilter();
-  if (it.r < f.minRar || it.lvl < f.minLvl) return false;
-  if (f.series.length && !f.series.includes(it.s)) return false;
+  if (!it) return 'Không xác định được món đồ';
+  if (f.equipment === false) return 'Đã tắt nhặt trang bị';
+  if (it.r === 0 && f.white !== true) return 'Đồ trắng đang tắt';
+  if (isLowSetForAutoLoot(it)) return 'Bộ có yêu cầu cấp thấp hơn nhân vật';
+  if (f.mode !== 'custom') {
+    if (typeof wrongFaction === 'function' && wrongFaction(it)) return 'Trang bị sai môn phái';
+    if ((it.r || 0) >= 2) return 'Đồ quý';
+    if (itemProtected(it)) return 'Đồ bộ hoặc đồ đã được bảo vệ';
+    if (typeof betterThanEquipped === 'function' && betterThanEquipped(it)) return 'Mạnh hơn món đang mặc';
+    return 'Chưa nâng sức mạnh cho nhân vật';
+  }
+  const level = itemRequiredLevel(it) ?? 0;
+  if (it.r !== 0 && it.r < f.minRar) return `Độ hiếm thấp hơn ${RAR_VI[f.minRar] || 'đã chọn'}`;
+  if (level < f.minReqLvl) return `Yêu cầu cấp thấp hơn ${f.minReqLvl}`;
+  if (f.series.length && !f.series.includes(it.s)) return 'Không thuộc hệ đã chọn';
   if (f.groups.length) {
     const want = new Set(f.groups.flatMap(g => (LOOT_ATTR_GROUPS[g] || [0, []])[1]));
-    if (!it.mag.some(m => want.has(attrName(m.a)))) return false;
+    if (!it.mag.some(m => want.has(canonAttr(attrName(m.a))))) return 'Không có thuộc tính đã chọn';
   }
-  return true;
+  return '';
 }
+export function lootMatch(it) { return !lootMatchReason(it); }
 export function dropToGround(it, at) {
   const a = rnd(0, Math.PI * 2), d = rnd(10, 26);
   const [x, y] = inWorld(at.x + Math.cos(a) * d, at.y + Math.sin(a) * d);
   R.ground.push({ it, x, y, age: 0 });
-  if (R.ground.length > GROUND_MAX) { let i = R.ground.findIndex(d => !d.it.set && !d.it.vio && !d.it.plv && !d.it.petOnly); if (i < 0) i = 0; const old = R.ground.splice(i, 1)[0]; S.gold += itemValue(old.it); } // qua nhieu: mon cu nhat tu ban (khong ban do bo / Tim / Bach Kim neu con mon khac)
+  if (R.ground.length > GROUND_MAX) {
+    let i = R.ground.findIndex(d => !itemProtected(d.it));               // qua nhieu: ban mon cu nhat chua duoc bao ve
+    if (i < 0) i = R.ground.findIndex(d => !d.it.locked && !(d.it.enh > 0));
+    if (i >= 0) { const old = R.ground.splice(i, 1)[0]; S.gold += itemValue(old.it); }
+  }
+  setInvDirty(true);
   if (!R.quiet) uiSfx(it.d <= 1 ? 'dropWeapon' : it.d === 2 || it.d === 7 ? 'dropCloth' : 'dropOther');
   if (it.r >= 2 && !R.quiet) log(`Rơi xuống đất: <span style="color:${RAR_COL[it.r]}">${esc(it.n)}</span>`);
 }
@@ -200,15 +302,16 @@ export function dropToGround(it, at) {
    (truoc day tui day la ngung nhat, do tot nam duoi dat roi bi tu ban, nhan vat khong bao gio len do) */
 export function makeRoom(it, force) {
   let worst = null;
-  // khong bo mon Tim dang kham do (vio) va Bach Kim da thang cap (plv) khi nhet do moi; mon trang goc van co the bi bo (kham ngay sau khi mua)
-  for (const x of S.inv) if (!x.set && !x.vio && !x.plv && !x.petOnly && (!worst || itemPower(x) < itemPower(worst))) worst = x;
+  // khong bo mon Tim dang kham do (vio), Bach Kim da thang cap (plv), do cua dong hanh (petOnly);
+  // mon khoa tay / cuong hoa van luon duoc giu (itemProtected)
+  for (const x of S.inv) if (!itemProtected(x) && !x.petOnly && (!worst || itemPower(x) < itemPower(worst))) worst = x;
   if (!worst || (!force && itemPower(worst) >= itemPower(it))) return false;
   S.gold += itemValue(worst); S.inv.splice(S.inv.indexOf(worst), 1); setInvDirty(true);
   return true;
 }
 function pickUp(drop, quiet) {
   const i = R.ground.indexOf(drop); if (i < 0) return false;
-  if (S.inv.length >= INV_MAX && !makeRoom(drop.it)) { if (!quiet) toast('Hành trang đầy'); return false; }
+  if (invUsed() >= invMax() && !makeRoom(drop.it)) { if (!quiet) toast('Hành trang đầy'); return false; }
   R.ground.splice(i, 1);
   jrDrop(drop.it);                                          // so tay: do rot theo do hiem
   addItem(drop.it, quiet, true, R.pickTarget === drop); questTick('picked');   // cham tay chon nhat: giu, khong coi la do thua
@@ -221,6 +324,7 @@ function pickUp(drop, quiet) {
    autoPick dat rieng de vong combat tam nhuong di chuyen/attack khi dang di nhat tu dong. */
 export function updateGround(dt) {
   for (const d of R.ground) d.age += dt;
+  R.ground = R.ground.filter(d => d.age < GROUND_LIFETIME || (d.it && (d.it.locked || d.it.enh > 0)));   // do tren dat chi song GROUND_LIFETIME giay (do khoa / cuong hoa thi giu)
   const lf = lootFilter();
   const gate = lf.auto && !(typeof manual === 'function' && manual()) && (lf.always || !R.enemies.some(e => !e.dead));
   let target = R.pickTarget && R.ground.includes(R.pickTarget) ? R.pickTarget : null;   // tay chon uu tien

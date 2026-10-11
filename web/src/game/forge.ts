@@ -5,12 +5,17 @@ import {
   $,
   ENH_MAX,
   ENH_STEP,
+  J,
   PLAT_STEP,
   attrName,
+  clamp,
   esc,
   fmt,
+  irnd,
+  pick,
 } from './core';
-import { magicLevels, rollMagic } from './loot';
+import { invMax, invUsed } from './invs';
+import { magicLevels, makeItem, rollMagic, sexPart } from './loot';
 import {
   HT_MAX,
   ORE_MAX,
@@ -19,12 +24,15 @@ import {
   PLAT_UP,
   SHARDS,
   VIO_SLOTS,
+  buyHT,
   canFuse,
   canPlatBase,
   combineShards,
   enchase,
   fuse,
   fuseCost,
+  htBuyCost,
+  htInsureCost,
   makePlatina,
   matHave,
   mats,
@@ -38,7 +46,8 @@ import {
 } from './recipes';
 import { petCanEquip, petForgeCost, petForgeItem } from './rewards';
 import { S, save } from './save';
-import { closeModal, invDirty, itemHTML, log, modal, refresh, toast } from './ui';
+import { sexOk } from './stats';
+import { addItem, closeModal, invDirty, itemHTML, log, modal, refresh, toast } from './ui';
 import { setInvDirty } from './ui';
 
 /* ======================= REN DO: CUONG HOA + TAY LUYEN (cho tieu ngan luong lau dai) =======================
@@ -66,7 +75,7 @@ function reroll(it) {
   toast('Tẩy luyện xong'); uiSfx('learn');
   R.dirty = true; setInvDirty(true); save(); forgeModal(it);
 }
-const oreLabel = k => { const o = oreParse(k), r = oreRows(o.a)[0]; return `Dòng ${o.place + 1} (${o.place % 2 ? 'ẩn' : 'hiện'}) · ${r ? r.n : attrName(o.a)} · cấp ${o.lvl} ×${matHave('ore', k)}`; };
+export const oreLabel = k => { const o = oreParse(k), r = oreRows(o.a)[0]; return `Dòng ${o.place + 1} (${o.place % 2 ? 'ẩn' : 'hiện'}) · ${r ? r.n : attrName(o.a)} · cấp ${o.lvl} ×${matHave('ore', k)}`; };
 function afterRc(r, reopen) {
   toast(r.msg); uiSfx(r.ok ? 'learn' : 'use'); log(esc(r.msg));
   R.dirty = true; setInvDirty(true); save(); reopen();
@@ -88,6 +97,54 @@ function platCard(it) {
   return `<div class="card"><b>Thăng cấp Bạch Kim</b> <small class="dim">+${lv} → +${lv + 1} · thành công ${u.rate}% · mỗi cấp +${Math.round(PLAT_STEP * 100)}% thuộc tính gốc</small><br>
     <small>${u.inputs[0].qty} Thủy Tinh Trắng (có ${matHave('misc', 'wc')}) · ${u.inputs[1].qty} Thần Bí Khoáng Thạch (có ${matHave('misc', 'mys')}) · ${fmt(platCost(u.cost.van))} lượng</small>
     <div class="btnrow"><button class="btn" id="fPlat" ${ok ? '' : 'disabled'}>Thăng cấp</button></div></div>`;
+}
+/* A1: REN NGAU NHIEN — tra vang theo cap, chon 1 trong 3 muc cuoc; that bai MAT TOAN BO vang (nguoi dung chon).
+   Muc 'hiem' tra ve do TIM that su (dung co che kham san co: it.vio = true, r = 3) nen la "option cao" that. */
+export const RF_MUC = [
+  { k: 'thuong', n: 'Thường', ty: 0.60, dong: [1, 3], heSo: 1, mo: 'Trắng (1 dòng) hoặc Xanh (2–3 dòng)' },
+  { k: 'kha', n: 'Khá', ty: 0.45, dong: [3, 4], heSo: 2.2, mo: 'Xanh/Vàng, 3–4 dòng' },
+  { k: 'hiem', n: 'Hiếm', ty: 0.30, dong: [4, 6], heSo: 6, mo: 'Tím, 4–6 dòng' },
+];
+// Bảng đồ thường chỉ có yêu cầu cấp đến 60–81. Mở tiếp rèn ở hai mốc trang bị bộ,
+// giữ trần cấp 180 và tăng chỉ số dương để đồ rèn cuối game còn dùng được.
+const RF_LEVEL_PROFILE = [
+  { minLevel: 120, reqLevel: 120, scale: 1.25 },
+  { minLevel: 180, reqLevel: 180, scale: 1.50 },
+];
+export function randomForgeProfile(level = S.lvl) {
+  return RF_LEVEL_PROFILE.slice().reverse().find(p => level >= p.minLevel) || { reqLevel: 0, scale: 1 };
+}
+export function applyRandomForgeProfile(it) {
+  const profile = randomForgeProfile(); if (!it || profile.scale <= 1) return it;
+  const req = (it.req || []).find(q => q[0] === 36);
+  if (req) req[1] = Math.max(req[1], profile.reqLevel);
+  else it.req.push([36, profile.reqLevel]);
+  it.base = (it.base || []).map(([id, lo, hi]) => [id,
+    lo > 0 ? Math.round(lo * profile.scale) : lo,
+    hi > 0 ? Math.round(hi * profile.scale) : hi]);
+  for (const m of it.mag || []) if (Array.isArray(m.p)) {
+    m.p = m.p.map((value, i) => i < 2 && value > 0 ? Math.round(value * profile.scale) : value);
+  }
+  return it;
+}
+const rfCost = m => Math.round((6000 + S.lvl * 700) * m.heSo * (1 + S.lvl / 60));   // QA-087: bam kip thu nhap cuoi game
+export function randomForge(key) {
+  const m = RF_MUC.find(x => x.k === key); if (!m) return { ok: false, msg: 'Mức không hợp lệ' };
+  const gia = rfCost(m);
+  if (S.gold < gia) return { ok: false, msg: 'Cần ' + fmt(gia) + ' lượng' };
+  if (invUsed() >= invMax()) return { ok: false, msg: 'Hành trang đầy' };
+  S.gold -= gia;                                   // tra truoc: that bai cung mat
+  if (Math.random() > m.ty) return { ok: false, lost: true, msg: 'Rèn thất bại (thành công ' + Math.round(m.ty * 100) + '%) — mất ' + fmt(gia) + ' lượng' };
+  const d = irnd(0, 9), g = J.items[d];
+  if (!g || !g.list.length) return { ok: false, lost: true, msg: 'Rèn hỏng — mất ' + fmt(gia) + ' lượng' };
+  const t = clamp(Math.round(S.lvl / 12), 1, 10);
+  let it = null;
+  for (let tr = 0; tr < 8 && !(it && sexOk(it)); tr++) it = makeItem(d, sexPart(d, pick(g.list).k), t, irnd(m.dong[0], m.dong[1]));   // không rèn ra trang phục khác giới tính (không mặc được)
+  if (!it || !sexOk(it)) return { ok: false, lost: true, msg: 'Rèn hỏng — mất ' + fmt(gia) + ' lượng' };
+  applyRandomForgeProfile(it);
+  if (m.k === 'hiem') { it.vio = true; it.r = 3; }
+  addItem(it, true, true, true);
+  return { ok: true, it, msg: 'Rèn thành công: ' + it.n + ' (' + it.mag.length + ' dòng)' };
 }
 /* Duc Thu Boi: mon 4 dong he Dong hanh, chi pet mac duoc (docs/PET-MO-RONG.md muc 9) */
 function petForgeCard() {
@@ -118,6 +175,7 @@ export function forgeModal(it) {
 let htSel = [], pkSel = [];
 export function htModal() {
   const pool = S.inv.filter(canFuse), hts = Object.keys(mats().ht).map(Number).sort((a, b) => a - b), ores = Object.keys(mats().ore).sort();
+  const rfProfile = randomForgeProfile();
   htSel = htSel.filter(i => pool.includes(i));
   const shards = Object.keys(mats().shard), gpool = S.inv.filter(canPlatBase); pkSel = pkSel.filter(i => gpool.includes(i));
   modal(`<h3>Lò Huyền Tinh · Mảnh · Bạch Kim <small>${fmt(S.gold)} lượng</small></h3>
@@ -125,7 +183,12 @@ export function htModal() {
       <div class="btnrow" id="htPool">${pool.map(i => `<button class="btn ${htSel.includes(i) ? 'red' : ''}" data-u="${i.uid}">${esc(i.n)}</button>`).join('') || '<small class="dim">Hành trang không có món phù hợp</small>'}</div>
       <div class="btnrow"><button class="btn" id="htFuse" ${htSel.length === 3 && S.gold >= fuseCost() ? '' : 'disabled'}>Hợp (${htSel.length}/3)</button></div></div>
     <div class="card"><b>Huyền Tinh</b> <small class="dim">3 viên cùng cấp → 1 viên cấp +1 (rủi ro 2/11)</small>
-      ${hts.map(l => `<div class="btnrow"><small>Cấp ${l} ×${matHave('ht', l)}</small><button class="btn" data-up="${l}" ${matHave('ht', l) >= 3 && l < HT_MAX ? '' : 'disabled'}>Thăng cấp</button></div>`).join('') || '<small class="dim">Chưa có Huyền Tinh</small>'}</div>
+      ${hts.map(l => { const co = matHave('ht', l), thieu = Math.max(0, 3 - co), bh = htInsureCost(l);
+        return `<div class="btnrow"><small>Cấp ${l} ×${co}</small><button class="btn" data-up="${l}" ${co >= 3 && l < HT_MAX ? '' : 'disabled'}>Thăng cấp</button><button class="btn" data-bh="${l}" ${co >= 3 && l < HT_MAX && S.gold >= bh.van && matHave('misc', 'thbt') >= bh.thbt ? '' : 'disabled'}>+BH ${fmt(bh.van)}</button>${thieu > 0 && l < HT_MAX ? `<button class="btn" data-buy="${l}" ${S.gold >= htBuyCost(l) * thieu ? '' : 'disabled'}>Mua ${thieu} viên ${fmt(htBuyCost(l) * thieu)}</button>` : ''}</div>`; }).join('') || '<small class="dim">Chưa có Huyền Tinh</small>'}
+      <small class="dim">Bảo hiểm (+BH): thất bại vẫn giữ 3 viên · cần Tinh Hồng Bảo Thạch (có ${matHave('misc', 'thbt')}) rơi từ tinh anh / trùm</small></div>
+    <div class="card"><b>Rèn ngẫu nhiên</b> <small class="dim">${rfProfile.reqLevel ? `Mốc cấp ${rfProfile.reqLevel} · yêu cầu cấp tối thiểu ${rfProfile.reqLevel} · chỉ số dương +${Math.round((rfProfile.scale - 1) * 100)}%` : 'bậc đồ 1–10 theo cấp nhân vật; mốc rèn cấp 120 và 180 sẽ nâng yêu cầu cấp cùng chỉ số' } · rèn hỏng MẤT HẾT vàng</small>
+      <div class="btnrow">${RF_MUC.map(m => `<button class="btn" data-rf="${m.k}" ${S.gold >= rfCost(m) ? '' : 'disabled'}>${m.n} ${Math.round(m.ty * 100)}% · ${fmt(rfCost(m))}</button>`).join('')}</div>
+      <small class="dim">${RF_MUC.map(m => m.n + ': ' + m.mo).join(' · ')}</small></div>
     <div class="card"><b>Mảnh Hoàng Kim</b> <small class="dim">đủ mảnh ghép thành món bộ (rơi từ trùm)</small>
       ${shards.map(n => `<div class="btnrow"><small>${esc(n)} ${matHave('shard', n)}/${SHARDS[n]}</small><button class="btn" data-sh="${esc(n)}" ${matHave('shard', n) >= SHARDS[n] ? '' : 'disabled'}>Ghép</button></div>`).join('') || '<small class="dim">Chưa có mảnh</small>'}</div>
     <div class="card"><b>Chế Bạch Kim</b> <small class="dim">2 Hoàng Kim giống nhau + ${PLAT_MAKE.inputs[1].qty} Thủy Tinh Trắng (có ${matHave('misc', 'wc')}) + ${PLAT_MAKE.inputs[2].qty} Thần Bí Khoáng Thạch (có ${matHave('misc', 'mys')}) + ${fmt(platCost(PLAT_MAKE.cost.van))} lượng · thành công ${PLAT_MAKE.rate}%</small>
@@ -147,6 +210,9 @@ export function htModal() {
     $('#pkMake').onclick = () => { const r = makePlatina(pkSel[0], pkSel[1]); pkSel = []; afterRc(r, htModal); };
     $('#htFuse').onclick = () => { const r = fuse(htSel.slice()); htSel = []; afterRc(r, htModal); };
     document.querySelectorAll('#mBody [data-up]').forEach(b => b.onclick = () => afterRc(upgradeHT(+b.dataset.up), htModal));
+    document.querySelectorAll('#mBody [data-bh]').forEach(b => b.onclick = () => afterRc(upgradeHT(+b.dataset.bh, true), htModal));
+    document.querySelectorAll('#mBody [data-buy]').forEach(b => b.onclick = () => afterRc(buyHT(+b.dataset.buy, 3 - matHave('ht', +b.dataset.buy)), htModal));
+    document.querySelectorAll('#mBody [data-rf]').forEach(b => b.onclick = () => afterRc(randomForge(b.dataset.rf), htModal));
     document.querySelectorAll('#mBody [data-ore]').forEach(b => b.onclick = () => afterRc(upgradeOre(b.dataset.ore), htModal));
   });
 }

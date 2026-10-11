@@ -96,6 +96,9 @@ export const CLS = { normal: { hp: 1, dmg: 1, xp: 1, r: 17 }, elite: { hp: 2.5, 
 /* Do kho (chon o the Khac): Thuong la can bang chuan cua cac bo kiem thu. De / Kho doi mau, sat thuong quai va thuong kinh nghiem / ngan luong */
 export const DIFFS = [{ n: 'Dễ', hp: 0.75, dmg: 0.7, rew: 0.8, d: 'Quái yếu hơn (máu −25%, sát thương −30%), thưởng −20%' }, { n: 'Thường', hp: 1, dmg: 1, rew: 1, d: 'Cân bằng chuẩn' }, { n: 'Khó', hp: 1.4, dmg: 1.35, rew: 1.25, d: 'Quái mạnh hơn (máu +40%, sát thương +35%), thưởng +25%' }];
 export const diffOf = () => S && S.chal === 'hard' ? DIFFS[2] : DIFFS[(S && [0, 1, 2].includes(S.diff)) ? S.diff : 1];   // thu thach Huyet chien: Khó co dinh
+/* Tuyet chieu cua trum: boss cap >= BOSS_ULT_FROM ra đòn dac biet (gây % máu toi đa cua nhan vat) moi
+   BOSS_ULT_EVERY giây khi nhan vat trong tam; lan dau phat sau ~40% chu ky. Xem bossUlt / enemyAI. */
+export const BOSS_ULT_FROM = 40, BOSS_ULT_EVERY = 6;
 function enemyStats(L, cls) {
   const c = CLS[cls];
   return { hp: (18 + 8 * L + 0.55 * L * L) * c.hp, dmg: (2 + 1.0 * L + 0.006 * L * L) * c.dmg, ar: 30 + L * 9, def: 8 + L * 3.2 };
@@ -172,6 +175,8 @@ function heroHit(a, e) {
   if (counters(a.series, e.series)) tot += R.P.series5;
   if (e.cls === 'boss' || e.cls === 'elite') tot *= 1 + tpStacks().tru * 0.06;   // tam phap Pha Trum
   tot *= tower2Bonuses(e).dmg;                             // TS6 Khai Son: +dame Thap II
+  if (e.petExposeT > 0) tot *= e.petExposeMult || 1.1;     // Noc An Mon: dich nhan them sat thuong
+  if (R.petRageT > 0) tot *= R.petRageMult || 1.1;         // Ho Khiếu: dòn pet manh hơn
   tot = Math.max(1, tot);
   e.hp -= tot; e.hitT = 0.12; if (e.act !== 'at') { e.act = 'hurt'; e.actT = 0; npcSfx(MON[e.tid].anim, 'hurt', 0.3); }
   if (a.stun && Math.random() * 100 < a.stun) e.stun = 0.8;
@@ -188,9 +193,43 @@ function enemyHit(e) {
   let d = e.dmg * rnd(0.8, 1.2) * (cm ? 1 + cm.dmg / 100 : 1) * (1 - tpStacks().ho * 0.01) * tower2Bonuses(e).taken;   // Ho The hoa giai + TS6 Ho Thap
   d = applyPart(d, el, e.series, R.P.series, R.P.res, PLAYER_RES_MAX, 10);
   if (R.P.res5 && !counters(e.series, R.P.series)) d = Math.max(1, d - R.P.res5); // ngu hanh khang (five_elements_resist_v)
+  if (R.petGuardT > 0) d *= R.petGuardMult || 0.82;        // Ho Menh: pet giam sat thuong nhan vao
+  d = absorbDamageWithMana(d);   // lá chắn nội lực: hut phan sat thuong vao noi luc truoc khi tru máu
   R.life -= d; R.hurtT = 0.25; if (H.act !== 'at' && Math.random() < 0.3) { H.act = 'hurt'; H.actT = 0; }
   if (R.P.retMelee || R.P.retMeleeP) { const ret = R.P.retMelee + d * R.P.retMeleeP / 100; if (ret > 0) { e.hp -= ret; } }
   addText(H.x + rnd(-10, 10), H.y - 36, '-' + fmt(d), '#ff6a5a', 12);
+}
+/* Lá chắn nội lực (Tọa Vọng Vô Ngã, stats.ts tinh tu thuoc tinh manashield_p): phan sat thuong nhan vao
+   (manaShield %) duoc rut vao noi luc truoc, text xanh "-X NL"; con lai moi tru vào máu. */
+export function absorbDamageWithMana(d) {
+  const P = R.P;
+  if (!P || P.manaShield <= 0 || R.mana <= 0) return d;
+  const absorbed = Math.min(R.mana, d * P.manaShield / 100);
+  R.mana -= absorbed;
+  if (absorbed >= 0.5) addText(H.x, H.y - 52, '-' + fmt(absorbed) + ' NL', '#75caff', 11);
+  return d - absorbed;
+}
+/* Tuyệt chiêu cua trum: đòn dac biet gây min(50%, trum Hoang Kim 42%, thuong 35%) × máu toi đa × rnd(0.9,1.1)
+   × do kho, qua áp hệ (applyPart), giam bang statusRes / sorbDamage / Tháp II / ngua canh, co the hoa giải
+   bang blockRate; trúng status Doc / Dong / Hoa trong 2.5s (giam bang statusRes). */
+function bossUlt(e) {
+  const P = R.P, el = ELEM[e.series] || 'phys';
+  addText(H.x, H.y - 60, 'Tuyệt chiêu!', '#ff5a3a', 14); if (!R.quiet) R.hurtT = 0.4;
+  if (P.blockRate && Math.random() * 100 < P.blockRate) { addText(H.x, H.y - 30, 'Hóa giải', '#9f9', 11); return; }
+  let d = Math.min(0.5, e.goldBoss ? 0.42 : 0.35) * P.life * rnd(0.9, 1.1) * diffOf().dmg;
+  d = applyPart(d, el, e.series, P.series, P.res, PLAYER_RES_MAX, 10);
+  if (P.statusRes && P.statusRes[el]) d *= 1 - P.statusRes[el] / 100;
+  const statusTime = 2.5 * (1 - ((P.statusRes && P.statusRes[el]) || 0) / 100);
+  if (statusTime > 0 && el === 'poison') H.poisonT = Math.max(H.poisonT || 0, Math.min(POISON_TIME, statusTime));
+  if (statusTime > 0 && el === 'cold') H.coldT = Math.max(H.coldT || 0, statusTime);
+  if (statusTime > 0 && el === 'fire') H.burnT = Math.max(H.burnT || 0, statusTime);
+  d *= 1 - (P.sorbDamage || 0) / 100;
+  d *= tower2Bonuses(e).taken;
+  if (R.petGuardT > 0) d *= R.petGuardMult || 0.82;
+  d = absorbDamageWithMana(d);
+  R.lastHit = 'Tuyệt chiêu của ' + e.n;
+  R.life -= Math.max(1, d);
+  addText(H.x + rnd(-10, 10), H.y - 36, '-' + fmt(d), '#ff3a2a', 15);
 }
 export function heal(v, quiet) { const b = R.life; R.life = Math.min(R.P.life, R.life + v); if (!quiet && R.life - b > 1) addText(H.x, H.y - 44, '+' + fmt(R.life - b), '#7f7', 11); }
 
@@ -289,8 +328,13 @@ function enemyAI(e, dt) {
   const d = Math.hypot(H.x - e.x, H.y - e.y), reach = e.ranged ? 200 : e.r + 24;
   e.face = H.x >= e.x ? 1 : -1; e.dir = dirOf(H.x - e.x, H.y - e.y);
   e.moving = d > reach;
-  if (e.moving) obsChase(e, H.x, H.y, e.spd * dt);
-  e.atkCd -= dt;
+  const petSlow = e.petSlowT > 0 ? (e.petSlowFactor || 0.55) : 1;   // BPhong: pet lam cham dich
+  if (e.moving) obsChase(e, H.x, H.y, e.spd * petSlow * dt);
+  if (e.cls === 'boss' && e.L >= BOSS_ULT_FROM) {   // Tuyệt chiêu: boss cap 40+ moi 6 giây (lan dau ~2.4s) khi nhan vat trong tam danh
+    e.ultCd = (e.ultCd === undefined ? BOSS_ULT_EVERY * 0.4 : e.ultCd) - dt;
+    if (e.ultCd <= 0 && d <= reach + 80) { e.ultCd = BOSS_ULT_EVERY; bossUlt(e); }
+  }
+  e.atkCd -= dt * petSlow;
   if (d <= reach + 4 && e.atkCd <= 0) { const cm2 = curseMod(e); e.atkCd = e.cd * (cm2 ? Math.max(0.5, Math.min(2, 1 + cm2.slow / 100)) : 1); enemyHit(e); e.act = 'at'; e.actT = 0; npcSfx(e.animKey || MON[e.tid].anim, 'at', 0.35); if (e.ranged) fxLine(e, H, { parts: { phys: 1 } }); }
 }
 export function tick(dt) {
@@ -305,6 +349,7 @@ export function tick(dt) {
   if (S.autoTownHp && !R.town && (R.tpCd || 0) <= 0 && !R.wbArena && !R.tower && !R.tk && !R.petRealm
     && R.life < P.life * (S.townHpAt ?? 20) / 100) goTown();   // Ve thanh khi HP duoi nguong (Tho Dia Phu hoi phuc nhanh)
   if (R.hurtT > 0) R.hurtT -= dt;
+  for (const k of ['poisonT', 'burnT', 'coldT']) if (H[k] > 0) H[k] = Math.max(0, H[k] - dt);   // status tren nhan vat (Doc / Dong / Hoa cua Tuyet chieu)
   if (R.tpCd > 0) R.tpCd -= dt;
   if (R.potCd) { R.potCd.life = Math.max(0, R.potCd.life - dt); R.potCd.mana = Math.max(0, R.potCd.mana - dt); }
   goldBossTick(dt); petTick(dt); wbTick(dt);                              // phan thuong: trum Hoang Kim, dong hanh, Boss The Gioi (rewards/worldboss)

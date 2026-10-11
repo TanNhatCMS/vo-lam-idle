@@ -10,11 +10,13 @@ import {
   RANGE_KIND,
   SERIES,
   clamp,
+  fmt,
   pick,
 } from './core';
+import { dexSet } from './depth';
 import { RCP } from './rcp';
 import { S } from './save';
-import { makeSetItem } from './sets';
+import { makeSetItem, tower2DropChance } from './sets';
 import { sexReqOk } from './stats';
 import { betterThanEquipped, equip } from './ui';
 
@@ -56,13 +58,34 @@ export function fuse(items) {
   return { ok: true, lvl, msg: `Hợp thành Huyền Tinh Khoáng Thạch cấp ${lvl}` };
 }
 /* ---------- thang cap ---------- */
-export function upgradeHT(lvl) {
+/* A2: mua vien bu bang vang khi thieu nguyen lieu thang cap (tien van thanh nguyen lieu).
+   Gia bang phi trong file nay (port bo goldCostScale nhu fuseCost / platCost). */
+export const htBuyCost = lvl => Math.round(12000 * (lvl + 1) * 1.3);
+export function buyHT(lvl, n) {
+  if (lvl >= HT_MAX) return { ok: false, msg: 'Huyền Tinh đã tối đa' };
+  const gia = htBuyCost(lvl) * n;
+  if (S.gold < gia) return { ok: false, msg: 'Không đủ ngân lượng' };
+  S.gold -= gia; matAdd('ht', lvl, n);
+  return { ok: true, msg: `Mua ${n} Huyền Tinh cấp ${lvl} (−${fmt(gia)} lượng)` };
+}
+/* A2: bao hiem mot lan thang cap - that bai KHONG mat nguyen lieu. Tra truoc bang vang + Tinh Hong Bao Thach */
+export const htInsureCost = lvl => ({ van: Math.round(20000 * (lvl + 1)), thbt: 1 });
+export function upgradeHT(lvl, baoHiem) {
   if (lvl >= HT_MAX) return { ok: false, msg: 'Đã tối đa' };
   if (matHave('ht', lvl) < 3) return { ok: false, msg: 'Cần 3 viên cùng cấp' };
+  const bh = htInsureCost(lvl);
+  if (baoHiem) {
+    if (S.gold < bh.van) return { ok: false, msg: `Cần ${fmt(bh.van)} lượng để mua bảo hiểm` };
+    if (matHave('misc', 'thbt') < bh.thbt) return { ok: false, msg: `Cần ${bh.thbt} Tinh Hồng Bảo Thạch để mua bảo hiểm (đang có ${matHave('misc', 'thbt')})` };
+    S.gold -= bh.van; matAdd('misc', 'thbt', -bh.thbt);
+  }
   matAdd('ht', lvl, -3);
-  if (rcFail(RCP_R.violet_up.fail)) return { ok: false, lost: true, msg: 'Thăng cấp thất bại, mất nguyên liệu' };
+  if (rcFail(RCP_R.violet_up.fail)) {
+    if (baoHiem) { matAdd('ht', lvl, 3); return { ok: false, lost: false, msg: 'Thăng cấp thất bại — bảo hiểm giữ lại 3 viên Huyền Tinh' }; }
+    return { ok: false, lost: true, msg: 'Thăng cấp thất bại, mất nguyên liệu' };
+  }
   matAdd('ht', lvl + 1);
-  return { ok: true, lvl: lvl + 1, msg: `Thăng cấp thành công: Huyền Tinh cấp ${lvl + 1}` };
+  return { ok: true, lvl: lvl + 1, msg: `Thăng cấp thành công: Huyền Tinh cấp ${lvl + 1}${baoHiem ? ' (đã mua bảo hiểm)' : ''}` };
 }
 export function upgradeOre(key) {
   const o = oreParse(key);
@@ -109,7 +132,7 @@ const orePool = place => [...new Set(J.affixLevel.filter(r => r.pre === (place %
 /* ty le roi (tinh chinh bang tools/sim_craft.py: moi gio choi ~ 4 khoang + 5 Huyen Tinh) */
 export const DROP = { ore: { boss: 0.20, elite: 0.03, normal: 0.003 }, ht: { boss: 0.22, elite: 0.033, normal: 0.0033 },
   shard: { boss: 0.06, elite: 0.009, normal: 0.0003 }, wc: { boss: 0.12, elite: 0.015, normal: 0.001 }, mys: { boss: 0.12, elite: 0.015, normal: 0.001 } };
-const dropP = (k, e) => DROP[k][e.cls] ?? DROP[k].normal;
+const dropP = (k, e) => tower2DropChance(DROP[k][e.cls] ?? DROP[k].normal, e);   // Tháp II: tỷ lệ rơi thường x0.2 (bù bằng bộ)
 function oreDrop(e) {
   const out = [];
   if (Math.random() < dropP('ore', e)) {
@@ -144,7 +167,7 @@ export function combineShards(name) {
   if (matHave('shard', name) < need) return { ok: false, msg: `Cần ${need} mảnh` };
   if (S.inv.length >= INV_MAX) return { ok: false, msg: 'Hành trang đầy' };
   matAdd('shard', name, -need);
-  const it = makeSetItem('gold', row, 0); S.inv.push(it);
+  const it = makeSetItem('gold', row, 0); S.inv.push(it); if (typeof dexSet === 'function') dexSet(it.n);
   return { ok: true, item: it, msg: `Ghép thành ${it.n}` };
 }
 
@@ -163,7 +186,7 @@ export function makePlatina(a, b) {
   S.gold -= cost; matAdd('misc', 'wc', -need[1].qty); matAdd('misc', 'mys', -need[2].qty);
   if (rcInt(0, 99) >= PLAT_MAKE.rate) return { ok: false, lost: true, msg: `Chế Bạch Kim thất bại (${100 - PLAT_MAKE.rate}%): mất nguyên liệu, Hoàng Kim giữ lại` };
   S.inv.splice(S.inv.indexOf(a), 1); S.inv.splice(S.inv.indexOf(b), 1);
-  const it = makeSetItem('platina', pick(platByBase.get(a.n)), 10); it.plv = 0; S.inv.push(it);
+  const it = makeSetItem('platina', pick(platByBase.get(a.n)), 10); it.plv = 0; S.inv.push(it); if (typeof dexSet === 'function') dexSet(it.n);
   return { ok: true, item: it, msg: `Chế thành ${it.n}` };
 }
 export function upgradePlatina(it) {

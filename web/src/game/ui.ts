@@ -52,7 +52,7 @@ import { THAN_MA_MAX, THAN_MA_TRAIN_BONUS, horseLevel, isThanMa } from './horse'
 import { logModal } from './consolelog';
 import { bindQuickBar, jrModal, quickBarHTML } from './journal';
 import { titleModal, titleProgress, titleWorn } from './rewards';
-import { CHALLENGES, chalName, clanModal } from './depth';
+import { CHALLENGES, chalName, clanModal, dexSet, dexSetsDone } from './depth';
 import { SK_KIND_VI, skKind, skillAuraHint, skillBuffHint, skillTypeLabel } from './skillsys';
 import { bindBuilds, buildsHTML, chargePointRefund, pointRefundCost, respecModal, respecQuote, sumObj } from './builds';
 import { bindTodo, codexModal, powerModal, suggestModal, todoHTML, tutorialModal } from './guide';
@@ -60,18 +60,27 @@ import { adminModal } from './admin';
 import { UI_FS, UI_FS_NAME, guard, onZoneChange, setCompact, setUiPref, uiPrefs } from './loop';
 import { uiBump, uiSetTab } from './store';
 import {
+  GROUND_MAX,
+  GROUND_LIFETIME,
   LOOT_ATTR_GROUPS,
+  itemLevelBadge,
+  itemLevelLabel,
   itemLines,
   itemPower,
+  itemProtected,
+  itemRequiredLevel,
   itemValue,
+  isLowSetForAutoLoot,
   lootFilter,
   lootMatch,
+  lootMatchReason,
   makeItem,
   makeRoom,
   sexPart,
   slotFor,
 } from './loot';
-import { FUSE_SLOTS } from './recipes';
+import { FUSE_SLOTS, reqOfRow } from './recipes';
+import { TOWER2_SET_ROWS } from './sets';
 import { img, label } from './render';
 import { dotGift, loginCheck, petActive, petCanEquip, petEquipItem, petRealmAbort, petWants, petWearingOf, renderPet } from './rewards';
 import {
@@ -107,6 +116,7 @@ import {
   reqOk,
   reqProblems,
   sexOk,
+  sexReqOk,
   weaponCode,
   wrongFaction,
 } from './stats';
@@ -272,6 +282,7 @@ export function addItem(it, quiet, picked, keep) {
   if (invUsed() >= invMax()) { S.gold += itemValue(it); if (!quiet) log('<span class="dim">Túi đầy, tự bán ' + esc(it.n) + '</span>'); return false; }
   if (!keep && S.autoJunk !== false && isJunk(it)) { S.gold += itemValue(it); return false; }   // do thua: tu ban, khong chat hanh trang
   S.inv.unshift(it); invDirty = true;
+  if (it.set && typeof dexSet === 'function') dexSet(it.n);   // F9: do bo vao tay -> danh dau sưu tập bộ đồ
   if (!quiet && it.r >= 2) log(`Nhặt được <span style="color:${RAR_COL[it.r]}">${esc(it.n)}</span>`);
   if (S.autoEquip && betterThanEquipped(it)) equip(it, true);
   return true;
@@ -316,18 +327,6 @@ export function sell(it) { if (!S.inv.includes(it)) { closeModal(); return; }
   const result = sellSingle(it); if (!result.ok) { toast(result.msg); return; } closeModal(); refresh(); }
 export function sellChoiceModal(afterSell = refresh, source = 'inv') { donKhoModal(source, afterSell); }
 export function findItem(uid) { uid = +uid; return S.inv.find(i => i.uid === uid) || Object.values(S.eq).find(i => i && i.uid === uid) || Object.values((S.rw && S.rw.pet && S.rw.pet.eq) || {}).find(i => i && i.uid === uid) || (R.ground.find(d => d.it.uid === uid) || {}).it; }
-function itemRequiredLevel(it) {
-  const required = (it && it.req || []).find(([id]) => id === 36);
-  return required ? Math.max(0, +required[1] || 0) : null;
-}
-export function itemLevelBadge(it) {
-  const required = itemRequiredLevel(it);
-  return required > 0 ? required : '—';
-}
-export function itemLevelLabel(it) {
-  const required = itemRequiredLevel(it);
-  return required > 0 ? `yêu cầu cấp ${required} · bậc đồ ${it.lvl}` : `không yêu cầu cấp · bậc đồ ${it.lvl}`;
-}
 export function itemCell(it, orderIndex = null, currentPower = null) {
   if (!it) return '';
   const orderable = Number.isInteger(orderIndex);
@@ -1005,45 +1004,133 @@ function bindAutoSettings() {
   $('#cField2').onchange = e => { S.fieldMode = e.target.checked; R.field = null; R.enemies = []; R.spawnT = 0.3; save(); toast(e.target.checked ? 'Bãi quái ngoài bản đồ: bật' : 'Bãi quái ngoài bản đồ: tắt'); };
   $('#bAutoDefaults').onclick = resetAutoSettings;
 }
-/* The loc do tu nhặt — dùng chung cho thẻ Hành trang và Thiết lập Auto */
+/* Bang loc do roi tu nhặt — port renderLootPanel (ui.js). Dùng trong Thiết lập Auto (#autoLootPanel). */
+let groundLootView = 'all';
 function lootPanelHTML() {
   const f = lootFilter();
-  const rar = RAR_VI.map((n, i) => `<option value="${i}" ${f.minRar === i ? 'selected' : ''}>${n}</option>`).join('');
-  const lv = Array.from({ length: 10 }, (_, i) => `<option value="${i + 1}" ${f.minLvl === i + 1 ? 'selected' : ''}>${i + 1}</option>`).join('');
+  const rar = RAR_VI.map((n, i) => [i, n]);
   const grp = LOOT_ATTR_GROUPS.map(([n], i) => `<label class="chip2"><input type="checkbox" data-g="${i}" ${f.groups.includes(i) ? 'checked' : ''}>${n}</label>`).join('');
   const ser = SERIES.map((n, i) => `<label class="chip2" style="color:${SERIES_COL[i]}"><input type="checkbox" data-s="${i}" ${f.series.includes(i) ? 'checked' : ''}>${n}</label>`).join('');
-  const onGround = R.ground.length, match = R.ground.filter(d => lootMatch(d.it)).length;
-  return `<h3>Đồ rơi trên đất <small>${onGround} món · ${match} khớp bộ lọc</small></h3>
-    <div class="card lootf">
-      <label><input type="checkbox" id="fAuto" ${f.auto ? 'checked' : ''}> Tự đi nhặt đồ khớp bộ lọc${petActive() ? ' (Đồng hành nhặt thay khi ra trận)' : ''}</label>
-      <div class="row" style="gap:16px;${f.auto ? '' : 'opacity:.5'}">
-        <label><input type="radio" name="fPickup" id="fPickWait" ${!f.always ? 'checked' : ''} ${f.auto ? '' : 'disabled'}> Chờ hết quái rồi đi nhặt</label>
-        <label><input type="radio" name="fPickup" id="fPickNow" ${f.always ? 'checked' : ''} ${f.auto ? '' : 'disabled'}> Luôn đi nhặt khi đồ vừa rớt ra</label>
+  const ground = R.ground.slice().sort((a, b) => Math.hypot(a.x - H.x, a.y - H.y) - Math.hypot(b.x - H.x, b.y - H.y));
+  const onGround = ground.length, match = ground.filter(d => lootMatch(d.it)).length, ignored = onGround - match;
+  const visibleGround = ground.filter(d => groundLootView === 'match' ? lootMatch(d.it) : groundLootView === 'skip' ? !lootMatch(d.it) : true);
+  const groundRows = visibleGround.map(d => {
+    const it = d.it, reason = lootMatchReason(it), matched = !reason, level = itemRequiredLevel(it);
+    const selected = R.pickTarget === d;
+    const replaceable = invUsed() >= invMax() ? S.inv.filter(x => !itemProtected(x)) : null;
+    const weakest = replaceable && replaceable.length ? Math.min(...replaceable.map(itemPower)) : Infinity;
+    const bagBlocked = replaceable && itemPower(it) <= weakest;
+    const itemMeta = `${RAR_VI[clamp(it.r | 0, 0, RAR_VI.length - 1)]} · Bậc đồ ${it.lvl}${level > 0 ? ` · Yêu cầu cấp ${level}` : ' · Không yêu cầu cấp'}`;
+    const verdict = bagBlocked ? 'Túi đầy' : selected ? 'Đang đi nhặt' : matched ? (f.auto !== false ? 'Tự nhặt' : 'Đạt bộ lọc') : 'Bỏ qua';
+    const detail = bagBlocked ? 'Không có món yếu hơn để thay' : selected ? (matched ? 'Đã chọn nhặt tay' : 'Đã chọn nhặt tay · bỏ qua bộ lọc') : matched && f.auto === false ? 'Auto nhặt đang tắt' : reason;
+    return `<article class="ground-loot-row ${matched ? 'is-match' : 'is-skipped'}${selected ? ' is-target' : ''}${bagBlocked ? ' is-bag-blocked' : ''}">
+      <button type="button" class="ground-loot-icon" data-ground-preview="${Number(it.uid)}" style="--rarity:${RAR_COL[clamp(it.r | 0, 0, RAR_COL.length - 1)]}" title="Xem trước ${esc(it.n)}" aria-label="Xem trước ${esc(it.n)}">${it.ic ? `<img src="${esc(it.ic)}" alt="">` : '◇'}</button>
+      <span class="ground-loot-copy"><b title="${esc(it.n)}">${esc(it.n)}</b><small>${esc(itemMeta)}</small><small class="ground-loot-verdict">${matched ? '✓' : '·'} ${esc(verdict)}${detail ? ` · ${esc(detail)}` : ''}</small></span>
+      <button type="button" class="btn sm ground-pick" data-ground-pick="${Number(it.uid)}" aria-label="Nhặt tay ${esc(it.n)}" ${bagBlocked ? 'disabled title="Hành trang đầy; món này chưa thể thay món yếu nhất"' : ''}>${bagBlocked ? 'Túi đầy' : 'Nhặt tay'}</button>
+    </article>`;
+  }).join('');
+  const advOpen = (adv => adv != null ? adv : f.mode === 'custom')($('#autoLootPanel')?.querySelector('.loot-advanced')?.open);
+  return `<section class="loot-panel" aria-labelledby="lootTitle">
+      <header class="loot-panel-head"><div><h3 id="lootTitle">Đồ đang rơi</h3><small>${onGround} món trên đất · ${match} đạt bộ lọc</small></div><span class="loot-bag-state">Túi ${invUsed()}/${invMax()}</span></header>
+      <div class="loot-mode" role="group" aria-label="Chế độ lọc nhặt">
+        <button type="button" data-loot-mode="smart" aria-pressed="${f.mode !== 'custom'}" class="${f.mode !== 'custom' ? 'on' : ''}"><b>✨ Thông minh</b><small>Ưu tiên nâng cấp và đồ quý</small></button>
+        <button type="button" data-loot-mode="custom" aria-pressed="${f.mode === 'custom'}" class="${f.mode === 'custom' ? 'on' : ''}"><b>⚙ Tùy chỉnh</b><small>Tự chọn điều kiện nhặt</small></button>
       </div>
-      <div class="row">Độ hiếm từ <select id="fRar">${rar}</select> · cấp đồ từ <select id="fLvl">${lv}</select></div>
-      <div class="dim small">Có ít nhất một thuộc tính (bỏ trống = mọi thuộc tính):</div><div class="chips">${grp}</div>
-      <div class="dim small">Hệ của món đồ (bỏ trống = mọi hệ):</div><div class="chips">${ser}</div>
-      <div class="dim small">Chạm vào món đồ trên sân để đi nhặt tay. Khi Đồng hành ra trận, nó tự đi nhặt đồ auto thay nhân vật (nhân vật ở lại đánh quái); nhặt tay vẫn do nhân vật. Trên 40 món thì món cũ nhất tự bán. Khi vắng mặt, đồ không khớp tự bán.</div>
-    </div>`;
+      <div class="loot-summary ${match ? 'has-match' : ''}" role="status" aria-live="polite">
+        <span><b>${match}</b> khớp${f.auto !== false ? ' · Auto bật' : ' bộ lọc'}</span><span><b>${ignored}</b> không khớp</span>
+        <label class="loot-auto-toggle"><input type="checkbox" id="fAuto" ${f.auto !== false ? 'checked' : ''}><span>Tự đi nhặt</span><i aria-hidden="true"></i></label>
+      </div>
+      <div class="loot-kind-toggles">
+        <label class="loot-check"><input type="checkbox" id="fEquipment" ${f.equipment !== false ? 'checked' : ''}><span>Trang bị</span></label>
+        <label class="loot-check"><input type="checkbox" id="fMaterials" ${f.materials !== false ? 'checked' : ''}><span>Nhận vật liệu</span></label>
+        <label class="loot-check"><input type="checkbox" id="fWhite" ${f.white === true ? 'checked' : ''}><span>Đồ trắng</span></label>
+      </div>
+      <p class="loot-mode-help">${f.mode === 'custom'
+        ? 'Món đồ cần đạt mọi điều kiện đã chọn. Trong cùng nhóm thuộc tính hoặc hệ, chỉ cần khớp một mục.'
+        : 'Tự nhặt đồ quý, đồ bộ hợp phái, đồ khóa/cường hóa và món giúp tăng sức mạnh. Đồ thường chỉ được nhặt khi là nâng cấp.'}</p>
+      <details class="loot-advanced" ${advOpen ? 'open' : ''}>
+        <summary>${f.mode === 'custom' ? 'Điều kiện tùy chỉnh' : 'Tạo bộ lọc tùy chỉnh'}</summary>
+        <div class="lootf loot-advanced-body">
+          ${f.mode !== 'custom' ? '<small class="dim">Chỉnh một điều kiện bên dưới sẽ chuyển sang Tùy chỉnh. Các ngưỡng này chưa áp dụng trong chế độ Thông minh.</small>' : ''}
+          <div class="loot-filter-row">
+            <div class="loot-filter-field"><span>Độ hiếm từ</span>${uiSelectMarkup('fRar', rar, f.minRar, 'Độ hiếm từ')}</div>
+            <label class="loot-filter-field" for="fReqLvl"><span>Yêu cầu cấp từ</span><input id="fReqLvl" type="number" min="1" max="${MAX_LEVEL}" step="1" value="${clamp(Math.floor(+f.minReqLvl) || 1, 1, MAX_LEVEL)}" aria-label="Yêu cầu cấp trang bị tối thiểu"></label>
+          </div>
+          <small class="dim">“Yêu cầu cấp” khác “bậc đồ” từ 1–10.</small>
+          <div><small class="dim">Có ít nhất một thuộc tính:</small><div class="chips">${grp}</div></div>
+          <div><small class="dim">Hệ của món đồ (bỏ trống = mọi hệ):</small><div class="chips">${ser}</div></div>
+          <label class="loot-check loot-set-rule"><input type="checkbox" id="fSkipLowSets" ${f.skipLowSets !== false ? 'checked' : ''}><span>Bỏ qua Hoàng Kim / Bạch Kim có yêu cầu cấp thấp hơn nhân vật</span></label>
+          <div class="row" style="gap:16px">
+            <label><input type="radio" name="fPickup" id="fPickWait" ${!f.always ? 'checked' : ''}> Chờ hết quái rồi đi nhặt</label>
+            <label><input type="radio" name="fPickup" id="fPickNow" ${f.always ? 'checked' : ''}> Luôn đi nhặt khi đồ vừa rớt ra</label>
+          </div>
+          <button type="button" class="btn sm" id="bLootClear">Xóa điều kiện nâng cao</button>
+        </div>
+      </details>
+      <section class="ground-loot-section" aria-label="Danh sách đồ trên đất">
+        <header><b>Danh sách đồ rơi</b><span>${onGround}/${GROUND_MAX}</span></header>
+        <nav class="ground-loot-tabs" aria-label="Lọc danh sách đồ rơi">
+          <button type="button" data-ground-view="all" class="${groundLootView === 'all' ? 'on' : ''}" aria-pressed="${groundLootView === 'all'}">Tất cả ${onGround}</button>
+          <button type="button" data-ground-view="match" class="${groundLootView === 'match' ? 'on' : ''}" aria-pressed="${groundLootView === 'match'}">Khớp ${match}</button>
+          <button type="button" data-ground-view="skip" class="${groundLootView === 'skip' ? 'on' : ''}" aria-pressed="${groundLootView === 'skip'}">Không khớp ${ignored}</button>
+        </nav>
+        <div class="ground-loot-list">${groundRows || `<div class="ground-loot-empty">${onGround ? 'Không có món nào trong nhóm này.' : 'Chưa có đồ rơi trên bản đồ.'}</div>`}</div>
+        <small class="dim">Bấm “Nhặt tay” để ưu tiên món đó, kể cả khi không khớp. Đồ tồn tại ${GROUND_LIFETIME} giây; quá ${GROUND_MAX} món thì món cũ nhất được bán.</small>
+      </section>
+      <small class="dim loot-material-note">Vật liệu được cộng thẳng vào kho, không nằm trong danh sách đồ rơi. Tắt “Nhận vật liệu” để bỏ qua vật liệu rơi.</small>
+    </section>`;
 }
 function bindLootPanel(scope) {
   const f = lootFilter();
   const q = s => scope.querySelector(s);
-  const upd = () => { save(); if (curTab === 'auto') renderAutoLootPanel(); else renderInv(); };
-  const fa = q('#fAuto'); if (fa) fa.onchange = e => { f.auto = e.target.checked; upd(); };
+  const upd = (custom = false) => { if (custom) f.mode = 'custom'; save(); renderAutoLootPanel(); };
+  scope.querySelectorAll('[data-loot-mode]').forEach(b => b.onclick = () => { f.mode = b.dataset.lootMode; save(); renderAutoLootPanel(); });
+  scope.querySelectorAll('[data-ground-view]').forEach(b => b.onclick = () => { groundLootView = b.dataset.groundView; renderAutoLootPanel(); });
+  const fa = q('#fAuto'); if (fa) fa.onchange = e => { f.auto = e.target.checked; save(); renderAutoLootPanel(); };
+  const fe = q('#fEquipment'); if (fe) fe.onchange = e => { f.equipment = e.target.checked; save(); renderAutoLootPanel(); };
+  const fmat = q('#fMaterials'); if (fmat) fmat.onchange = e => { f.materials = e.target.checked; save(); renderAutoLootPanel(); };
+  const fwh = q('#fWhite'); if (fwh) fwh.onchange = e => { f.white = e.target.checked; save(); renderAutoLootPanel(); };
+  const fls = q('#fSkipLowSets'); if (fls) fls.onchange = e => { f.skipLowSets = e.target.checked; upd(); };
   const pw = q('#fPickWait'); if (pw) pw.onchange = e => { if (e.target.checked) { f.always = false; upd(); } };
   const pn = q('#fPickNow'); if (pn) pn.onchange = e => { if (e.target.checked) { f.always = true; upd(); } };
-  const fr = q('#fRar'); if (fr) fr.onchange = e => { f.minRar = +e.target.value; upd(); };
-  const fl = q('#fLvl'); if (fl) fl.onchange = e => { f.minLvl = +e.target.value; upd(); };
-  scope.querySelectorAll('[data-g]').forEach(b => b.onchange = () => { const g = +b.dataset.g; f.groups = b.checked ? [...new Set(f.groups.concat(g))] : f.groups.filter(x => x !== g); upd(); });
-  scope.querySelectorAll('[data-s]').forEach(b => b.onchange = () => { const v = +b.dataset.s; f.series = b.checked ? [...new Set(f.series.concat(v))] : f.series.filter(x => x !== v); upd(); });
+  bindUISelect(scope, 'fRar', value => { f.minRar = +value; upd(true); });
+  const frl = q('#fReqLvl'); if (frl) frl.onchange = e => { f.minReqLvl = clamp(Math.floor(+e.target.value) || 1, 1, MAX_LEVEL); upd(true); };
+  scope.querySelectorAll('[data-g]').forEach(b => b.onchange = () => { const g = +b.dataset.g; f.groups = b.checked ? [...new Set(f.groups.concat(g))] : f.groups.filter(x => x !== g); upd(true); });
+  scope.querySelectorAll('[data-s]').forEach(b => b.onchange = () => { const v = +b.dataset.s; f.series = b.checked ? [...new Set(f.series.concat(v))] : f.series.filter(x => x !== v); upd(true); });
+  const bc = q('#bLootClear'); if (bc) bc.onclick = () => { Object.assign(f, { mode: 'custom', minRar: 2, minReqLvl: 1, groups: [], series: [], white: false, skipLowSets: false }); save(); renderAutoLootPanel(); };
+  scope.querySelectorAll('[data-ground-pick]').forEach(b => b.onclick = () => {
+    const drop = R.ground.find(d => d.it && d.it.uid === +b.dataset.groundPick);
+    if (!drop) return;
+    R.pickTarget = drop; R.dirty = true; invDirty = true; toast(`Đi nhặt: ${drop.it.n}`);
+  });
+  scope.querySelectorAll('[data-ground-preview]').forEach(b => b.onclick = () => {
+    const drop = R.ground.find(d => d.it && d.it.uid === +b.dataset.groundPreview);
+    if (drop) itemModal(drop.it, undefined, 'inspect');
+  });
 }
 export function renderAutoLootPanel() {
   const el = $('#autoLootPanel');
   if (!el) return;
+  uiSelectClose();
   el.innerHTML = lootPanelHTML();
   bindLootPanel(el);
   if (curTab === 'auto') invDirty = false;
+}
+/* The "Bo Hoang Kim" cua Bach khoa (F9) — de guide.ts goi trong codexModal.
+   Nhom theo grp cac bo Hoàng Kim + Thap II cua phai dang choi (bo khong yeu
+   cau gioi tinh bi loai; bo khong han phai hien thi moi phai), gom ca dong
+   co tien to [..] (hien thi nhung khong tinh vào "đủ bộ"). */
+export function dexSetBodyHTML() {
+  const fid = FAC[S.fac] ? FAC[S.fac].id : -1, groups = new Map();
+  for (const r of [...J.sets.gold, ...TOWER2_SET_ROWS]) {
+    if (!sexReqOk(r.req)) continue;
+    const f = reqOfRow(r, 39);
+    if (f !== fid && f !== -1) continue;
+    (groups.get(r.grp) || groups.set(r.grp, []).get(r.grp)).push(r);
+  }
+  const list = [...groups.values()].sort((a, b) => reqOfRow(a[0], 36) - reqOfRow(b[0], 36));
+  return `<p class="desc">Bộ Hoàng Kim của phái bạn (${list.length} bộ, đã sưu tầm đủ ${dexSetsDone()}). Mặc đủ số món của một bộ sẽ mở hết dòng ẩn của mọi trang bị. Thiên Cực cấp 200 chỉ nhận từ tầng 50 Tháp II trở lên; bộ này chưa có công thức Bạch Kim.</p>` +
+    list.map(g => { const r0 = g[0], need = r0.n2 || 99; return `<div class="card"><b>${esc(r0.n.split(' ').slice(0, 2).join(' '))}…</b>${g.filter(r => !/^\[/.test(r.n)).every(r => (S.setSeen || {})[r.n]) ? ' <span class="cp">✔ đủ bộ</span>' : ''} <small class="dim">cấp ${reqOfRow(r0, 36)} · ${g.length} món · đủ ${need} món mở dòng ẩn</small><br><small class="dim">${g.map(r => esc(r.n)).join(' · ')}</small></div>`; }).join('') || '<p class="dim">Không có.</p>';
 }
 /* Tro ve cau hinh Auto mac dinh */
 function resetAutoSettings() {
@@ -1056,7 +1143,7 @@ function resetAutoSettings() {
   });
   setCtrl('auto');
   if (S.chal === 'nopot') { S.autoHpPotion = false; S.autoMpPotion = false; S.potOff = true; }
-  Object.assign(lootFilter(), { minRar: 1, minLvl: 1, groups: [], series: [], auto: true, always: false });
+  Object.assign(lootFilter(), { mode: 'custom', minRar: 2, minReqLvl: 1, groups: [], series: [], auto: true, equipment: true, materials: true, white: false, skipLowSets: false, always: false });
   R.moveTo = null; R.dirty = true; recalc(); save(); renderPad(); renderAutoPanel(); toast('Đã khôi phục cài đặt Auto mặc định');
 }
 /* ---------- the: khac ---------- */
