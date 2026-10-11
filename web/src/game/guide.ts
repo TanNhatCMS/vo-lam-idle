@@ -20,8 +20,8 @@ import {
 } from './core';
 import { htModal } from './forge';
 import { DROP, PLAT_MAKE, fuseCost, matHave, mats, reqOfRow } from './recipes';
-import { giftModal, giftPending, petCodexClaim } from './rewards';
-import { S, save } from './save';
+import { giftModal, giftPending, BOOK_ICONS, BOOK_NAMES, bookUseN, petCodexClaim } from './rewards';
+import { BOOK_USE_MAX, S, save } from './save';
 import { autoSpendSkills, calc, canLearn, power, sexReqOk } from './stats';
 import {
   ATTR_VI,
@@ -200,7 +200,8 @@ export function codexModal(tab) {
       <div class="card"><b>Huyền Tinh Khoáng Thạch</b> <small class="dim">đang có ${Object.values(mats().ht).reduce((a, b) => a + b, 0)}</small><br><small>Rơi: ${d('ht')}</small></div>
       <div class="card"><b>Khoáng thạch (dòng 1–6)</b> <small class="dim">đang có ${Object.values(mats().ore).reduce((a, b) => a + b, 0)}</small><br><small>Rơi: ${d('ore')}</small></div>
       <div class="card"><b>Mảnh Hoàng Kim</b> <small class="dim">đang gom ${Object.keys(mats().shard).length} loại</small><br><small>Rơi: ${d('shard')}</small></div>
-      <div class="card"><b>Thủy Tinh Trắng / Thần Bí Khoáng Thạch</b> <small class="dim">${matHave('misc', 'wc')} / ${matHave('misc', 'mys')}</small><br><small>Quái cấp ≥ 60 hoặc trùm. Rơi: ${d('wc')}</small></div>`;
+      <div class="card"><b>Thủy Tinh Trắng / Thần Bí Khoáng Thạch</b> <small class="dim">${matHave('misc', 'wc')} / ${matHave('misc', 'mys')}</small><br><small>Quái cấp ≥ 60 hoặc trùm. Rơi: ${d('wc')}</small></div>
+      <div class="card"><b>Sách điểm</b><br>${['ttk', 'vlmt'].map(k => `<img src="${BOOK_ICONS[k]}" alt="" style="width:24px;height:24px;vertical-align:middle"> <b>${BOOK_NAMES[k]}</b> <small class="dim">đang có ${matHave('misc', k)} · đã dùng ${(bookUseN()[k] || 0)}/${BOOK_USE_MAX}</small><br><small>${k === 'ttk' ? 'Từ cấp 80 hoặc đã chuyển sinh: +1 điểm tiềm năng, mỗi 2 cấp thêm 1 (tối đa +5 ở cấp 88), đã chuyển sinh luôn +5. Điểm sách được giữ qua chuyển sinh.' : 'Từ cấp 80 hoặc đã chuyển sinh: +1 điểm võ công.'} Dùng trong tab Nhân vật → Sách điểm.</small>`).join('<br>')}<br><small class="dim">Rơi từ trùm cấp 80+.</small></div>`;
   }
   modal(`<h3>Bách khoa</h3><div class="dtabs">${tabs.map(([k, n]) => `<button data-c="${k}" class="${k === codexTab ? 'on' : ''}">${n}</button>`).join('')}</div><div class="codex">${body}</div>`, () => {
     document.querySelectorAll('#mBody .dtabs [data-c]').forEach(b => b.onclick = () => codexModal(b.dataset.c));

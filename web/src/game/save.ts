@@ -41,7 +41,7 @@ export function setSaveLock(v) { SAVE_LOCK = v; }
 export function setS(v) { S = v; }
 const FEMALE_FAC = ['emei', 'cuiyan'];       // phai nu: trang phuc nu; con lai nam
 export function newSave() {
-  return { v: SAVE_V, name: 'Tân thủ', fac: null, sex: 0, lvl: 1, xp: 0, gold: 0, attrPts: 0, attr: { str: 0, dex: 0, vit: 0, eng: 0 }, attrBonusEarned: 0, attrPotentialV: 1,
+  return { v: SAVE_V, name: 'Tân thủ', fac: null, sex: 0, lvl: 1, xp: 0, gold: 0, attrPts: 0, attr: { str: 0, dex: 0, vit: 0, eng: 0 }, attrBonusEarned: 0, attrBookBonus: 0, useN: {}, attrPotentialV: 1,
     skPts: 1, sk: {}, main: 0, eq: {}, inv: [], stage: 1, maxStage: 1, wave: 1, push: true, uid: 1, autoSell: 0,
     kps: 0.2, totalKills: 0, autoEquip: true, autoPts: false, diff: 1, autoForge: false, autoBuy: true, tut: 0, hints: {}, bakAt: 0, potOff: false, potUsed: 0, potStock: { life: {}, mana: {} }, ctrl: 'auto', joy: 'fixed', slots: [0, 0, 0, 0], fieldMode: false,
     autoFind: true, autoBossPriority: true, autoRange: 'medium', autoSkillSlots: [true, true, true, true],
@@ -82,8 +82,11 @@ export function save() {
    core.ts khong thuoc phan vung MID, nen cac hang so / ham nay tu chua trong save.ts.
    Neu agent chinh dua potentialPointBudget/Limit/Used vao core.ts thi xoa nhanh nay va import tu do. */
 export const POTENTIAL_ATTR_KEYS = Object.freeze(['str', 'dex', 'vit', 'eng']);
-const MAX_POTENTIAL_BONUS = 1000, LEGACY_POTENTIAL_RECOVERY_FLOOR = 3000;
+export const MAX_POTENTIAL_BONUS = 1000, LEGACY_POTENTIAL_RECOVERY_FLOOR = 3000;
 const MAX_ENEMY_LEVEL = 9999;
+/* Sách điểm (port upstream 2026-10-11: Tẩy Tỵ Kinh + Dịch Căn Kinh):
+   dùng từ cấp 80, tối đa 15 cuốn mỗi loại, điểm sách cap 75, giữ qua chuyển sinh. */
+export const BOOK_LV = 80, BOOK_USE_MAX = 15, BOOK_POINT_CAP = 75;
 /* QA-038: chi copy khoa an toan cua du lieu nguoi dung -> chan prototype pollution qua '__proto__'. */
 function safeKeys(x) { const out = {}; if (!x || typeof x !== 'object') return out; for (const k of Object.keys(x)) if (k !== '__proto__' && k !== 'constructor' && k !== 'prototype') out[k] = x[k]; return out; }
 const safePotentialValue = value => {
@@ -229,6 +232,9 @@ function migrate(o) {
     bonusEarned: Math.min(MAX_POTENTIAL_BONUS, safePotentialValue(o.attrBonusEarned)) };
   const bonusWasClean = Number.isSafeInteger(+o.attrBonusEarned) && +o.attrBonusEarned === originalPotential.bonusEarned;
   s.attrBonusEarned = originalPotential.bonusEarned;
+  /* Sách điểm: useN = số cuốn đã dùng mỗi loại (ttk/vlmt), attrBookBonus = tổng điểm sách thô. */
+  s.useN = safeKeys(s.useN);
+  s.attrBookBonus = Math.min(BOOK_POINT_CAP, safePotentialValue(s.attrBookBonus));
   s.attrPotentialArchive = cleanPotentialArchive(o.attrPotentialArchive);
   let potentialChanged = o.attrPotentialV !== 1 || !attrWasClean || !bonusWasClean || !Number.isSafeInteger(+o.attrPts) || +o.attrPts !== s.attrPts;
   // Khôi phục archive tới ngưỡng 3.000 điểm, hoặc tới ngân sách cấp hiện tại nếu cao hơn.

@@ -3,13 +3,21 @@
 Game `volam.vinarpg.com` là **anh em ruột cùng dòng engine** với project này (cùng
 nguồn data JX1, cùng vocabulary module: core/mapobs/combat/loot/sets/…), phát triển
 đ nhanh hơn mình. Bản clone tĩnh toàn bộ game nằm tại `P:\volam.vinarpg.com`
-(cào 2026-10-06, game version `20261006-v9`) — dùng làm nguồn tham chiếu thiết kế.
+— dùng làm nguồn tham chiếu thiết kế.
+
+**Cập nhật 2026-10-11**: upstream đổi sang bundle Vite
+(`/assets/game.B97Ebn6h.js` 5MB + `js/doll-data.js` 1.76MB),
+game version `20261011-v91`. Code cũ 06-10 lưu tại
+`P:\volam.vinarpg.com\_ref\archive-20261006\`. Phân tích tính năng
+mới: [docs/UPSTREAM-2026-10-11.md](UPSTREAM-2026-10-11.md) — hệ mới
+nhất: **Tỷ Võ (PvP vs bot), Kỳ Trân Các + KNB, BXH (api/rankings),
+Doll/JDOLL, Võ Huân, Lĩnh ngộ cấp 90**.
 
 ## Canh update upstream (quan trọng)
 
-Mỗi file code ở origin có stamp phiên bản riêng `?v=20261006-…` trong index.html.
-Thư mục `P:\volam.vinarpg.com\_ref\` chứa manifest **sha256 + stamp của 49 file code**
-và script rà soát:
+Mỗi file code ở origin có stamp phiên bản riêng `?v=20261011-…` trong
+index.html. Thư mục `P:\volam.vinarpg.com\_ref\` chứa manifest
+**sha256 + stamp** và script rà soát:
 
 ```bash
 cd P:/volam.vinarpg.com/_ref
@@ -18,8 +26,9 @@ python track-upstream.py check --fetch   # tải file đổi về _ref/updates/<
 python track-upstream.py snapshot        # refresh manifest sau khi cập nhật clone
 ```
 
-Chi tiết: `_ref/README.md`. Trạng thái lần chốt gần nhất: 2026-10-07 — chỉ
-`js/chat.js` (v18l1→v18) khác snapshot; còn lại khớp 100%.
+Chi tiết: `_ref/README.md`. Trạng thái lần chốt gần nhất: 2026-10-11 —
+clone khớp origin 100% (bundle `20261011-v91`). Trước đó (06-10):
+49 file code rời, đã lưu trữ ở `_ref/archive-20261006/`.
 
 ## Vì sao port được (đã đối chiếu 2026-10-06/07)
 
@@ -33,20 +42,20 @@ Chi tiết: `_ref/README.md`. Trạng thái lần chốt gần nhất: 2026-10-0
   query vs 317 dòng/13 tokens/4 keyframes/1 media query của mình). Font đã giống
   nhau (IBM Plex Mono).
 
-## Hệ thống họ có thêm (thứ tự port đề xuất)
+## Hệ thống họ có thêm
 
-1. **Đơn kho** (`js/donkho.js`) — gom trang sức thành Huyền Tinh + bán đồ rác theo lọc, có lớp bảo vệ.
-2. **Sổ tay** (`js/journal.js`) — thống kê 7 ngày lưu trong save.
-3. **Bùa lợi / bùa hại / vòng sáng** (`js/skillsys.js`) — lớp buff–debuff–aura, combat mình chưa có.
-4. **Tây điểm + 3 bộ võ học** (`js/builds.js`) — 3 build điểm/nhân vật.
-5. **Thần Mã Các** (`js/horse.js`) — ngựa cưỡi + huấn luyện + ngũ đại thần mã/danh mã.
-6. **Tháp II** (`js/tower2-balance.js` + `depth.js`) — tới 2.000 tầng, điểm TS6–TS10.
-7. **Tam pháp chuyển sinh / biến thể tuần / thử thách nhân vật** (`js/depth.js`).
-8. **Bang Hội / Đả Tàu / Tổng Kim** (`js/activities.js`).
-9. **Đổi skin UI** — style.css + bộ `ui/` mới của họ (yuanbao, jade texture, s0–s4…).
-10. **Sprite `img/jx` + render ghép bộ phận** (`jxlook.js` + `js/jxparts.js` + `js/look.js`) — nặng ~206MB, cân nhắc gói OTA.
-11. **Thành thị + bãi quái ngoài bản đồ** (`field-spawn.js`, townBar) — đổi hình thế gameplay.
-12. **Chat thế giới** (`js/chat.js` + proxy trong `serve.py`) — cần hạ tầng server.
+Đợt 06-10 (đã port xong đợt 14): Đơn kho, Sổ tay, Bùa lợi/bùa hại/vòng
+sáng, Tây điểm + 3 bộ võ học, Thần Mã Các, Tháp II, Tam pháp chuyển sinh,
+Bang Hội/Đả Tàu/Tổng Kim, skin UI, sprite `img/jx`, thành thị + bãi quái,
+chat thế giới.
+
+**Đợt 11-10 (xem docs/UPSTREAM-2026-10-11.md)**: Tỷ Võ
+(PvP vs bot, Võ Huân), Kỳ Trân Các + KNB, BXH (api/rankings), Doll/JDOLL,
+Lĩnh ngộ võ công 90 / Mật Tịch, auto tiết kiệm pin / vượt cấp, cân bằng
+Sức mạnh → Chính xác.
+**Đã port từ đợt này (2026-10-11)**: Tẩy Tỵ Kinh + Dịch Căn Kinh +
+chuyển sinh giữ điểm sách (save: `useN`, `attrBookBonus`; sách rơi
+từ trùm cấp 80+).
 
 Mình đã có sẵn (đừng port trùng): chuyển sinh 5 lần, Tháp thử thách, danh hiệu
 achievement, Pet/Đồng hành, Boss Thế Giới + gacha Vỏ Sò, kho chung, Luyện công,

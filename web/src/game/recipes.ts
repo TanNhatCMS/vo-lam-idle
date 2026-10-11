@@ -15,7 +15,7 @@ import {
 } from './core';
 import { dexSet } from './depth';
 import { RCP } from './rcp';
-import { S } from './save';
+import { BOOK_LV, S } from './save';
 import { makeSetItem, tower2DropChance } from './sets';
 import { sexReqOk } from './stats';
 import { betterThanEquipped, equip } from './ui';
@@ -204,6 +204,12 @@ function platDrop(e) {
   const out = [];
   if (Math.random() < dropP('wc', e)) { const n = rcInt(1, 2); matAdd('misc', 'wc', n); out.push(`${n} Thủy Tinh Trắng`); }
   if (Math.random() < dropP('mys', e)) { const n = rcInt(1, 3); matAdd('misc', 'mys', n); out.push(`${n} Thần Bí Khoáng Thạch`); }
+  /* Sách điểm (port upstream 2026-10-11): trùm cấp 80+ mới rơi Tẩy Tỵ/Dịch Căn Kinh.
+     Bản gốc bán bằng KNB ở Kỳ Trân Các — bản idle chưa có KNB nên để rơi từ trùm. */
+  if (e.cls === 'boss' && e.L >= BOOK_LV) {
+    if (Math.random() < 0.05) { matAdd('misc', 'ttk', 1); out.push('Tẩy Tỵ Kinh'); }
+    if (Math.random() < 0.05) { matAdd('misc', 'vlmt', 1); out.push('Dịch Căn Kinh'); }
+  }
   return out.length ? out.join(', ') : null;
 }
 export const allDrops = e => [oreDrop(e), shardDrop(e), platDrop(e)].filter(Boolean);

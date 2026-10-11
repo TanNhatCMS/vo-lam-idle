@@ -324,6 +324,11 @@ h3 small{font:12px var(--font);color:var(--dim)}
 .attr-heading-controls .attr-suggest{padding:0 8px;border:1px solid var(--gold2);color:var(--gold);background:#26332d}
 .attr-heading-controls .attr-suggest:hover{border-color:var(--gold);background:#334137}
 .card{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:8px 10px;margin-bottom:8px}
+.books{display:flex;flex-direction:column;gap:6px}
+.book-row{display:flex;align-items:center;gap:8px}
+.book-row img{width:32px;height:32px;object-fit:contain;flex:0 0 auto}
+.book-row .book-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.book-row .book-info small{font-size:11px;white-space:nowrap}
 .char-power-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:4px}
 .char-power-row>small{font-size:11px;white-space:nowrap}
 .char-title-row{display:flex;align-items:center;gap:8px;min-width:0;margin-top:4px}

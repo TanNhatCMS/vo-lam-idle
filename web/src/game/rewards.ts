@@ -79,7 +79,7 @@ import {
   skillFx,
   stepAct,
 } from './render';
-import { S, save } from './save';
+import { BOOK_LV, BOOK_POINT_CAP, BOOK_USE_MAX, MAX_POTENTIAL_BONUS, S, save } from './save';
 import { enoughToActive, makeSetItem, tower2SetReward } from './sets';
 import { potStock } from './shop';
 import { addAttr, autoSpendAttrs, sexReqOk } from './stats';
@@ -103,6 +103,51 @@ const today = () => dayKey(new Date());
 const weekKey = d => { const t = new Date(d.getFullYear(), d.getMonth(), d.getDate()); t.setDate(t.getDate() - (t.getDay() + 6) % 7); return dayKey(t); };   // Thu Hai cua tuan: doi tuan -> key doi
 export const GB_EVERY = 1800, GB_RETRY = 300;     // trum Hoang Kim: moi 30 phut choi; thua thi 5 phut sau quay lai
 export const REBORN_LV = MAX_LEVEL, REBORN_MAX = 10;  // chuyen sinh toi da 10 lan (TS1-TS5 tam phap, TS6-TS10 diem Thap II — theo ban vinarpg)
+/* ======================= SACH DIEM (port upstream 2026-10-11) =======================
+   Tẩy Tỵ Kinh (ttk): từ cấp 80 hoặc đã chuyển sinh, +1 điểm tiềm năng ở cấp 80,
+   mỗi 2 cấp thêm 1 (tối đa +5 ở cấp 88), đã chuyển sinh luôn +5; tối đa 15 cuốn,
+   tổng điểm sách cap 75 (BOOK_POINT_CAP). Điểm sách cộng NGAY vào ngân sách
+   (attrBonusEarned + attrPts) và được giữ qua chuyển sinh (doReborn đọc bookPoints()).
+   Dịch Căn Kinh (vlmt): từ cấp 80 hoặc đã chuyển sinh, +1 điểm võ công; tối đa 15 cuốn. */
+export const BOOK_NAMES = { ttk: 'Tẩy Tỵ Kinh', vlmt: 'Dịch Căn Kinh' };
+export const BOOK_ICONS = { ttk: 'img/ep/dtbk.png', vlmt: 'img/ep/mt90.webp' };
+export const bookUseN = () => S.useN || (S.useN = {});
+export function bookPoints() {                 // điểm sách mang qua chuyển sinh (upstream Ne())
+  const n = Math.min(BOOK_USE_MAX, bookUseN().ttk || 0);
+  return Math.min(BOOK_POINT_CAP, n * 5, S.attrBookBonus || 0);
+}
+function addPotential(pts) {                   // upstream Be(): cộng điểm tiềm năng ngay
+  const room = Math.max(0, MAX_POTENTIAL_BONUS - (S.attrBonusEarned || 0));
+  const accepted = Math.min(pts, room);
+  if (accepted <= 0) return { accepted: 0, blocked: pts };
+  S.attrBonusEarned += accepted;
+  S.attrPts += accepted;
+  return { accepted, blocked: pts - accepted };
+}
+export function useBook(k) {
+  if (R.tower || R.tk) { toast('Hãy rời trận trước khi dùng vật phẩm'); return; }
+  if (k !== 'ttk' && k !== 'vlmt') return;
+  if (matHave('misc', k) < 1) { toast(`Không có ${BOOK_NAMES[k]}`); return; }
+  const useN = bookUseN();
+  const reborn = (S.rw && S.rw.stat && S.rw.stat.reborn) || 0;
+  if (S.lvl < BOOK_LV && reborn <= 0) { toast('Cần cấp 80 hoặc đã chuyển sinh'); return; }
+  if ((useN[k] || 0) >= BOOK_USE_MAX) { toast('Đã dùng tối đa 15 cuốn'); return; }
+  if (k === 'vlmt') {
+    S.skPts++;
+    useN.vlmt = (useN.vlmt || 0) + 1;
+    matAdd('misc', 'vlmt', -1);
+    log(`📖 Dùng <b>Dịch Căn Kinh</b>: +1 điểm võ công`);
+  } else {
+    const pts = reborn > 0 ? 5 : clamp(Math.floor((S.lvl - BOOK_LV) / 2) + 1, 1, 5);
+    const n = addPotential(pts);
+    if (!n.accepted) { toast('Không thể cộng điểm tiềm năng; sách vẫn được giữ lại'); return; }
+    S.attrBookBonus = Math.min(BOOK_POINT_CAP, (S.attrBookBonus || 0) + n.accepted);
+    useN.ttk = (useN.ttk || 0) + 1;
+    matAdd('misc', 'ttk', -1);
+    log(`📖 Dùng <b>Tẩy Tỵ Kinh</b>: +${n.accepted} điểm tiềm năng`);
+  }
+  refresh(); save();
+}
 const FD_COST = 10;
 export function RW() { // trang thai phan thuong trong file luu (tao / bo sung truong khi nap file cu)
   const r = S.rw || (S.rw = {});
@@ -157,7 +202,7 @@ export function grant(g, why) {
   if (g.set) { const it = forceSetItem(); if (it) { addItem(it, true, true); out.push(`<b style="color:${RAR_COL[it.r]}">${esc(it.n)}</b>`); } }
   if (g.pts) { S.attrPts += g.pts; out.push(`${g.pts} điểm tiềm năng`); }
   if (g.so) { const so = RW().so; so.n += g.so; out.push(`+${g.so} Vỏ Sò`); }
-  if (g.mat) { matAdd(g.mat.g, g.mat.k, g.mat.n); out.push(`${g.mat.n} ${g.mat.g === 'ht' ? 'Huyền Tinh cấp ' + g.mat.k : g.mat.k}`); }
+  if (g.mat) { matAdd(g.mat.g, g.mat.k, g.mat.n); const nm = g.mat.g === 'ht' ? 'Huyền Tinh cấp ' + g.mat.k : (BOOK_NAMES[g.mat.k] || g.mat.k); out.push(`${g.mat.n} ${nm}`); }
   if (out.length) { log(`🎁 ${esc(why)}: ${out.join(', ')}`); if (!R.quiet) uiSfx('learn'); save(); }
   return out;
 }
@@ -202,7 +247,7 @@ export const LV_MS = [
   [60, { gold: 3000, pot: { kind: 'mana', tier: 3, n: 10 }, pts: 3 }, ''],
   [70, { set: 1, fd: 10 }, ''],
   [80, { gold: 5000, pot: { kind: 'life', tier: 4, n: 10 }, pts: 4 }, ''],
-  [90, { item: 6, fd: 15 }, ''],
+  [90, { item: 6, fd: 15, mat: { g: 'misc', k: 'ttk', n: 1 } }, 'Tẩy Tỵ Kinh'],
   [95, { set: 1, fd: 20, pts: 5 }, 'Danh hiệu «Đại hiệp»'],
   [97, { gold: 10000, pot: { kind: 'life', tier: 5, n: 20 }, fd: 20 }, ''],
   [99, { set: 1, fd: 30, pts: 5 }, 'Danh hiệu «Tông sư» · mở khóa chuyển sinh'],
@@ -370,13 +415,17 @@ export function rebornBonus() { const n = S.rw && S.rw.stat ? S.rw.stat.reborn |
 function doReborn() {
   const r = RW();
   if (S.lvl < REBORN_LV || r.stat.reborn >= REBORN_MAX) return;
-  if (!confirm('Chuyển sinh: về cấp 1, giữ trang bị và võ công. Tiếp tục?')) return;
+  if (R.tower || R.tk) { toast('Hãy rời trận trước khi chuyển sinh'); return; }
+  if (!confirm('Chuyển sinh: về cấp 1, giữ trang bị, võ công và điểm từ Tẩy Tỵ Kinh. Tiếp tục?')) return;
+  const t = bookPoints();               // điểm sách được giữ qua chuyển sinh (upstream Ky())
   r.stat.reborn++;
   if (r.stat.reborn <= 5) r.tpPend = (r.tpPend | 0) + 1;      // TS1-TS5: tam phap
   else r.tp2Pend = (r.tp2Pend | 0) + 1;                        // TS6-TS10: diem Thap II
-  S.lvl = 1; S.xp = 0; S.attr = { str: 0, dex: 0, vit: 0, eng: 0 }; S.attrPts = r.stat.reborn * 50;
+  S.lvl = 1; S.xp = 0; S.attr = { str: 0, dex: 0, vit: 0, eng: 0 };
+  S.attrPts = r.stat.reborn * 50 + t;
+  S.attrBonusEarned = t; S.attrBookBonus = t;
   S.stage = 1; S.wave = 1; S.push = true; R.tower = null; R.enemies = []; R.dirty = true; R.zoneShown = null;
-  log(`<b class="up">Chuyển sinh lần ${r.stat.reborn}!</b> +${r.stat.reborn * 20}% kinh nghiệm, +${r.stat.reborn * 10}% sát thương`);
+  log(`<b class="up">Chuyển sinh lần ${r.stat.reborn}!</b> +${r.stat.reborn * 20}% kinh nghiệm, +${r.stat.reborn * 10}% sát thương${t ? ` · giữ ${t} điểm sách` : ''}`);
   if (S.autoPts === true) autoSpendAttrs();
   achCheck(); closeModal(true); refresh(); save();
   if (tpPending()) tamPhapModal();                   // chon tam phap ngay sau khi chuyen sinh
@@ -1358,7 +1407,7 @@ function giftBody(r) {
       <div class="petpick">${petChoices().map(t => `<button data-p="${t}" class="${p && p.tid === t ? 'on' : ''}">${MON[t].img ? `<img src="${esc(MON[t].img)}" alt="">` : ''}<b>${esc(MON[t].n)}</b></button>`).join('')}</div>`;
   }
   const bo = rebornBonus(), full = r.stat.reborn >= REBORN_MAX;
-  return `<p class="desc">Từ cấp ${REBORN_LV} (tối đa): về cấp 1, giữ trang bị và võ công, nhận 50 điểm tiềm năng × số lần chuyển sinh, thưởng vĩnh viễn +20% kinh nghiệm và +10% sát thương mỗi lần (tối đa ${REBORN_MAX} lần).</p>
+  return `<p class="desc">Từ cấp ${REBORN_LV} (tối đa): về cấp 1, giữ trang bị và võ công, nhận 50 điểm tiềm năng × số lần chuyển sinh, thưởng vĩnh viễn +20% kinh nghiệm và +10% sát thương mỗi lần (tối đa ${REBORN_MAX} lần). Điểm từ Tẩy Tỵ Kinh được giữ qua chuyển sinh.</p>
       <p>Đã chuyển sinh: <b>${r.stat.reborn}</b> lần · hiện +${Math.round(bo.xp * 100)}% kinh nghiệm, +${Math.round(bo.dmg * 100)}% sát thương.</p>
       <div class="btnrow"><button class="btn red" id="gReborn" ${S.lvl >= REBORN_LV && !full ? '' : 'disabled'}>${full ? 'Đã chuyển sinh tối đa' : S.lvl >= REBORN_LV ? 'Chuyển sinh' : `Cần cấp ${REBORN_LV}`}</button></div>`;
 }
