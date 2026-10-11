@@ -26,6 +26,8 @@ export function t2mul(floor, cls) {
   return { hp: at(boss ? 2 : 1) / (normal ? 2.5 : 1), dmg: at(boss ? 4 : 3) / (normal ? 1.3 : 1) };
 }
 export const tower2Unlocked = () => RW().stat.reborn >= TOWER2.reborn;
+/* Dang trong tranh Thap II (rewards.js: towerIs2) — dung lam dieu kien cho cac hook do bo Thap II. */
+export const towerIs2 = () => !!R.tower && R.tower.id === 2;
 export const tower2Floor = f => clamp(Math.floor(+f) || 1, 1, TOWER2.maxFloor);
 export const tower2Level = f => Math.min(99, Math.round(TOWER2.baseLevel + (tower2Floor(f) - 1) * (TOWER2.endLevel - TOWER2.baseLevel) / (TOWER2.maxFloor - 1)));
 /* Diem TS6-TS10 (chi tac dung trong Thap II) */

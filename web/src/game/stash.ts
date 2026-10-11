@@ -11,7 +11,8 @@ import { img } from './render';
 import { S, pack, save, unpack } from './save';
 import { reqOk } from './stats';
 import { clanPerk } from './depth';
-import { closeModal, donKhoModal, invDirty, itemCell, itemHTML, itemLevelBadge, itemLevelLabel, modal, refresh, sellChoiceModal, toast } from './ui';
+import { closeModal, donKhoModal, invDirty, itemCell, itemHTML, modal, refresh, sellChoiceModal, toast } from './ui';
+import { itemLevelBadge, itemLevelLabel } from './loot';
 import { setInvDirty } from './ui';
 
 /* ======================= KHO DUNG CHUNG GIUA CAC SLOT =======================

@@ -3,6 +3,7 @@ import { R, zoneIdx } from './combat';
 import {
   $,
   FAC,
+  FACTIONS,
   J,
   STAGES,
   clamp,
@@ -11,6 +12,7 @@ import {
 } from './core';
 import { S } from './save';
 import { sexReqOk, slotOfEquipped } from './stats';
+import { towerIs2 } from './tower2';
 
 /* ======================= DO HOANG KIM / BACH KIM (KItemGenerator::Gen_GoldEquipment, KItemList) ======================= */
 'use strict';
@@ -31,6 +33,7 @@ export function makeSetItem(kind, row, luck) {
 }
 /* Roi do bo: chu yeu tu trum; uu tien bo cua mon phai nhan vat (requiremenpai), yeu cau cap khong qua xa cap nhan vat */
 export function rollSetDrop(e) {
+  if (e.towerId === 2 && towerIs2()) return tower2SetReward(e.towerFloor, e.cls);   // trung Thap II: do bo theo bac tang (sets.js goi tower2SetReward khi ha trung thuong)
   const chance = e.cls === 'boss' ? 0.05 + zoneIdx(Math.min(S.stage, STAGES)) * 0.004 : e.cls === 'elite' ? 0.004 : 0.0002;
   if (Math.random() >= chance) return null;
   const kind = e.L >= 100 && Math.random() < 0.2 ? 'platina' : 'gold';
@@ -67,3 +70,40 @@ export function goldEnhance(it, eq) {
 export const TOWER2_SET_ROWS = J.sets.gold.filter(r => r.n.startsWith("Đằng Long") && r.req.some(([id, v]) => id === 36 && v === 180))
   .map(r => Object.assign({}, r, { n: r.n.replace(/^Đằng Long/, "Thiên Cực"), grp: 10000 + r.grp, tower2: true }));
 export function setMembers(it) { return it.set.grp >= 10000 ? TOWER2_SET_ROWS.filter(r => r.grp === it.set.grp) : J.sets[it.set.kind].filter(r => r.grp === it.set.grp); }
+
+/* ======================= BO DO THAP II (tower2SetTier/Reward/DropChance, sets.js) ======================= */
+/* Chi sinh do moi cua phai choi duoc hoac do khong gioi han phai; van loc gioi tinh. */
+const SET_DROP_FACTIONS = new Set(FACTIONS.map(f => f.id));
+export const setDropEligible = row => sexReqOk(row.req) && row.req.every(([id, v]) => id !== 39 || v < 0 || SET_DROP_FACTIONS.has(v));
+/* Ty le roi do bo trong Thap II giam 5 lan de cham nhip (TOWER2_DROP_SCALE). */
+export const TOWER2_DROP_SCALE = 0.2;
+export const tower2DropChance = (rate, e) => rate * (e && e.towerId === 2 && towerIs2() ? TOWER2_DROP_SCALE : 1);
+/* Bo Thien Cuc cap 200 chi co xac suat tu tang 50; bac duoc chon truoc, so luong hang trang bi khong tac dong den do hiem. */
+const TOWER2_SET_MIN_FLOOR = 50;
+const TOWER2_SET_BASE_RATES = Object.freeze({
+  normal: Object.freeze({ lv180: 0.02, lv200: 0.0002 }),
+  elite: Object.freeze({ lv180: 0.10, lv200: 0.001 }),
+  boss: Object.freeze({ lv180: 0.30, lv200: 0.005 }),
+  milestone: Object.freeze({ lv180: 0.98, lv200: 0.02 }),
+});
+const TOWER2_SET_RATES = Object.freeze(Object.fromEntries(Object.entries(TOWER2_SET_BASE_RATES).map(([source, rates]) => [source,
+  Object.freeze({ lv180: rates.lv180 * TOWER2_DROP_SCALE, lv200: rates.lv200 * TOWER2_DROP_SCALE })])));
+export function tower2SetTier(floor, source) {
+  const rates = TOWER2_SET_RATES[source]; if (!rates) return 0;
+  const p200 = floor >= TOWER2_SET_MIN_FLOOR ? rates.lv200 : 0, roll = Math.random();
+  if (roll < p200) return 200;
+  return roll < p200 + rates.lv180 ? 180 : 0;
+}
+/* Thuong do bo Thap II: pool theo bac (200 = Thien Cuc, 180 = bo vang req 180), uu tien 80% bo cua mon phai nhan vat. */
+export function tower2SetReward(floor, source) {
+  const tier = tower2SetTier(floor, source); if (!tier) return null;
+  let pool = (tier === 200 ? TOWER2_SET_ROWS : J.sets.gold.filter(r => r.req.some(([id, v]) => id === 36 && v === 180))).filter(setDropEligible);
+  const fid = FAC[S.fac] ? FAC[S.fac].id : -1, mine = pool.filter(r => r.req.some(([id, v]) => id === 39 && v === fid));
+  if (mine.length && Math.random() < 0.8) pool = mine;
+  return pool.length ? makeSetItem('gold', pick(pool), R.P ? Math.max(5, Math.floor(R.P.lucky / 10)) : 5) : null;
+}
+/* Hook debug/test E2E: gom cac ham bo Thap II tren window.__T2 (goc JS la function toan cuc,
+   port dang module nen can dia chi nay de test goi truc tiep). Khong doc S/R o top-level. */
+if (typeof window !== 'undefined') (window as any).__T2 = {
+  tower2SetTier, tower2SetReward, tower2DropChance, setDropEligible, rollSetDrop,
+};

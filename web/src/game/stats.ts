@@ -192,6 +192,10 @@ export function calc(eq) {
   P.manaLeech = av(A, 'stealmana_p') + av(A, 'stealmanaenhance_p');
   P.ignoreDef = av(A, 'ignoredefense_p');
   P.retMelee = av(A, 'meleedamagereturn_v'); P.retMeleeP = av(A, 'meleedamagereturn_p');
+  P.blockRate = clamp(av(A, 'block_rate') + tpStacks().ho, 0, 100);   // Chanh Sat: % hoa giai moi lan bi tan cong (Tuyet chieu cua trum)
+  P.sorbDamage = clamp(av(A, 'sorbdamage_yan_p') + av(A, 'sorbdamage_p'), 0, 90);   // Sieu nhiet: % giam sat thuong nhan vao
+  P.statusRes = { poison: clamp(av(A, 'poisontimereduce_p') / 2, 0, 50), cold: clamp(av(A, 'freezetimereduce_p') / 2, 0, 50), light: clamp(av(A, 'stuntimereduce_p') / 2, 0, 50) };   // giam thoi gian status Doc / Dong / Thanh
+  P.manaShield = clamp(av(A, 'manashield_p'), 0, 90);   // Tọa Vọng Vô Ngã: % chuyen sat thuong nhan vao thanh hao noi luc (lá chắn nội lực)
   P.series5 = av(A, 'five_elements_enhance_v'); P.res5 = av(A, 'five_elements_resist_v');
   P.seriesSkill = av(A, ['metalskill_v', 'woodskill_v', 'waterskill_v', 'fireskill_v', 'earthskill_v'][ser]);
   P.lucky = av(A, 'lucky_v') + tpStacks().bao * 3 + guildBuff().lucky + blessLucky();   // Tham Bao +3/cap, bang hoi +0.25/cap, loi chuc +10

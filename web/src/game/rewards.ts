@@ -38,6 +38,7 @@ import {
   SERIES_COL,
   SERIES_ELEM,
   SINH,
+  SK,
   STAR_ATK_PCT,
   STAR_COST,
   STAR_MAX,
@@ -65,6 +66,7 @@ import {
 } from './core';
 import { itemPower, makeItem, sexPart } from './loot';
 import {
+  JFX,
   MON_SCALE,
   NAME_COL,
   addText,
@@ -74,10 +76,11 @@ import {
   img,
   label,
   setAct,
+  skillFx,
   stepAct,
 } from './render';
 import { S, save } from './save';
-import { enoughToActive, makeSetItem } from './sets';
+import { enoughToActive, makeSetItem, tower2SetReward } from './sets';
 import { potStock } from './shop';
 import { addAttr, autoSpendAttrs, sexReqOk } from './stats';
 import { addItem, closeModal, findItem, itemHTML, log, modal, refresh, setInvDirty, toast } from './ui';
@@ -88,7 +91,6 @@ import { WB_EVERY, WB_FIRST, WB_MIN_LV } from './worldboss';
 import { thanMaBind, thanMaBody } from './horse';
 import { tamPhapModal, tpPending, applyWeekMod } from './depth';
 import { TOWER2, t2mul, tp2Pending, tower2Bonuses, tower2Floor, tower2Level, tower2OptionModal, tower2Unlocked } from './tower2';
-import { TOWER2_SET_ROWS } from './sets';
 import { localISODay } from './journal';
 import { actBind, actBody } from './activities';
 
@@ -321,16 +323,11 @@ export function towerCleared() {
   if (is2) {
     if (f > (r.stat.tower2Best || 0)) {
       r.stat.tower2Best = f;
-      if (f % 10 === 0) {
-        const fid = FAC[S.fac] ? FAC[S.fac].id : -1, reqOf = (r, id) => (r.req.find(q => q[0] === id) || [0, -1])[1];
-        let pool = TOWER2_SET_ROWS.filter(r => reqOf(r, 36) <= S.lvl + 15 && sexReqOk(r.req));
-        const mine = pool.filter(r => reqOf(r, 39) === fid);
-        if (mine.length && Math.random() < 0.7) pool = mine;
-        if (!pool.length) pool = TOWER2_SET_ROWS;
-        const row = pick(pool), it = row && makeSetItem('gold', row, 8);
+      if (f % 5 === 0) {
+        const it = tower2SetReward(f, 'milestone');   // mốc 5 tầng: chance bộ Tháp II (tầng 200→Thiên Cực, 180→bộ vàng)
         grant({ fd: 50, gold: 2000 * f }, `Tháp II tầng ${f}`);
-        if (it) { addItem(it, true, true, true); log(`Tháp II tầng ${f}: nhận <b style="color:#eaf6ff">${esc(it.n)}</b>`); }
-      } else grant({ fd: f % 5 === 0 ? 50 : 5, gold: 2000 * f }, `Tháp II tầng ${f}`);
+        if (it) { addItem(it, true, true, true); log(`🎁 Tháp II tầng ${f}: <b style="color:${RAR_COL[it.r]}">${esc(it.n)}</b>`); }
+      } else grant({ fd: 5, gold: 2000 * f }, `Tháp II tầng ${f}`);
     }
     questTick('tower'); achCheck();
     const b = tower2Bonuses();
@@ -493,7 +490,231 @@ export function teamSet(i, tid) {
   R.dirty = true; save(); refresh();
 }
 function petDmg(p) { return petStats(p).atk; }
+/* ---------- ky nang Dong hanh theo loài (port tu rewards.js goc) ----------
+   Moi loài pet co bo ky nang rieng: chiêu dau mo san, chiêu thu hai o cap 30.
+   Loài không co trong PET_SKILLS giữ chiêu AoE hệ (tính năng cũ) làm fallback. */
+const petSkillIcon = id => (SK[id] && SK[id].ic) || '';
+const PET_SKILLS = {
+  11: [
+    { key: 'boarCharge', n: 'Sơn Trư Xung Kích', d: 'Húc mục tiêu gây sát thương mạnh.', ic: petSkillIcon(34), fx: 14, kind: 'strike', mult: 1.8, cd: 8, col: '#ffd36a' },
+    { key: 'boarQuake', n: 'Chấn Địa', d: 'Dậm đất gây sát thương lan và choáng.', ic: petSkillIcon(41), fx: 41, kind: 'stunArea', mult: 1.05, splash: 0.55, rad: 86, stun: 0.65, cd: 14, lv: 30, col: '#ffc45c' },
+  ],
+  12: [
+    { key: 'hedgehogSpines', n: 'Cương Châm', d: 'Phóng gai và khiến mục tiêu trúng độc.', ic: petSkillIcon(73), fx: 65, kind: 'poison', mult: 0.8, dot: 1.15, cd: 8, col: '#9fe36a' },
+    { key: 'hedgehogVolley', n: 'Vạn Châm', d: 'Bắn gai trúng nhiều kẻ địch quanh mục tiêu.', ic: petSkillIcon(54), fx: 105, kind: 'area', mult: 1.05, splash: 0.72, rad: 100, cd: 14, lv: 30, col: '#a9e875' },
+  ],
+  42: [
+    { key: 'deerRenewal', n: 'Linh Lộc Hồi Xuân', d: 'Gây sát thương nhẹ và hồi sinh lực cho chủ nhân.', ic: petSkillIcon(93), fx: 80, kind: 'heal', mult: 0.6, heal: 0.055, cd: 9, col: '#8fe3ad' },
+    { key: 'deerCalm', n: 'Thanh Tâm', d: 'Gây sát thương và hồi sinh lực, nội lực.', ic: petSkillIcon(166), fx: 82, kind: 'restore', mult: 0.8, heal: 0.035, mana: 0.04, cd: 15, lv: 30, col: '#9ee8c2' },
+  ],
+  43: [
+    { key: 'whiteBoarCharge', n: 'Bạch Trư Húc', d: 'Lao tới gây sát thương lớn lên một kẻ địch.', ic: petSkillIcon(14), fx: 14, kind: 'strike', mult: 2.2, cd: 9, col: '#f2d8bd' },
+    { key: 'whiteBoarGuard', n: 'Thiết Bì', d: 'Hồi một phần sinh lực cho chủ nhân.', ic: petSkillIcon(92), fx: 91, kind: 'heal', mult: 0.45, heal: 0.085, cd: 16, lv: 30, col: '#e6d6c4' },
+  ],
+  31: [
+    { key: 'goldCatClaws', n: 'Kim Trảo Liên Kích', d: 'Liên tiếp đánh mục tiêu hai lần.', ic: petSkillIcon(47), fx: 30, kind: 'multi', hits: 2, mult: 0.85, cd: 8, col: '#ffd34f' },
+    { key: 'goldCatShadow', n: 'Tốc Ảnh', d: 'Lướt qua và đánh tối đa ba kẻ địch.', ic: petSkillIcon(336), fx: 336, kind: 'chain', hits: 3, mult: 1.05, falloff: 0.72, rad: 150, cd: 14, lv: 30, col: '#ffe477' },
+  ],
+  5: [
+    { key: 'grayWolfFang', n: 'Lang Nha', d: 'Cắn mục tiêu, mạnh hơn khi mục tiêu còn ít máu.', ic: petSkillIcon(125), fx: 34, kind: 'execute', mult: 1.5, at: 0.35, finisher: 1.35, cd: 8, col: '#b9d7f3' },
+    { key: 'grayWolfPursuit', n: 'Truy Sát', d: 'Tấn công dồn dập và có thể làm choáng.', ic: petSkillIcon(128), fx: 172, kind: 'stun', mult: 1.25, stun: 0.8, cd: 14, lv: 30, col: '#9fc8ef' },
+  ],
+  6: [
+    { key: 'redWolfFlame', n: 'Xích Diệm Trảo', d: 'Cào xé và đốt mục tiêu theo thời gian.', ic: petSkillIcon(141), fx: 145, kind: 'poison', mult: 1, dot: 1.3, cd: 8, col: '#ff8b5c' },
+    { key: 'redWolfBlaze', n: 'Cuồng Hỏa', d: 'Phóng hỏa khí gây sát thương lan.', ic: petSkillIcon(148), fx: 141, kind: 'area', mult: 1.25, splash: 0.68, rad: 105, cd: 14, lv: 30, col: '#ff744d' },
+  ],
+  34: [
+    { key: 'lynxPounce', n: 'Liệp Ảnh', d: 'Bổ nhào gây sát thương chí mạng.', ic: petSkillIcon(249), fx: 249, kind: 'strike', mult: 2.35, cd: 9, col: '#d7bdff' },
+    { key: 'lynxPhantom', n: 'Ảo Bộ', d: 'Đánh nhanh khiến mục tiêu choáng.', ic: petSkillIcon(113), fx: 172, kind: 'stun', mult: 1.35, stun: 0.9, cd: 14, lv: 30, col: '#c9a8ff' },
+  ],
+  33: [
+    { key: 'bearPaw', n: 'Hùng Chưởng', d: 'Vỗ mạnh, gây sát thương lan và choáng.', ic: petSkillIcon(20), fx: 41, kind: 'stunArea', mult: 1.25, splash: 0.62, rad: 92, stun: 0.7, cd: 9, col: '#d6ad83' },
+    { key: 'bearFury', n: 'Cuồng Nộ', d: 'Tấn công rồi hồi sinh lực cho chủ nhân.', ic: petSkillIcon(271), fx: 91, kind: 'heal', mult: 1.1, heal: 0.055, cd: 15, lv: 30, col: '#e8b780' },
+  ],
+  36: [
+    { key: 'monkeyPebbles', n: 'Phi Thạch', d: 'Ném đá trúng tối đa ba kẻ địch.', ic: petSkillIcon(302), fx: 336, kind: 'chain', hits: 3, mult: 1.05, falloff: 0.7, rad: 180, cd: 8, col: '#d8c39a' },
+    { key: 'monkeyCombo', n: 'Khỉ Quyền', d: 'Đánh liên hoàn ba lần vào mục tiêu.', ic: petSkillIcon(359), fx: 50, kind: 'multi', hits: 3, mult: 0.65, cd: 14, lv: 30, col: '#ead4a6' },
+  ],
+  9: [
+    { key: 'foxFire', n: 'Hồ Hỏa', d: 'Gọi hồ hỏa tấn công cả nhóm địch.', ic: petSkillIcon(169), fx: 186, kind: 'area', mult: 1.35, splash: 0.8, rad: 112, cd: 9, col: '#ff9cda' },
+    { key: 'foxConfusion', n: 'Mê Tung', d: 'Đánh lạc hướng và làm choáng mục tiêu.', ic: petSkillIcon(90), fx: 113, kind: 'stun', mult: 1.15, stun: 1.05, cd: 15, lv: 30, col: '#f2a8ff' },
+  ],
+  27: [
+    { key: 'batBloodClaw', n: 'Huyết Trảo', d: 'Cắn hút máu, hồi sinh lực cho chủ nhân.', ic: petSkillIcon(65), fx: 65, kind: 'leech', mult: 1.35, heal: 0.045, cd: 8, col: '#e38cff' },
+    { key: 'batSoulDrain', n: 'Hút Hồn', d: 'Hút sinh lực và nội lực từ mục tiêu.', ic: petSkillIcon(69), fx: 68, kind: 'restore', mult: 1.05, heal: 0.04, mana: 0.06, cd: 14, lv: 30, col: '#c99bff' },
+  ],
+  45: [
+    { key: 'spiderBite', n: 'Tơ Độc', d: 'Cắn mục tiêu và gây độc theo thời gian.', ic: petSkillIcon(63), fx: 63, kind: 'poison', mult: 0.9, dot: 1.1, cd: 8, col: '#9bd879' },
+    { key: 'spiderWeb', n: 'Thiên La Địa Võng', d: 'Rải tơ lên nhiều mục tiêu, gây sát thương và làm chậm.', ic: petSkillIcon(105), fx: 105, kind: 'area', mult: 0.9, splash: 0.6, rad: 100, slow: 0.48, slowDur: 2.4, poison: 0.35, cd: 16, lv: 30, col: '#b3e38a' },
+  ],
+  21: [
+    { key: 'greenSnakeVenom', n: 'Nọc Xanh', d: 'Đưa nọc độc vào mục tiêu, sát thương kéo dài.', ic: petSkillIcon(63), fx: 63, kind: 'poison', mult: 1, dot: 1.2, cd: 8, col: '#79dd76' },
+    { key: 'greenSnakeCorrode', n: 'Nọc Ăn Mòn', d: 'Làm mục tiêu suy yếu, nhận thêm sát thương trong chốc lát.', ic: petSkillIcon(385), fx: 385, kind: 'expose', mult: 1.25, expose: 1.12, exposeDur: 3.5, cd: 15, lv: 30, col: '#a5ed8b' },
+  ],
+  24: [
+    { key: 'goldenEagleDive', n: 'Ưng Kích', d: 'Lao xuống đánh nhanh một mục tiêu.', ic: petSkillIcon(50), fx: 50, kind: 'multi', hits: 2, mult: 0.75, cd: 8, col: '#ffe08a' },
+    { key: 'goldenEagleRain', n: 'Thiên Vũ', d: 'Bắn loạt đạn xuyên qua nhiều kẻ địch.', ic: petSkillIcon(336), fx: 336, kind: 'chain', hits: 4, mult: 0.82, falloff: 0.78, rad: 180, cd: 14, lv: 30, col: '#fff0a8' },
+  ],
+  13: [
+    { key: 'elephantCharge', n: 'Voi Xung Trận', d: 'Húc mạnh, gây sát thương lan và choáng ngắn.', ic: petSkillIcon(138), fx: 138, kind: 'stunArea', mult: 1.35, splash: 0.62, rad: 105, stun: 0.55, cd: 9, col: '#d9c59b' },
+    { key: 'elephantGuard', n: 'Thiết Bì Hộ Chủ', d: 'Tấn công rồi giảm sát thương chủ nhân phải chịu.', ic: petSkillIcon(91), fx: 91, kind: 'guard', mult: 0.8, guard: 0.18, guardDur: 4.5, cd: 17, lv: 30, col: '#c4d4b0' },
+  ],
+  148: [
+    { key: 'leopardHunt', n: 'Liệp Sát', d: 'Đánh chí mạng, mạnh hơn khi mục tiêu gần hết máu.', ic: petSkillIcon(249), fx: 249, kind: 'execute', mult: 1.45, at: 0.4, finisher: 1.45, cd: 9, col: '#f2c47e' },
+    { key: 'leopardBleed', n: 'Huyết Trảo', d: 'Xé rách mục tiêu, gây chảy máu theo thời gian.', ic: petSkillIcon(145), fx: 145, kind: 'bleed', mult: 1.05, bleed: 1.25, bleedDur: 3.5, cd: 14, lv: 30, col: '#f28b72' },
+  ],
+  2: [
+    { key: 'whiteTigerClaw', n: 'Bạch Hổ Trảo', d: 'Vồ tới gây sát thương lớn lên một mục tiêu.', ic: petSkillIcon(317), fx: 317, kind: 'execute', mult: 1.6, at: 0.35, finisher: 1.5, cd: 9, col: '#f6e4c2' },
+    { key: 'whiteTigerRoar', n: 'Hổ Khiếu', d: 'Gầm vang, tăng sát thương của chủ nhân và đồng hành.', ic: petSkillIcon(186), fx: 186, kind: 'rage', mult: 0.9, rage: 1.1, rageDur: 5, cd: 19, lv: 30, col: '#ffe7aa' },
+  ],
+};
+const PET_SKILL_DEFAULT = [
+  { key: 'companionStrike', n: 'Cường Kích', d: 'Tấn công mạnh hơn vào mục tiêu.', fx: 34, kind: 'strike', mult: 1.5, cd: 9, col: '#9fe36a' },
+  { key: 'companionRenewal', n: 'Hồi Xuân', d: 'Tấn công và hồi sinh lực cho chủ nhân.', fx: 91, kind: 'heal', mult: 0.75, heal: 0.04, cd: 15, lv: 30, col: '#9fe36a' },
+];
+function petSkills(tid) { return PET_SKILLS[tid] || PET_SKILL_DEFAULT; }
+export function petSkillRows(tid, lvl = 1) {
+  return petSkills(tid).map(s => `<div class="petskill${lvl >= (s.lv || 1) ? '' : ' lock'}"><div class="petskill-head">${s.ic ? `<img src="${esc(s.ic)}" alt="">` : ''}<b>${esc(s.n)}</b></div><small>${esc(s.d)}${s.lv && lvl < (s.lv || 1) ? ` · mở ở cấp ${s.lv}` : ''}</small></div>`).join('');
+}
+/* Vai trò giúp người chơi chọn đồng hành theo nhu cầu chiến đấu, không cần đoán từ tên chiêu. */
+const PET_ROLES = {
+  11: { tags: ['Khống chế', 'Đánh lan'], fit: 'Hợp khi bị nhiều quái áp sát: dậm đất đánh quanh mình và làm choáng.' },
+  12: { tags: ['Đánh lan', 'Độc'], fit: 'Hợp khi cần dọn nhóm quái; gai gây độc và chiêu cấp 30 bắn trúng nhiều mục tiêu.' },
+  42: { tags: ['Hồi phục', 'Hỗ trợ'], fit: 'Hợp khi muốn trụ lâu: thường xuyên hồi sinh lực, rồi hồi thêm nội lực ở cấp 30.' },
+  43: { tags: ['Dồn sát thương', 'Hồi phục'], fit: 'Hợp khi muốn vừa đánh mạnh một mục tiêu vừa có một lần hồi sinh lực.' },
+  31: { tags: ['Liên kích', 'Đánh lan'], fit: 'Hợp khi muốn dồn nhiều đòn nhanh và lướt đánh tiếp các mục tiêu gần.' },
+  5: { tags: ['Kết liễu', 'Choáng'], fit: 'Hợp khi săn mục tiêu yếu máu: đòn cắn đau hơn lúc gần hết máu, chiêu sau có thể làm choáng.' },
+  6: { tags: ['Độc', 'Đánh lan'], fit: 'Hợp khi đánh nhóm đông: đốt mục tiêu đơn lẻ rồi phóng hỏa khí gây sát thương lan.' },
+  34: { tags: ['Dồn sát thương', 'Choáng'], fit: 'Hợp khi cần áp sát một mục tiêu, gây cú bổ mạnh rồi khóa chân bằng choáng.' },
+  33: { tags: ['Đánh lan', 'Choáng', 'Hồi phục'], fit: 'Hợp khi cần khống chế đám đông nhưng vẫn có thêm hồi phục cho chủ nhân.' },
+  36: { tags: ['Đánh nhiều mục tiêu', 'Liên kích'], fit: 'Hợp khi quái đứng thành nhóm: ném đá nhiều mục tiêu và đánh liên hoàn khi lên cấp 30.' },
+  9: { tags: ['Đánh lan', 'Khống chế'], fit: 'Hợp khi dọn bầy quái: hồ hỏa đánh cả nhóm, chiêu sau làm choáng mục tiêu.' },
+  27: { tags: ['Hút máu', 'Hồi nội lực'], fit: 'Hợp khi cần tự hồi phục trong lúc đánh: hút sinh lực và nội lực từ địch.' },
+  45: { tags: ['Độc', 'Làm chậm', 'Đánh lan'], fit: 'Hợp khi muốn ghìm nhóm quái: tơ độc đánh lan và làm chậm chúng.' },
+  21: { tags: ['Độc', 'Tăng sát thương'], fit: 'Hợp khi săn trùm hoặc mục tiêu trâu máu: nọc độc kéo dài và khiến địch nhận thêm sát thương.' },
+  24: { tags: ['Tấn công nhanh', 'Đánh lan'], fit: 'Hợp khi muốn đánh liên tục và chuyển đòn qua nhiều kẻ địch.' },
+  13: { tags: ['Chống chịu', 'Khống chế'], fit: 'Hợp khi cần thêm phòng thủ: húc choáng diện rộng và giảm sát thương chủ nhân phải chịu.' },
+  148: { tags: ['Kết liễu', 'Chảy máu'], fit: 'Hợp khi tập trung hạ một mục tiêu: mạnh hơn lúc địch yếu và gây chảy máu.' },
+  2: { tags: ['Kết liễu', 'Tăng sát thương'], fit: 'Hợp khi săn mục tiêu lớn: vồ kết liễu rồi tăng sát thương cho cả chủ nhân và pet.' },
+};
+function petRole(tid) { return PET_ROLES[tid] || { tags: ['Tấn công'], fit: 'Đồng hành hỗ trợ chủ nhân bằng các đòn đánh và kỹ năng riêng.' }; }
+export function petRoleTags(tid) { return petRole(tid).tags.map(tag => `<span class="pet-role-tag">${esc(tag)}</span>`).join(''); }
+/* Dùng lại sprite sheet chiêu môn phái cho đồng hành, xuất phát từ vị trí pet. */
+function petSkillFx(source, target, skillId) {
+  if (!source || !target || !skillId || !JFX.f[skillId]) return;
+  skillFx(source, target, { id: skillId, parts: { phys: 1 } });
+}
+const STUN_IMM_ELITE = 1.5, STUN_IMM_BOSS = 3;   // giây miễn nhiễm choáng tính từ lúc bị choáng
+function petSkillHit(e, dmg, col) {
+  if (!e || e.hp <= 0 || !(dmg > 0)) return;
+  const expose = e.petExposeT > 0 ? (e.petExposeMult || 1) : 1;   // Nọc Ăn Mòn: địch nhận thêm sát thương
+  const rage = R.petRageT > 0 ? (R.petRageMult || 1) : 1;         // Hổ Khiếu: pet đánh mạnh hơn
+  const dealt = dmg * expose * rage * tower2Bonuses(e).dmg;
+  e.hp -= dealt; e.hitT = 0.12;
+  addText(e.x, e.y - e.r - 8, fmt(dealt), col || '#9fe36a', 12);
+}
+function petSkillHeal(amount, color) {
+  if (!(amount > 0)) return;
+  const got = Math.min(amount, Math.max(0, R.P.life - R.life));
+  if (got > 1) { R.life += got; addText(H.x, H.y - 42, '+' + fmt(got), color || '#8fe3ad', 11); }
+}
+function petSkillStun(e, seconds) {
+  if (!e || e.hp <= 0 || e.stunImm > 0) return;
+  const duration = e.cls === 'boss' ? Math.min(seconds, 0.5) : seconds;   // trùm chỉ choáng toi da 0.5s
+  e.stun = Math.max(e.stun || 0, duration);
+  e.stunImm = e.cls === 'boss' ? STUN_IMM_BOSS : e.cls === 'elite' ? STUN_IMM_ELITE : 0;
+}
+function petSkillSlow(e, seconds, factor) {
+  if (!e || e.hp <= 0) return;
+  const boss = e.cls === 'boss', elite = e.cls === 'elite';
+  const duration = seconds * (boss ? 0.4 : elite ? 0.7 : 1);
+  const slowFactor = boss ? Math.max(0.82, factor) : elite ? Math.max(0.65, factor) : factor;
+  const active = e.petSlowT > 0;
+  e.petSlowT = Math.max(e.petSlowT || 0, duration);
+  e.petSlowFactor = active ? Math.min(e.petSlowFactor || 1, slowFactor) : slowFactor;
+}
+function petSkillExpose(e, seconds, multiplier) {
+  if (!e || e.hp <= 0) return;
+  const boss = e.cls === 'boss';
+  const active = e.petExposeT > 0;
+  e.petExposeT = Math.max(e.petExposeT || 0, seconds * (boss ? 0.7 : 1));
+  const next = boss ? Math.min(multiplier, 1.06) : multiplier;
+  e.petExposeMult = active ? Math.max(e.petExposeMult || 1, next) : next;
+}
+function petSkillPoison(e, dose, seconds = 3) {   // gộp vào doc dang co (dung chung truong cua combat.ts)
+  if (!e || e.hp <= 0 || !(dose > 0)) return;
+  const left = e.poison > 0 ? e.poisonDmg * e.poison : 0;
+  e.poisonDmg = (left + dose * tower2Bonuses(e).dmg) / seconds; e.poison = seconds;
+}
+function petSkillBleed(e, dose, seconds = 3) {
+  if (!e || e.hp <= 0 || !(dose > 0)) return;
+  const left = e.petBleedT > 0 ? e.petBleedDmg * e.petBleedT : 0;
+  e.petBleedDmg = (left + dose * tower2Bonuses(e).dmg) / seconds; e.petBleedT = seconds;
+}
+function petCastSkill(s, p, target) {
+  const pos = R.petPos || H;
+  addText(pos.x, pos.y - 34, s.n + '!', s.col, 10);
+  if (s.fx) petSkillFx(pos, target || H, s.fx);
+  const base = petDmg(p);
+  if (s.heal) burst(H.x, H.y - 18, s.col);
+  if (s.kind === 'heal' || s.kind === 'restore') petSkillHeal(R.P.life * s.heal, s.col);
+  if (s.kind === 'restore' && s.mana) {
+    const got = Math.min(R.P.mana * s.mana, Math.max(0, R.P.mana - R.mana));
+    if (got > 1) { R.mana += got; addText(H.x, H.y - 56, '+' + fmt(got) + ' NL', '#83d7ff', 10); }
+  }
+  if (s.kind === 'heal' || s.kind === 'restore') { if (target && target.hp > 0) petSkillHit(target, base * (s.mult || 0), s.col); return; }
+  if (!target || target.hp <= 0) return;
+  let mult = s.mult || 0;
+  let hitTargets = [target];
+  if (s.kind === 'execute' && target.hp <= target.max * s.at) mult *= s.finisher || 1.3;
+  if (s.kind === 'multi') {
+    for (let i = 0; i < (s.hits || 2) && target.hp > 0; i++) petSkillHit(target, base * mult, s.col);
+  } else if (s.kind === 'area' || s.kind === 'stunArea') {
+    const nearby = alive().filter(e => e !== target && Math.hypot(e.x - target.x, e.y - target.y) <= s.rad);
+    hitTargets = [target, ...nearby];
+    petSkillHit(target, base * mult, s.col);
+    for (const e of nearby) petSkillHit(e, base * mult * (s.splash || 0.6), s.col);
+  } else if (s.kind === 'chain') {
+    hitTargets = [target, ...alive().filter(e => e !== target && Math.hypot(e.x - target.x, e.y - target.y) <= s.rad)
+      .sort((a, b) => Math.hypot(a.x - target.x, a.y - target.y) - Math.hypot(b.x - target.x, b.y - target.y))].slice(0, s.hits || 3);
+    hitTargets.forEach((e, i) => petSkillHit(e, base * mult * (i ? s.falloff || 0.7 : 1), s.col));
+  } else {
+    petSkillHit(target, base * mult, s.col);
+  }
+  for (const e of hitTargets) {
+    if (s.kind === 'poison' || s.poison) petSkillPoison(e, base * (s.dot || s.poison || 1));
+    if (s.slow) petSkillSlow(e, s.slowDur || 2, s.slow);
+    if (s.expose) petSkillExpose(e, s.exposeDur || 3, s.expose);
+    if (s.bleed) petSkillBleed(e, base * s.bleed, s.bleedDur || 3);
+    if (s.stun) petSkillStun(e, s.stun * (s.kind === 'stunArea' && e !== target ? 0.75 : 1));
+  }
+  if (s.guard) {
+    R.petGuardT = Math.max(R.petGuardT || 0, s.guardDur || 4);
+    R.petGuardMult = Math.min(R.petGuardMult || 1, 1 - clamp(s.guard, 0, 0.4));
+    burst(H.x, H.y - 18, '#b9d8b0');
+    addText(H.x, H.y - 52, 'Hộ Chủ', '#c9e9bd', 10);
+  }
+  if (s.rage) {
+    R.petRageT = Math.max(R.petRageT || 0, s.rageDur || 4);
+    R.petRageMult = Math.max(R.petRageMult || 1, s.rage);
+    burst(H.x, H.y - 18, s.col || '#ffe7aa');
+  }
+  if (s.heal && s.kind !== 'heal' && s.kind !== 'restore') petSkillHeal(R.P.life * s.heal, s.col);   // leech: hoi sau khi danh
+}
+/* Dem nguoc trang thai ky nang pet tren địch + chủ (gốc nam trong enemyTick cua
+   combat.js; dot nay tu quet o day de khong phai sua combat.ts — file cua agent COMBAT). */
+function petSweepStatus(dt) {
+  if (R.petGuardT > 0) { R.petGuardT = Math.max(0, R.petGuardT - dt); if (!R.petGuardT) R.petGuardMult = 1; }
+  if (R.petRageT > 0) { R.petRageT = Math.max(0, R.petRageT - dt); if (!R.petRageT) R.petRageMult = 1; }
+  for (const e of R.enemies) {
+    if (e.stunImm > 0) e.stunImm = Math.max(0, e.stunImm - dt);
+    if (e.petSlowT > 0) e.petSlowT = Math.max(0, e.petSlowT - dt);
+    if (e.petExposeT > 0) e.petExposeT = Math.max(0, e.petExposeT - dt);
+    if (e.petBleedT > 0) { const elapsed = Math.min(dt, e.petBleedT); e.petBleedT = Math.max(0, e.petBleedT - dt); e.hp -= e.petBleedDmg * elapsed; }
+  }
+}
 export function petTick(dt) {
+  petSweepStatus(dt);   // dem nguoc trang thai ky nang pet (chay truoc early-return de luon duoc quet)
   const p = S.rw && S.rw.pet; if (!p || R.town || !MON[p.tid]) { R.petPos = null; R.petLoot = null; return; }
   const pp = R.petPos || (R.petPos = { x: H.x - 30, y: H.y + 10, t: 0, act: 'st', actT: 0, dir: 0 });
   /* Nhat do auto (loot.ts dat R.petLoot): pet uu tien di nhat thay nguoi; xong moi quay lai danh quai */
@@ -509,8 +730,12 @@ export function petTick(dt) {
   }
   if (!lt && Math.hypot(H.x - pp.x, H.y - pp.y) > 500) { pp.x = H.x - 30; pp.y = H.y + 10; }   // lac xa: dich chuyen ve canh chu (khong ap dung khi dang di nhat xa)
   pp.t -= dt;
-  /* Ky nang chu dong (mo tu 1 sao): tu dung khi co quai trong ban kinh, hoi chieu PET_SKILL_CD giay */
+  /* Ky nang chu dong (mo tu 1 sao): tu dung khi co quai trong ban kinh, hoi chieu PET_SKILL_CD giay.
+     Cast theo bo ky nang rieng cua loài (hoäi chieu rieng tung chiêu, luu o pp.skillCd);
+     luon chon chiêu khac làn truoc de hai chiêu deu co co hoi cast. */
   R.petSkillCd = Math.max(0, (R.petSkillCd || 0) - dt);
+  pp.skillCd = pp.skillCd || {};
+  for (const k of Object.keys(pp.skillCd)) pp.skillCd[k] = Math.max(0, pp.skillCd[k] - dt);
   if (!lt && (p.star | 0) >= 1 && R.petSkillCd <= 0) {
     const st0 = petStats(p);
     const near = alive().filter(e => Math.hypot(e.x - pp.x, e.y - pp.y) <= PET_SKILL_RAD + e.r).slice(0, PET_SKILL_MAX);
@@ -528,7 +753,20 @@ export function petTick(dt) {
     addText(t.x, t.y - 30, fmt(dmg) + (adv ? ' ⚡' : ''), crit ? '#ffe14a' : '#9fe36a', 11);
   }
 }
+/* Ky nang dong hanh: loài co PET_SKILLS thì cast theo loài (choáng / làm chậm /
+   hut phòng / doc / ri mau / hoi mau theo chiêu); loài không co giữ chiêu AoE hệ. */
 function castPetSkill(pp, st, targets) {
+  const p = S.rw && S.rw.pet;
+  if (p && PET_SKILLS[p.tid] && targets && targets.length) {
+    const ready = petSkills(p.tid).filter(s => p.lvl >= (s.lv || 1) && (pp.skillCd[s.key] || 0) <= 0);
+    const skill = ready.find(s => s.key !== pp.lastPetSkill) || ready[0];
+    if (skill) {
+      pp.skillCd[skill.key] = skill.cd;
+      pp.lastPetSkill = skill.key;
+      petCastSkill(skill, p, targets[0]);
+      return;
+    }
+  }
   const el = SERIES_ELEM[st.elem] || 'phys', nm = PET_SKILL_NAMES[st.elem] || 'Chiêu';
   addText(pp.x, pp.y - 46, nm + '!', SERIES_COL[st.elem], 12);
   for (const e of targets) {
@@ -756,6 +994,9 @@ export function renderPet() {
       <button class="btn" id="pFeedSo">Nạp +1 cấp · ${soLevelCost(p.lvl)} 🐚</button>
       <button class="btn" id="pFeedFd">Nạp +1 cấp · ${FD_LEVEL_COST} Phúc Duyên</button></div>
     <p class="dim small">${esc(evoTxt)}</p>
+    <h3>Kỹ năng theo loài <small>${petRoleTags(p.tid)}</small></h3>
+    <div class="petskills">${petSkillRows(p.tid, p.lvl)}</div>
+    <p class="dim small">${esc(petRole(p.tid).fit)} Chiêu thứ hai mở ở cấp 30. Pet không thuộc loài trên dùng chiêu AoE hệ.</p>
     <h3>Đội hình <small>${chain ? '<b style="color:#ffb52e">Tam Tương Sinh: +5% sát thương</b>' : same ? '<b style="color:#ffb52e">Tam Đồng Khí: pet +15% sát thương</b>' : 'ra trận + 2 hộ mệnh'}</small></h3>
     <div class="card">${teamRow(0, 'Ra trận')}${teamRow(1, 'Hộ mệnh 1')}${teamRow(2, 'Hộ mệnh 2')}
       <p class="dim small">Hộ mệnh không đánh nhưng trang bị của chúng cộng ${Math.round(PET_BENCH_BUFF * 100)}% thuộc tính vào nhân vật. 3 con tương sinh (Kim→Thủy→Mộc→Hỏa→Thổ) hoặc đồng hệ tạo trận pháp.</p></div>

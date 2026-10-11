@@ -1,5 +1,5 @@
 // @ts-nocheck — chuyen tu vanilla JS: bat lai check tung file dan dan (xem README muc TypeScript)
-import { MON, SERIES, ZONES, counters, esc, fmt } from './core';
+import { FAC, J, MON, SERIES, ZONES, counters, esc, fmt } from './core';
 import { localISODay } from './journal';
 import { heroSeries } from './stats';
 import { R, recalc } from './combat';
@@ -8,6 +8,7 @@ import { closeModal, log, modal, refresh, toast } from './ui';
 import { RW } from './rewards';
 import { buildN } from './builds';
 import { stashMax } from './stash';
+import { TOWER2_SET_ROWS } from './sets';
 
 /* ======================= CHIEU SAU + CHOI LAI =======================
    Port tu js/depth.js ban vinarpg (bo phan Thap II + bien the tuan — can port ca
@@ -63,6 +64,9 @@ const CLAN_EVENTS = [
   ['tower50', 6, 'Chinh phục tầng 50 Tháp thử thách', () => (RW().stat.towerBest | 0) >= 50],
   ['chal', 10, 'Đạt cấp 99 ở một thử thách nhân vật', () => ['nopot', 'white', 'hard'].some(k => RW().ach['chal_' + k] && chalOf() === k)],
   ['dex8', 4, 'Bách khoa: hạ đủ quái ở 8 vùng', () => dexZones() >= 8],
+  ['dex16', 8, 'Bách khoa: hạ đủ quái mọi vùng', () => dexZones() >= ZONES.length],
+  ['dexs3', 4, 'Bách khoa: đủ 3 bộ Hoàng Kim', () => dexSetsDone() >= 3],
+  ['dexs10', 10, 'Bách khoa: đủ 10 bộ Hoàng Kim', () => dexSetsDone() >= 10],
 ];
 const CLAN_PERKS = [[10, 'stash', '+10 ô kho chung'], [25, 'build', '+1 bộ võ học'], [45, 'stash', '+10 ô kho chung'], [70, 'build', '+1 bộ võ học']];
 function clanRead() {
@@ -93,6 +97,17 @@ export function clanModal() {
 export function dexMark(tid) { S.seen = S.seen || {}; if (!S.seen[tid]) S.seen[tid] = 1; }
 const dexZoneDone = z => [...z.m, z.boss].filter(t => MON[t]).every(t => (S.seen || {})[t]);
 export const dexZones = () => ZONES.filter(dexZoneDone).length;
+
+/* ---------- sưu tập bộ đồ (F9 — S.setSeen danh do bo da co) ---------- */
+/* Goi khi do bo vao tay: addItem (ui.ts) va noi ghép/chế đồ bộ (recipes.ts). */
+export function dexSet(n) { S.setSeen = S.setSeen || {}; S.setSeen[n.replace(/^\[[^\]]*\]\s*/, '')] = 1; }
+/* Nhom cac bo Hoàng Kim / Thiên Cực cua mon phai dang choi (bo khong yeu cau phai bi loai). */
+export function dexSetGroups() {
+  const fid = FAC[S.fac] ? FAC[S.fac].id : -1, g = new Map();
+  for (const r of [...J.sets.gold, ...TOWER2_SET_ROWS]) { if ((r.req.find(q => q[0] === 39) || [0, -1])[1] !== fid || /^\[/.test(r.n)) continue; (g.get(r.grp) || g.set(r.grp, new Set()).get(r.grp)).add(r.n); }
+  return [...g.values()];
+}
+export const dexSetsDone = () => dexSetGroups().filter(names => [...names].every(n => (S.setSeen || {})[n])).length;
 
 /* ---------- biến thể tuần (port từ depth.js — áp dụng cho Tống Kim; Tháp II port sau) ---------- */
 export const WEEK_MODS = [

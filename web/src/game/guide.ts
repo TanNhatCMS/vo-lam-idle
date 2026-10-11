@@ -28,6 +28,7 @@ import {
   betterThanEquipped,
   closeModal,
   curTab,
+  dexSetBodyHTML,
   log,
   modal,
   refresh,
@@ -180,11 +181,7 @@ export function codexModal(tab) {
     body = ZONES.map((z, i) => { const open = S.maxStage >= i * ZONE_STAGES + 1, nm = z.m.filter(t => MON[t]).map(t => esc(MON[t].n)).join(', ');
       return `<div class="card${open ? '' : ' lock'}"><b>${esc(z.n)}</b> <small class="dim">cấp ${z.lo}–${z.hi}${open ? '' : ' · chưa tới'}</small><br><small>Trùm: <b class="boss">${esc((MON[z.boss] || {}).n || '?')}</b></small><br><small class="dim">Quái: ${nm}</small><br><small>Ngũ hành: ${z.sw.map((w, k) => w ? `<span style="color:${SERIES_COL[k]}">${SERIES[k]}</span>` : '').filter(Boolean).join(' ') || '—'}</small></div>`; }).join('');
   } else if (codexTab === 'set') {
-    const fid = FAC[S.fac] ? FAC[S.fac].id : -1, groups = new Map();
-    for (const r of J.sets.gold) { if (!sexReqOk(r.req)) continue; const f = reqOfRow(r, 39); if (f !== fid && f !== -1) continue; (groups.get(r.grp) || groups.set(r.grp, []).get(r.grp)).push(r); }
-    const list = [...groups.values()].sort((a, b) => reqOfRow(a[0], 36) - reqOfRow(b[0], 36));
-    body = `<p class="desc">Bộ Hoàng Kim của phái bạn (${list.length} bộ). Mặc đủ số món của một bộ sẽ mở hết dòng ẩn của mọi trang bị. Bạch Kim chế từ 2 món Hoàng Kim giống nhau.</p>` +
-      list.map(g => { const r0 = g[0], need = r0.n2 || 99; return `<div class="card"><b>${esc(r0.n.split(' ').slice(0, 2).join(' '))}…</b> <small class="dim">cấp ${reqOfRow(r0, 36)} · ${g.length} món · đủ ${need} món mở dòng ẩn</small><br><small class="dim">${g.map(r => esc(r.n)).join(' · ')}</small></div>`; }).join('') || '<p class="dim">Không có.</p>';
+    body = dexSetBodyHTML();
   } else if (codexTab === 'pet') {
     const seen = (S.rw && S.rw.petSeen) || {}, got = (S.rw && S.rw.codexPet) || {}, groups = [[], [], [], [], []];
     let total = 0, have = 0;
