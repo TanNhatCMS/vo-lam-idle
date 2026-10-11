@@ -59,7 +59,6 @@ import { bindTodo, codexModal, powerModal, suggestModal, todoHTML, tutorialModal
 import { adminModal } from './admin';
 import { UI_FS, UI_FS_NAME, guard, onZoneChange, setCompact, setUiPref, uiPrefs } from './loop';
 import { uiBump, uiSetTab } from './store';
-import { pickAllGround } from './loot';
 import {
   LOOT_ATTR_GROUPS,
   itemLines,
@@ -91,7 +90,7 @@ import {
   switchCharacter,
   writeSlot,
 } from './save';
-import { inventoryUpgradeModal, stashDeposit, stashDepositPotion, stashDone, stashModal, stashWithdrawPotion } from './stash';
+import { stashDeposit, stashDepositPotion, stashDone, stashModal, stashWithdrawPotion, storageUpgradeModal } from './stash';
 import { SV } from './survival';
 import {
   activeInfo,
@@ -321,11 +320,11 @@ function itemRequiredLevel(it) {
   const required = (it && it.req || []).find(([id]) => id === 36);
   return required ? Math.max(0, +required[1] || 0) : null;
 }
-function itemLevelBadge(it) {
+export function itemLevelBadge(it) {
   const required = itemRequiredLevel(it);
   return required > 0 ? required : '—';
 }
-function itemLevelLabel(it) {
+export function itemLevelLabel(it) {
   const required = itemRequiredLevel(it);
   return required > 0 ? `yêu cầu cấp ${required} · bậc đồ ${it.lvl}` : `không yêu cầu cấp · bậc đồ ${it.lvl}`;
 }
@@ -885,7 +884,6 @@ export function renderInv() {
   const invSort = INV_SORTS.some(([key]) => key === S.invSort) ? S.invSort : 'new';
   const potionCells = J.potions.filter(p => (potStock(p.kind)[p.tier] || 0) > 0)
     .map(p => `<button type="button" class="it potion-inv-cell" data-potion-kind="${p.kind}" data-potion-tier="${p.tier}" title="${esc(p.n)} · còn ${potStock(p.kind)[p.tier]} bình" aria-label="${esc(p.n)}, còn ${potStock(p.kind)[p.tier]} bình"><img src="${esc(p.ic || '')}" alt="" draggable="false"><i>${potStock(p.kind)[p.tier]}</i></button>`).join('');
-  const onGround = R.ground.length;
   const currentPower = S.inv.length ? (R.dirty || !R.P ? power(calc(S.eq)) : power(R.P)) : 0;
   const layout = invPositionLayout();
   const emptyCell = index => `<div class="it inv-empty-slot" data-inv-order="${index}" aria-hidden="true"></div>`;
@@ -898,13 +896,12 @@ export function renderInv() {
   const sortLabel = (INV_SORTS.find(([key]) => key === invSort) || INV_SORTS[0])[1];
   $('#t-inv').innerHTML = `<div class="invbar"><div class="inv-capacity"><span>Túi đồ: ${invUsed()}/${invMax()}</span><span class="sp"></span>
     <button class="btn sm" id="bExpandInv" ${invExpansionCount() >= INV_EXPANSION_MAX ? 'disabled' : ''}>${invExpansionCount() >= INV_EXPANSION_MAX ? 'Túi đã tối đa' : 'Mở rộng túi'}</button></div>
-    <div class="inv-actions"><button class="btn sm" id="bStash">Kho chung</button><button class="btn sm" id="bBest">Mặc đồ tốt</button><button class="btn sm" id="bGrabAll" ${onGround ? '' : 'disabled'}>Lấy hết đồ (${onGround})</button><button class="btn sm red" id="bSellAll">Bán đồ</button></div></div>
+    <div class="inv-actions"><button class="btn sm" id="bStash">Kho chung</button><button class="btn sm" id="bBest">Mặc đồ tốt</button><button class="btn sm red" id="bSellAll">Bán đồ</button></div></div>
     <div class="inv-tools"><span>Sắp xếp</span>${uiSelectMarkup('iSort', INV_SORTS, invSort, 'Sắp xếp túi đồ')}</div>
-    <div class="dim small inv-reorder-hint">${invSort === 'new' ? 'Kéo món vào ô bất kỳ, kể cả ô trống; kéo bình sang Bán đồ hoặc Kho chung · điện thoại: nhấn giữ rồi kéo' : `Đang sắp xếp: ${sortLabel} · kéo món để chuyển sang "Mới nhặt" và giữ vị trí mới · điện thoại: nhấn giữ rồi kéo`}</div><div class="invgrid">${potionCells}${itemCells}</div>` + lootPanelHTML();
+    <div class="dim small inv-reorder-hint">${invSort === 'new' ? 'Kéo món vào ô bất kỳ, kể cả ô trống; kéo bình sang Bán đồ hoặc Kho chung · điện thoại: nhấn giữ rồi kéo' : `Đang sắp xếp: ${sortLabel} · kéo món để chuyển sang "Mới nhặt" và giữ vị trí mới · điện thoại: nhấn giữ rồi kéo`}</div><div class="invgrid">${potionCells}${itemCells}</div>`;
   $('#bStash').onclick = () => stashModal();
-  $('#bExpandInv').onclick = () => inventoryUpgradeModal();
+  $('#bExpandInv').onclick = () => storageUpgradeModal('inventory');
   $('#bBest').onclick = () => { for (const it of S.inv.slice()) if (betterThanEquipped(it)) equip(it, true); refresh(); };
-  $('#bGrabAll').onclick = () => { const n = pickAllGround(); toast(n ? `Đã lấy ${n} món từ đất` : 'Không lấy thêm được (túi đầy?)'); refresh(); };
   $('#bSellAll').onclick = () => sellChoiceModal();
   bindUISelect($('#t-inv'), 'iSort', value => { S.invSort = value; save(); renderInv(); });
   bindInvContextMenu();
@@ -912,7 +909,6 @@ export function renderInv() {
   document.querySelectorAll('#t-inv button.it').forEach(b => b.onclick = () => b.dataset.potionTier
     ? potionInventoryModal(b.dataset.potionKind, +b.dataset.potionTier)
     : itemModal(findItem(b.dataset.uid)));
-  bindLootPanel($('#t-inv'));
   invOrderBind();
 }
 

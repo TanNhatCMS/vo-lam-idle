@@ -14,3 +14,6 @@ public/fx/
 # Playwright output
 test-results/
 playwright-report/
+
+# DOM-diff tools (local only, reference build is the live site)
+scripts/cmp-*.mjs
