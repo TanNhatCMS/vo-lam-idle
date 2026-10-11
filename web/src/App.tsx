@@ -34,7 +34,6 @@ export default function App() {
     <div id="app">
       <TopBar />
       <Battle />
-      <aside id="worldChat" aria-label="Chat thế giới" />
       <Panel />
       <TabsNav />
       <Modal />

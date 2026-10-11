@@ -567,6 +567,40 @@ function itemSharePayload(it) {
     ...(it.locked ? { locked: true } : {})
   };
 }
+
+/* Xem trang bi duoc chia se tren chat the gioi (chat.ts goi qua
+   window.showSharedItem — giong showSharedItem ui.js ban nguon): doi
+   duong wire thanh do vat noi bo roi mo itemModal dang tooltip. */
+function showSharedItem(data, anchor = null) {
+  if (!data || typeof data !== 'object' || typeof data.name !== 'string') return;
+  // Tin nhắn từ phiên bản cũ chỉ có vài dòng rút gọn; giữ khả năng mở chúng.
+  if (!Number.isInteger(data.detail)) {
+    const rarity = clamp(Number(data.rarity) || 0, 0, RAR_COL.length - 1);
+    const stats = Array.isArray(data.stats) ? data.stats.slice(0, 12).filter(x => typeof x === 'string').map(x => `<div>${esc(x.slice(0, 120))}</div>`).join('') : '';
+    modal(`<h3 style="color:${RAR_COL[rarity]}">${esc(data.name.slice(0, 80))}</h3><p class="desc">${esc(String(data.type || 'Trang bị'))} · Bậc ${clamp(Number(data.tier) || 1, 1, 9999)}${data.series ? ` · Hệ ${esc(String(data.series).slice(0, 12))}` : ''}</p><div class="sl shared-item-lines">${stats || '<small class="dim">Tin cũ không lưu đủ thông tin chi tiết.</small>'}</div>`, null, undefined, false);
+    setItemTooltipPreview(anchor); return;
+  }
+  if (data.detail < 0 || data.detail > 10 || !Array.isArray(data.base) || !Array.isArray(data.requirements)
+      || !Array.isArray(data.magic) || !Array.isArray(data.set_lines)) return;
+  const toMagic = rows => rows.map(row => ({ a: Number(row.a), p: row.p.map(Number) }));
+  const shared = {
+    uid: -1, d: data.detail, k: Number(data.particular), n: data.name,
+    ic: typeof data.icon === 'string' ? data.icon : '', lvl: Number(data.tier), s: Number(data.series),
+    r: clamp(Number(data.rarity) || 0, 0, RAR_COL.length - 1),
+    enh: Number(data.enhancement) || 0, plv: Number(data.platinum) || 0,
+    base: data.base.map(row => row.map(Number)), req: data.requirements.map(row => row.map(Number)),
+    mag: toMagic(data.magic), ext: toMagic(data.set_lines), vio: data.violet === true, leg: data.legendary === true,
+    thanma: typeof data.horse_id === 'string' ? data.horse_id : '',
+    hlv: Number(data.horse_level) || 0, locked: data.locked === true,
+    ...(data.set ? { set: {
+      kind: data.set.kind, grp: Number(data.set.group), n1: Number(data.set.need_each),
+      n2: Number(data.set.need_full), sid: Number(data.set.sid), localPowerTier: Number(data.set.local_power_tier) || 0
+    } } : {})
+  };
+  itemModal(shared, undefined, 'inspect', 'tooltip', anchor);
+}
+window.showSharedItem = showSharedItem;
+
 function itemModal(it, slot, view = 'item', presentation = 'modal', anchor = null) {
   if (!it) return;
   const cur = !slot && S.eq[slotFor(it)];

@@ -129,6 +129,8 @@ button[disabled]{opacity:.4;cursor:default}
 .wc-tab{flex:none;min-height:18px;padding:1px 3px;border:0;border-bottom:1px solid transparent;border-radius:0;color:#7fe1d2;font-size:10px;line-height:1.3;text-shadow:0 1px 2px #000}
 .wc-tab.active{border-color:#d9bd6e99;background:none;color:#ffe894;font-weight:700}
 .wc-tab:active{background:#88732d99}
+.wc-tab.wc-zalo{padding:1px 5px;border:1px solid #56b76b88;border-radius:4px;color:#a4f0a8;font-weight:700}
+.wc-tab.wc-zalo:hover{border-color:#78e889;background:#22633166;color:#d0ffd0}
 #miniFloat{display:none;position:absolute;z-index:9;touch-action:none;cursor:grab}
 #miniFloat.open{display:block}
 #miniFloat:active{cursor:grabbing}
@@ -870,7 +872,3 @@ body.sv #wbBtn{display:none!important}
 .lg-view{max-height:52vh;overflow:auto;margin:8px 0;padding:8px 10px;border:1px solid var(--line2);border-radius:6px;background:#070b09;font:11px/1.5 var(--font);white-space:pre-wrap;word-break:break-word}
 .lg-line{padding:1px 0;border-bottom:1px solid #121a15}
 .lg-t{color:#6d756f}
-
-/* Chat thế giới bản offline (chat.ts): thông báo kênh chat đã tắt */
-.wc-offline{padding:12px 10px;color:#9fb3a6;font-size:11px;line-height:1.7;text-align:center}
-.wc-offline b{color:#ffe894}

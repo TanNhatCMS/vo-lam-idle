@@ -101,6 +101,9 @@ export default function Battle() {
           </button>
         );
       })()}
+      {/* Khung chat the gioi (island rong — chat.ts tien markup vao, giong #battle ban goc:
+          #worldChat nam TRONG #battle de absolute bottom:10px khong bi #tabs chan) */}
+      <aside id="worldChat" aria-label="Chat thế giới" />
 
       {/* Island: survival.js tu cap nhat so tien, bom, hoi chieu */}
       <div id="svHud" className="hidden">
