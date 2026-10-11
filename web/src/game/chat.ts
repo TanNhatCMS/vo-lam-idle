@@ -1,6 +1,6 @@
 // @ts-nocheck — chuyen tu vanilla JS: bat lai check tung file dan dan (xem README muc TypeScript)
 import { FAC, RAR_COL, SERIES_COL, clamp, esc } from './core';
-import { modal } from './ui';
+import { itemSharePayload, modal } from './ui';
 import { R } from './combat';
 import { S } from './save';
 
@@ -12,6 +12,9 @@ import { S } from './save';
    - GET  /api/chat/status            kiem tra API san sang (fallback GET /api/chat/messages?limit=1)
    - GET  /api/chat/stream?client_id  EventSource SSE: open / ready {messages,online} / message / presence / error
    - POST /api/chat/messages          gui tin {name,faction,level,message,client_id,item?}
+   - POST /api/chat/presence          heartbeat 45s {client_id, profile?} — server luu profile
+                                      theo ten (port chat.js nguon: do client day profile len,
+                                      GET /api/chat/profile?name= doc lai — khong thi 404).
    client_id: crypto.randomUUID() luu localStorage "jxidle_chat_client_id".
    Gioi han: tin <=240 ky tu, cooldown 1500ms phia client, DOM toi da 80 tin, dedupe theo id,
    reconnect backoff min(30000,1000*2^attempts) x jitter 0.75-1.25.
@@ -196,8 +199,97 @@ function identity() {
   return {
     name: playerFaction ? String(st.name || playerFaction.n).trim().slice(0, 24) : '',
     faction: playerFaction ? st.fac : '',
-    level: st && st.fac ? Math.max(1, Number(st.lvl) || 1) : 1
+    level: st && st.fac ? Math.max(1, Number(st.lvl) || 1) : 1,
+    challenge_mode: st && ['white', 'hard', 'nopot'].includes(st.chal) ? st.chal : ''
   };
+}
+
+/* ======================= PRESENCE (port upstream chat.js Ce()/ke()) =====================
+   Ban nguon ONLINE-FIRST: server game = server chat, ho so nhan vat doc tu
+   session. Ban port ta: server chi biet ten tin nhan -> CLIENT phai day
+   profile len qua POST /api/chat/presence (heartbeat 45s, chi gui khi doi).
+   Server luu profile theo ten -> GET /api/chat/profile?name= doc lai duoc,
+   ke ca chinh minh (khong do: bam ten minh tren chat = 404 "chua gui ho so"). */
+function chatProfile() {
+  const who = identity();
+  const st = S;
+  if (!who.name || !who.faction || !st) return null;
+  const stat = (st.rw && st.rw.stat) || {};
+  const equipment = {};
+  for (const [slot] of PROFILE_SLOTS) {
+    const item = st.eq && st.eq[slot];
+    equipment[slot] = item ? itemSharePayload(item) : null;
+  }
+  return {
+    ...who,
+    rank_id: null,
+    attributes: Object.fromEntries(['str', 'dex', 'vit', 'eng'].map(key => [key, Math.max(0, Math.floor(Number((st.attr || {})[key]) || 0))])),
+    tower_best: Math.max(0, Number(stat.towerBest) || 0, Number(stat.tower2Best) || 0),
+    bosses: Math.max(0, Number(stat.bosses) || 0),
+    reborn: Math.max(0, Number(stat.reborn) || 0),
+    combat_power: Math.min(2e9, Math.max(0, Math.floor(Number(R.power) || 0))),
+    equipment
+  };
+}
+
+const PRESENCE_INTERVAL_MS = 45000;      // giong ban nguon: setInterval(ke, 45e3)
+let presenceTimer = 0;
+let presenceInFlight = false;
+let presenceKnown = false;               // server da co profile cua ta chua
+let presenceStatsJson = '';              // JSON cac field khong doi -> khong gui lai
+let presenceEquipmentJson = '';
+
+/* Mo ket noi thanh cong -> goi 1 lan, sau do dinh ky 45s. Idempotent
+   (reconnect khong tao nhieu interval). */
+function startPresence() {
+  if (presenceTimer || stopped) return;
+  presenceTimer = setInterval(() => { void sendPresence(); }, PRESENCE_INTERVAL_MS);
+  void sendPresence();
+}
+
+async function sendPresence(retry = 0) {
+  if (stopped || presenceInFlight) return;
+  const profile = chatProfile();
+  presenceInFlight = true;
+  try {
+    const statsJson = profile ? JSON.stringify({
+      name: profile.name, faction: profile.faction, level: profile.level,
+      rank_id: profile.rank_id, attributes: profile.attributes,
+      challenge_mode: profile.challenge_mode, tower_best: profile.tower_best,
+      bosses: profile.bosses, reborn: profile.reborn, combat_power: profile.combat_power
+    }) : '';
+    const equipmentJson = profile ? JSON.stringify(profile.equipment) : '';
+    const equipmentChanged = !!profile && (!presenceKnown || equipmentJson !== presenceEquipmentJson);
+    const statsChanged = equipmentChanged || (!!profile && (!presenceKnown || statsJson !== presenceStatsJson));
+    // Luon ping {client_id} (giup server biet ta con truc tuyen); profile
+    // chi dang ky khi moi (hoac doi) — giong ke() ban nguon.
+    const payload = { client_id: clientId() };
+    if (!profile) payload.profile = null;
+    else if (statsChanged) {
+      payload.profile = { ...profile };
+      if (!equipmentChanged && presenceKnown) delete payload.profile.equipment;
+    }
+    const response = await fetch(`${CHAT_API}/api/chat/presence`, {
+      method: 'POST',
+      cache: 'no-store',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const result = await response.json().catch(() => ({}));
+    if (response.status === 409 && result.needs_profile) {
+      // Server dam bao co profile day du: xoa cache, gui lai ngay (to da 1 lan).
+      presenceKnown = false;
+      presenceStatsJson = '';
+      presenceEquipmentJson = '';
+      if (retry < 1) return void sendPresence(retry + 1);
+      return;
+    }
+    if (!response.ok) return;
+    presenceKnown = !!profile;
+    presenceStatsJson = statsJson;
+    presenceEquipmentJson = equipmentJson;
+  } catch (_) { /* Heartbeat khong quan trong — bo qua loi mang. */ }
+  finally { presenceInFlight = false; }
 }
 
 function showStatus(text, state = '') {
@@ -438,6 +530,7 @@ function connect() {
   const currentSource = source;
   source.addEventListener('open', () => {
     showStatus('', 'ok');
+    startPresence();                 // (re)khởi heartbeat sau khi nối lại
   });
   source.addEventListener('ready', event => {
     try {
@@ -445,6 +538,7 @@ function connect() {
       reconnectAttempts = 0;
       loadInitial(data.messages);
       updatePresence(data.online);
+      void sendPresence();           // đẩy profile ngay khi stream sẵn sàng
     } catch (_) { showStatus('Dữ liệu chat không hợp lệ', 'error'); }
   });
   source.addEventListener('message', event => {
@@ -488,6 +582,7 @@ async function start() {
       const result = await response.json().catch(() => ({}));
       showStatus(result.error || 'Database chat chưa sẵn sàng', 'error');
     }
+    startPresence();
     connect();
   } catch (_) {
     // Retry temporary network/tunnel failures during page startup as well.
@@ -598,6 +693,8 @@ async function send(event, overrideText = null, itemPayload = null) {
 function stopChat() {
   stopped = true;
   clearTimeout(reconnectTimer);
+  if (presenceTimer) clearInterval(presenceTimer);
+  presenceTimer = 0;
   if (source) source.close();
   source = null;
 }

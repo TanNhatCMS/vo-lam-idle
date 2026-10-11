@@ -74,6 +74,8 @@ function mockChatApi(page: Page, profileStatus = 200) {
   });
   page.route('**/api/chat/messages*', route =>
     route.fulfill({ contentType: 'application/json', body: JSON.stringify({ ok: true, messages: [] }) }));
+  page.route('**/api/chat/presence*', route =>
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ ok: true }) }));
   page.route('**/api/chat/profile*', route => {
     profileReqs.push(new URL(route.request().url()).searchParams.get('name') || '');
     const fulfill = () => {

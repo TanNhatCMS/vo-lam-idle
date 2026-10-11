@@ -549,7 +549,7 @@ export function autoEquipAll() {
   }
   if (n) { invDirty = true; R.dirty = true; } return n;
 }
-function itemSharePayload(it) {
+export function itemSharePayload(it) {
   const number = value => Number.isFinite(Number(value)) ? Number(value) : 0;
   const triples = rows => (Array.isArray(rows) ? rows : []).map(row => [number(row[0]), number(row[1]), number(row[2])]);
   const pairs = rows => (Array.isArray(rows) ? rows : []).map(row => [number(row[0]), number(row[1])]);

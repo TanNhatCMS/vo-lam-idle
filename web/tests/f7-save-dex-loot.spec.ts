@@ -9,6 +9,19 @@
      → reload → restoreArchivedPotential hoàn trả điểm khóa vào nhân vật tới ngưỡng. */
 import { test, expect, Page } from '@playwright/test';
 
+/* Chat the gioi: mock toan bo /api/chat/* (stream treo = khong noi
+   server chat nguon that — ca suite ~40 trang cung IP bi 429). */
+test.beforeEach(async ({ page }) => {
+  page.route('**/api/chat/status', route =>
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ ok: true, online: 0 }) }));
+  page.route('**/api/chat/stream*', () => { /* treo: EventSource dung CONNECTING */ });
+  page.route('**/api/chat/messages*', route =>
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ ok: true, messages: [] }) }));
+  page.route('**/api/chat/presence*', route =>
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ ok: true }) }));
+});
+
+
 let errors: string[] = [];
 
 test.beforeEach(async ({ page }) => {

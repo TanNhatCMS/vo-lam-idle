@@ -2,6 +2,19 @@
    điểm sách giữ qua chuyển sinh, bảng level theo nguồn (cap 1000, reborn 100+25n). */
 import { expect, test, type Page } from '@playwright/test';
 
+/* Chat the gioi: mock toan bo /api/chat/* (stream treo = khong noi
+   server chat nguon that — ca suite ~40 trang cung IP bi 429). */
+test.beforeEach(async ({ page }) => {
+  page.route('**/api/chat/status', route =>
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ ok: true, online: 0 }) }));
+  page.route('**/api/chat/stream*', () => { /* treo: EventSource dung CONNECTING */ });
+  page.route('**/api/chat/messages*', route =>
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ ok: true, messages: [] }) }));
+  page.route('**/api/chat/presence*', route =>
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ ok: true }) }));
+});
+
+
 async function createCharacter(page: Page) {
   await page.goto('/');
   await expect(page.locator('#pfName')).toBeVisible();

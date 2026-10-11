@@ -32,6 +32,7 @@ async function createCharacter(page: Page, name = 'ChatHiệp') {
    -> ready ke tiep co them, giong server that -> reconnect idempotent). */
 interface ChatMock {
   posts: any[];        // body cac POST /api/chat/messages
+  presences: any[];    // body cac POST /api/chat/presence
   sent: any[];         // tin nguoi choi gui thanh cong (server luu)
   streamCalls: number; // so lan EventSource mo /api/chat/stream
 }
@@ -50,7 +51,7 @@ const sse = (event: string, data: unknown) =>
    dung o trang thai CONNECTING — khong fire error/reconnect, tranh status
    "Đang nối lại…" ghi de cac trang thai đang test (gui tin/cooldown). */
 function mockChatApi(page: Page, opts: { holdStream?: boolean } = {}): ChatMock {
-  const mock: ChatMock = { posts: [], sent: [], streamCalls: 0 };
+  const mock: ChatMock = { posts: [], presences: [], sent: [], streamCalls: 0 };
   page.route('**/api/chat/status', route =>
     route.fulfill({ contentType: 'application/json', body: JSON.stringify({ ok: true, online: 1 }) }));
   page.route('**/api/chat/stream*', route => {
@@ -62,6 +63,12 @@ function mockChatApi(page: Page, opts: { holdStream?: boolean } = {}): ChatMock 
         + sse('presence', { online: 9 })
       : sse('ready', { messages: [...BASE_MESSAGES, ...mock.sent], online: 9 });
     route.fulfill({ contentType: 'text/event-stream', headers: { 'Cache-Control': 'no-store' }, body });
+  });
+  page.route('**/api/chat/presence*', route => {
+    if (route.request().method() === 'POST') {
+      mock.presences.push(JSON.parse(route.request().postData() || '{}'));
+    }
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ ok: true }) });
   });
   page.route('**/api/chat/messages*', route => {
     if (route.request().method() === 'POST') {
@@ -147,6 +154,7 @@ test('chat: gui tin (intercept POST), identity tu nhan vat, cooldown 1500ms', as
   expect(mock.posts[0].name).toBe(S.name);
   expect(mock.posts[0].faction).toBe(S.fac);
   expect(mock.posts[0].level).toBe(S.lvl);
+  expect(mock.posts[0]).toHaveProperty('challenge_mode', '');
   const clientId = await page.evaluate(() => localStorage.getItem('jxidle_chat_client_id'));
   expect(clientId).toMatch(/^[0-9a-f-]{16,64}$/i);
   expect(mock.posts[0].client_id).toBe(clientId);
@@ -255,5 +263,47 @@ test('chat: chua co nhan vat -> "Hãy tạo nhân vật trước", khong gui POS
   });
   await expect(page.locator('#worldChat .wc-status')).toHaveText('Hãy tạo nhân vật trước');
   expect(mock.posts.length).toBe(0);
+  assertNoErrors();
+});
+
+test('chat: presence heartbeat — day profile len server (profile chinh minh xem duoc)', async ({ page }) => {
+  const mock = mockChatApi(page, { holdStream: true });
+  await createCharacter(page);
+
+  // Presence luc boot dau (chua co nhan vat) = {client_id, profile: null} — giong
+  // upstream (Ce() tra null ki chua login). Reload: save da co -> boot nap save
+  // -> initWorldChat (sau nap save) -> presence thu 2 co profile day du.
+  await page.reload();
+  await expect(page.locator('#qBar .qb')).toHaveCount(14);
+  await expect.poll(() => mock.presences.length).toBe(2);
+  const first = mock.presences.find(p => p.profile);
+  expect(first).toBeTruthy();
+  const S = await page.evaluate(() => (window as any).__G.S);
+  const clientId = await page.evaluate(() => localStorage.getItem('jxidle_chat_client_id'));
+  expect(first.client_id).toBe(clientId);
+  expect(first.profile).toMatchObject({
+    name: S.name,
+    faction: S.fac,
+    level: S.lvl,
+    challenge_mode: '',
+    rank_id: null,
+    tower_best: 0,
+    bosses: 0,
+    reborn: 0,
+  });
+  // attributes: 4 chi so so >= 0
+  for (const key of ['str', 'dex', 'vit', 'eng']) {
+    expect(Number(first.profile.attributes[key])).toBeGreaterThanOrEqual(0);
+  }
+  expect(Number(first.profile.combat_power)).toBeGreaterThanOrEqual(0);
+  // equipment: đủ 11 ô — nhân vật mới có vũ khí khởi tạo (đối tượng
+  // snapshot), các ô còn lại null hoặc đồ.
+  for (const slot of ['weapon', 'armor', 'helm', 'belt', 'boot', 'cuff', 'amulet', 'ring1', 'ring2', 'pendant', 'horse']) {
+    expect(first.profile.equipment).toHaveProperty(slot);
+  }
+  expect(first.profile.equipment.weapon).toMatchObject({ snapshot_version: 2, name: expect.any(String) });
+  // stream treo (holdStream) -> 'ready' khong fire, interval 45s chua kip
+  // -> dung o 2 presence (boot chua NV + boot sau reload)
+  await expect.poll(() => mock.presences.length, { timeout: 3000 }).toBe(2);
   assertNoErrors();
 });
