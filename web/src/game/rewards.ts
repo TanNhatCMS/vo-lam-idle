@@ -102,7 +102,11 @@ const dayKey = d => `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
 const today = () => dayKey(new Date());
 const weekKey = d => { const t = new Date(d.getFullYear(), d.getMonth(), d.getDate()); t.setDate(t.getDate() - (t.getDay() + 6) % 7); return dayKey(t); };   // Thu Hai cua tuan: doi tuan -> key doi
 export const GB_EVERY = 1800, GB_RETRY = 300;     // trum Hoang Kim: moi 30 phut choi; thua thi 5 phut sau quay lai
-export const REBORN_LV = MAX_LEVEL, REBORN_MAX = 10;  // chuyen sinh toi da 10 lan (TS1-TS5 tam phap, TS6-TS10 diem Thap II — theo ban vinarpg)
+/* Chuyen sinh (port upstream 2026-10-11: Bv=100, Vv=25, Hv=10):
+   lan 1 tu cap 100, moi lan them 25 cap (125/150/.../350), toi da 10 lan
+   (TS1-TS5 tam phap, TS6-TS10 diem Thap II — theo ban vinarpg). */
+export const REBORN_BASE = 100, REBORN_STEP = 25, REBORN_MAX = 10;
+export const rebornLevelAt = n => REBORN_BASE + REBORN_STEP * clamp(Math.floor(+n || 0), 0, REBORN_MAX);
 /* ======================= SACH DIEM (port upstream 2026-10-11) =======================
    Tẩy Tỵ Kinh (ttk): từ cấp 80 hoặc đã chuyển sinh, +1 điểm tiềm năng ở cấp 80,
    mỗi 2 cấp thêm 1 (tối đa +5 ở cấp 88), đã chuyển sinh luôn +5; tối đa 15 cuốn,
@@ -251,6 +255,16 @@ export const LV_MS = [
   [95, { set: 1, fd: 20, pts: 5 }, 'Danh hiệu «Đại hiệp»'],
   [97, { gold: 10000, pot: { kind: 'life', tier: 5, n: 20 }, fd: 20 }, ''],
   [99, { set: 1, fd: 30, pts: 5 }, 'Danh hiệu «Tông sư» · mở khóa chuyển sinh'],
+  [105, { gold: 20000, pot: { kind: 'life', tier: 5, n: 20 }, pts: 5 }, ''],
+  [110, { item: 6, fd: 20 }, ''],
+  [115, { gold: 30000, pts: 5 }, ''],
+  [120, { set: 1, fd: 25, pts: 8 }, 'Danh hiệu «Bá chủ»'],
+  [130, { gold: 60000, pot: { kind: 'mana', tier: 5, n: 20 }, fd: 25 }, ''],
+  [140, { set: 1, pts: 10 }, ''],
+  [150, { gold: 120000, fd: 40, pts: 10 }, 'Danh hiệu «Vô song»'],
+  [160, { set: 1, fd: 40 }, ''],
+  [170, { gold: 200000, pts: 12 }, ''],
+  [180, { set: 1, fd: 60, pts: 15 }, 'Danh hiệu «Thiên hạ đệ nhất»'],
 ];
 const TOWER_LV = 10;
 export const unlocked = lv => S.lvl >= lv || RW().stat.reborn > 0;
@@ -414,7 +428,7 @@ export function tower2Start() {
 export function rebornBonus() { const n = S.rw && S.rw.stat ? S.rw.stat.reborn || 0 : 0; return { xp: 0.2 * n, dmg: 0.1 * n }; }
 function doReborn() {
   const r = RW();
-  if (S.lvl < REBORN_LV || r.stat.reborn >= REBORN_MAX) return;
+  if (S.lvl < rebornLevelAt(r.stat.reborn) || r.stat.reborn >= REBORN_MAX) return;
   if (R.tower || R.tk) { toast('Hãy rời trận trước khi chuyển sinh'); return; }
   if (!confirm('Chuyển sinh: về cấp 1, giữ trang bị, võ công và điểm từ Tẩy Tỵ Kinh. Tiếp tục?')) return;
   const t = bookPoints();               // điểm sách được giữ qua chuyển sinh (upstream Ky())
@@ -1406,10 +1420,10 @@ function giftBody(r) {
     return `<p class="desc">Đồng hành đi theo và cùng đánh quái, lên cấp theo số quái hạ. Chọn trong các loài ở vùng đã tới (đổi loài vẫn giữ cấp và trang bị). Gắn trang bị cho Đồng hành ở <b>thẻ Đồng hành</b> dưới thanh menu.</p>${p && st ? `<p>Đang dẫn: <b style="color:${SERIES_COL[st.elem]}">${esc(MON[p.tid].n)}</b> · hệ ${SERIES[st.elem]} · cấp ${p.lvl} · sát thương ${fmt(st.atk)}/đòn</p>` : ''}
       <div class="petpick">${petChoices().map(t => `<button data-p="${t}" class="${p && p.tid === t ? 'on' : ''}">${MON[t].img ? `<img src="${esc(MON[t].img)}" alt="">` : ''}<b>${esc(MON[t].n)}</b></button>`).join('')}</div>`;
   }
-  const bo = rebornBonus(), full = r.stat.reborn >= REBORN_MAX;
-  return `<p class="desc">Từ cấp ${REBORN_LV} (tối đa): về cấp 1, giữ trang bị và võ công, nhận 50 điểm tiềm năng × số lần chuyển sinh, thưởng vĩnh viễn +20% kinh nghiệm và +10% sát thương mỗi lần (tối đa ${REBORN_MAX} lần). Điểm từ Tẩy Tỵ Kinh được giữ qua chuyển sinh.</p>
+  const bo = rebornBonus(), full = r.stat.reborn >= REBORN_MAX, need = rebornLevelAt(r.stat.reborn);
+  return `<p class="desc">Từ cấp 100, mỗi lần chuyển sinh cần thêm 25 cấp (lần 2: cấp 125, lần 3: 150…): về cấp 1, giữ trang bị và võ công, nhận 50 điểm tiềm năng × số lần chuyển sinh, thưởng vĩnh viễn +20% kinh nghiệm và +10% sát thương mỗi lần (tối đa ${REBORN_MAX} lần). Điểm từ Tẩy Tỵ Kinh được giữ qua chuyển sinh.</p>
       <p>Đã chuyển sinh: <b>${r.stat.reborn}</b> lần · hiện +${Math.round(bo.xp * 100)}% kinh nghiệm, +${Math.round(bo.dmg * 100)}% sát thương.</p>
-      <div class="btnrow"><button class="btn red" id="gReborn" ${S.lvl >= REBORN_LV && !full ? '' : 'disabled'}>${full ? 'Đã chuyển sinh tối đa' : S.lvl >= REBORN_LV ? 'Chuyển sinh' : `Cần cấp ${REBORN_LV}`}</button></div>`;
+      <div class="btnrow"><button class="btn red" id="gReborn" ${S.lvl >= need && !full ? '' : 'disabled'}>${full ? 'Đã chuyển sinh tối đa' : S.lvl >= need ? 'Chuyển sinh' : `Cần cấp ${need}`}</button></div>`;
 }
 /* Mo hop qua tang dung the chi dinh (hang nut nhanh the Giang ho) */
 export function openGiftTab(tab) { giftTab = tab; giftModal(); }

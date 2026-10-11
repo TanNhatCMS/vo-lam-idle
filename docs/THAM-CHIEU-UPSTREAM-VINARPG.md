@@ -55,7 +55,9 @@ Lĩnh ngộ võ công 90 / Mật Tịch, auto tiết kiệm pin / vượt cấp,
 Sức mạnh → Chính xác.
 **Đã port từ đợt này (2026-10-11)**: Tẩy Tỵ Kinh + Dịch Căn Kinh +
 chuyển sinh giữ điểm sách (save: `useN`, `attrBookBonus`; sách rơi
-từ trùm cấp 80+).
+từ trùm cấp 80+) + **bảng level theo nguồn** (MAX_LEVEL 1000, exp
+công thức `floor(100·n^2.2·(1+n/500))`, chuyển sinh cấp 100 +25/lần,
+mốc cấp đến 180). Test: `tests/f8-sach-diem.spec.ts`.
 
 Mình đã có sẵn (đừng port trùng): chuyển sinh 5 lần, Tháp thử thách, danh hiệu
 achievement, Pet/Đồng hành, Boss Thế Giới + gacha Vỏ Sò, kho chung, Luyện công,

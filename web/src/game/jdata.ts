@@ -39,12 +39,24 @@ async function getJson(url: string, ms = 15000): Promise<any> {
 }
 
 let inflight: Promise<void> | null = null;
+/* Bang cap (port upstream 2026-10-11): upstream regenerate toa bo
+   bang exp bang cong thuc idle khi nap — bang nhung 200 entry trong
+   jdata la du lieu goc JX1 bi ghi de; cap 9999 entry de len den
+   cap 1000 (MAX_LEVEL). Cong thuc: floor(100 * n^2.2 * (1 + n/500)). */
+const EXP_TABLE_SIZE = 9999;
 export function loadJData(): Promise<void> {
   if (!inflight) {
     inflight = Promise.all(TARGETS.map(async ([url, dst]) => {
       const data = await getJson(url);
       if (data && typeof data === 'object') Object.assign(dst, data);   // giu nguyen dinh danh object da export
-    })).then(() => undefined);
+    })).then(() => {
+      if (!Array.isArray(JX.exp) || JX.exp.length < EXP_TABLE_SIZE) {
+        JX.exp = Array.from({ length: EXP_TABLE_SIZE }, (_, t) => {
+          const n = t + 1;
+          return Math.floor(100 * Math.pow(n, 2.2) * (1 + n / 500));
+        });
+      }
+    });
   }
   return inflight;
 }

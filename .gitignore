@@ -25,3 +25,9 @@ web/public/ui/horse-saddle.png
 web/public/ui/input-joystick.svg
 web/public/ui/input-mouse.svg
 web/public/ui/wrench.svg
+
+# Wrangler CLI cache (khong commit)
+.wrangler/cache/
+
+# TypeScript name-scan cache (khong commit)
+web/scripts/.tsc_scan/

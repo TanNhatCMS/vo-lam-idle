@@ -39,7 +39,7 @@ export const MAX_RESIST = 95, PLAYER_RES_MAX = 75, MAX_HIT = 95, MIN_HIT = 40, C
 export const STR_PER_DMG = 5, DEX_PER_DMG = 5, ENG_PER_DMG = 4;
 /* Can bang rieng game idle (ban goc khong co): 1 Noi cong = +1% sat thuong nguyen to cua chieu, 1 Suc manh (Than phap voi am khi) = +1% sat thuong vat ly */
 export const ENG_PER_PCT = 1, STR_PER_PCT = 1, DEX_PCT_RANGED = 0.5, IDLE_LIFE_PER_LEVEL = 8; // +8 sinh luc moi cap cho moi he (quai danh lien tuc theo dot)
-export const PTS_PER_LEVEL = 5, SKILL_PTS_PER_LEVEL = 1, MAX_LEVEL = Math.min(99, (J.exp || []).length);   // gioi han cap 99 (CLAUDE.md)
+export const PTS_PER_LEVEL = 5, SKILL_PTS_PER_LEVEL = 1, MAX_LEVEL = 1000;   // cap 1000 (port upstream 2026-10-11: Te=1000; bang exp regenerate trong jdata.ts)
 /* Dong hanh (pet): trang bi gan cho pet cong thuoc tinh vao nhan vat theo ti le (PET_EQ_BUFF) va
    tang sat thuong rieng cua pet theo suc manh mon do (PET_GEAR_POWER x itemPower). */
 export const PET_EQ_BUFF = 0.5, PET_GEAR_POWER = 0.35, PET_LV = 20;
