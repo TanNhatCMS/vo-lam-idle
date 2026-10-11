@@ -15,6 +15,23 @@ const MIME = {
 
 createServer((req, res) => {
   let p = decodeURIComponent((req.url || '/').split('?')[0]);
+  /* Stub API chat the gioi cho test: chat.ts luon fetch /api/chat/* khi
+     boot, neu server static tra 404 se gay "Failed to load resource"
+     trong console cua test. Chat spec (tests/chat.spec.ts) dung
+     page.route() de mock chi tiet hon — route luon uu tien hon server.
+     Day chi la stub de cac test con lai khong bi loi console. */
+  if (p === '/api/chat/status' || p === '/api/chat/messages') {
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Cache-Control', 'no-store');
+    return res.end(JSON.stringify(p === '/api/chat/status' ? { ok: true, online: 0 } : { ok: true, messages: [] }));
+  }
+  if (p === '/api/chat/stream') {
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-store');
+    return res.end('event: ready\ndata: {"messages":[],"online":0}\n\n');
+  }
   if (p.endsWith('/')) p += 'index.html';
   let file = join(ROOT, p);
   if (!existsSync(file) && existsSync(join(file, 'index.html'))) file = join(file, 'index.html');

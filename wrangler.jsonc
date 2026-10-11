@@ -5,6 +5,7 @@
 {
   "$schema": "https://unpkg.com/wrangler/config-schema.json",
   "name": "vo-lam-idle",
+  "main": "chat-proxy.js",
   "compatibility_date": "2026-10-04",
   "workers_dev": true,
   "observability": { "enabled": false },
