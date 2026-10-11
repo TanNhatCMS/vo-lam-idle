@@ -28,6 +28,6 @@ web/public/ui/wrench.svg
 
 # Wrangler CLI cache (khong commit)
 .wrangler/cache/
-
+.tmp
 # TypeScript name-scan cache (khong commit)
 web/scripts/.tsc_scan/

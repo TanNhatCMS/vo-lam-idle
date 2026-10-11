@@ -23,7 +23,7 @@ async function createCharacter(page: Page, name = 'TestForge') {
   await page.locator('#bNotice').click();
   const skip = page.locator('#tSkip');
   if (await skip.isVisible({ timeout: 3000 }).catch(() => false)) await skip.click();
-  await expect(page.locator('#qBar .qb')).toHaveCount(13);
+  await expect(page.locator('#qBar .qb')).toHaveCount(14);
 }
 
 /* Mở Lò Huyền Tinh (nút nhanh thứ 6, thẻ Giang hồ) và chờ modal hiện. */

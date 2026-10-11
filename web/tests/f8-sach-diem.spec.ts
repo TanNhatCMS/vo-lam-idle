@@ -11,7 +11,7 @@ async function createCharacter(page: Page) {
   await page.locator('#bNotice').click();
   const skip = page.locator('#tSkip');
   if (await skip.isVisible({ timeout: 3000 }).catch(() => false)) await skip.click();
-  await expect(page.locator('#qBar .qb')).toHaveCount(13);
+  await expect(page.locator('#qBar .qb')).toHaveCount(14);
 }
 
 test('sach diem: the Nhan vat hien card, dung Tẩy Tỵ/Dịch Căn, diem giu qua chuyen sinh', async ({ page }) => {

@@ -1,5 +1,6 @@
 // @ts-nocheck — chuyen tu vanilla JS: bat lai check tung file dan dan (xem README muc TypeScript)
-import { FAC } from './core';
+import { FAC, RAR_COL, SERIES_COL, clamp, esc } from './core';
+import { modal } from './ui';
 import { R } from './combat';
 import { S } from './save';
 
@@ -30,6 +31,13 @@ const CHAT_SHOW_TIME_KEY = 'jxidle_chat_show_time';
 const GM_TOKEN_SESSION_KEY = 'jxidle_chat_gm_token';
 const CLIENT_ID_KEY = 'jxidle_chat_client_id';
 const IDLE_FRAME_MS = 5000;
+/* Ô trang bị trong hồ sơ nhân vật (gồm 11 ô như lt ban nguồn). */
+const PROFILE_SLOTS = [
+  ['weapon', 'Vũ khí'], ['armor', 'Áo'], ['helm', 'Mũ'], ['belt', 'Đai lưng'],
+  ['boot', 'Giày'], ['cuff', 'Hộ uyển'], ['amulet', 'Dây chuyền'],
+  ['ring1', 'Nhẫn 1'], ['ring2', 'Nhẫn 2'], ['pendant', 'Ngọc bội'], ['horse', 'Ngựa']
+];
+const PROFILE_CHALLENGE = { nopot: 'Không dùng thuốc', white: 'Bố Y', hard: 'Khó' };
 /* Base URL tuyet doi cua Worker proxy (xem comment tren — de chat chay duoc
    tren WebViewAssetLoader cua Android, origin khac voi domain web). */
 const CHAT_API = 'https://vo-lam-idle.tannhatcms.io.vn';
@@ -198,6 +206,81 @@ function showStatus(text, state = '') {
   statusLabel.hidden = !text;
 }
 
+/* ======================= HO SO NHAN VAT (port upstream 2026-10-11) =======================
+   Bam ten nhan vat tren chat the gioi -> GET /api/chat/profile?name= (404 = dang
+   offline hoac chua gui ho so) -> modal thong tin: phai, cap, chuyen sinh, challenge
+   mode, luc chien / Thap / trum da ha, luoi trang bi (mo itemModal qua
+   window.showSharedItem — dinh dang snapshot giong tin nhan chia se). */
+function openProfile(name) {
+  if (!name) return;
+  showStatus('Đang tải hồ sơ trực tuyến…', 'wait');
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
+  fetch(`${CHAT_API}/api/chat/profile?name=${encodeURIComponent(name)}`, { cache: 'no-store', signal: controller.signal })
+    .then(async response => {
+      const data = await response.json().catch(() => ({}));
+      if (response.status === 404) { showStatus('', ''); return; }
+      if (!response.ok) throw new Error(data.error || 'Không tải được hồ sơ nhân vật.');
+      if (typeof window.showWorldChatProfile !== 'function') throw new Error('Màn hình hồ sơ chưa sẵn sàng.');
+      window.showWorldChatProfile(data.profile);
+      showStatus('', 'ok');
+    })
+    .catch(error => {
+      if (error.name === 'AbortError') { showStatus('', ''); return; }
+      const text = error.message || 'Không kết nối được hồ sơ trực tuyến.';
+      showStatus(text, 'error');
+      console.warn('[chat] ' + text);
+    })
+    .finally(() => clearTimeout(timer));
+}
+
+const profileNum = value => Number.isFinite(Number(value)) ? Math.max(0, Math.floor(Number(value))) : 0;
+const profileReqLevel = item => {
+  const row = Array.isArray(item.requirements)
+    ? item.requirements.find(q => Array.isArray(q) && Number(q[0]) === 36) : null;
+  return row ? profileNum(row[1]) : 0;
+};
+function showWorldChatProfile(profile) {
+  if (!profile || typeof profile !== 'object' || !profile.equipment) return;
+  const faction = FAC[profile.faction];
+  const factionName = faction ? faction.n : String(profile.faction || 'Giang hồ');
+  const updated = new Date(Number(profile.updated_at) * 1000);
+  const updatedText = Number.isFinite(updated.getTime())
+    ? updated.toLocaleString('vi-VN', { day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+    : 'đang trực tuyến';
+  const reborn = profileNum(profile.reborn);
+  const subtitle = `${esc(factionName)} · cấp ${profileNum(profile.level)}${reborn ? ` · chuyển sinh ${reborn}` : ''}`;
+  const slots = PROFILE_SLOTS.map(([key, label]) => {
+    const item = profile.equipment[key];
+    if (!item) return `<div class="world-profile-slot"><span>${esc(label)}</span><div class="world-profile-empty" aria-label="${esc(label)}: chưa trang bị">—</div></div>`;
+    const rarity = clamp(Number(item.rarity) || 0, 0, RAR_COL.length - 1);
+    const setCls = item.set && item.set.kind === 'gold' ? ' goldset' : item.set && item.set.kind === 'platina' ? ' platinaset' : !item.set && rarity === 3 ? ' purpleitem' : !item.set && rarity === 1 ? ' magicitem' : '';
+    const enhance = profileNum(item.enhancement) || profileNum(item.platinum);
+    const reqLevel = profileReqLevel(item);
+    const seriesColor = Number.isInteger(item.series) && item.series >= 0 ? SERIES_COL[item.series] : '';
+    const dot = seriesColor ? `<b class="s5" style="background:${seriesColor}"></b>` : '';
+    const locked = item.locked ? `<u class="lk" aria-label="Đã khóa">🔒</u>` : '';
+    const icon = item.icon ? `<img src="${esc(String(item.icon))}" alt="" draggable="false">` : '';
+    const tip = `${String(item.name || 'Trang bị')} · yêu cầu cấp ${reqLevel || '—'} · bậc ${profileNum(item.tier)}${enhance ? ` · +${enhance}` : ''}${profileNum(item.platinum) ? ` · Bạch Kim +${profileNum(item.platinum)}` : ''}`;
+    return `<div class="world-profile-slot"><span>${esc(label)}</span><button type="button" class="it world-profile-item r${rarity}${setCls}" data-profile-item="${esc(key)}" title="${esc(tip)}" aria-label="Xem thuộc tính ${esc(tip)}">${icon}<i>${reqLevel || '—'}</i>${enhance ? `<em>+${enhance}</em>` : ''}${dot}${locked}</button></div>`;
+  }).join('');
+  const challenge = PROFILE_CHALLENGE[profile.challenge_mode] ? `<small class="world-profile-challenge">${esc(PROFILE_CHALLENGE[profile.challenge_mode])}</small>` : '';
+  const tower = profileNum(profile.tower_best), bosses = profileNum(profile.bosses), power = profileNum(profile.combat_power);
+  modal(`<header class="world-profile-heading"><div><h3>${esc(String(profile.name || 'Nhân vật').slice(0, 24))}</h3><div class="world-profile-meta">${subtitle}${challenge}</div></div></header>
+    <div class="world-profile-stats">${power ? `Lực chiến ${power.toLocaleString('vi-VN')} <i>·</i> ` : ''}Tháp tầng ${tower.toLocaleString('vi-VN')} <i>·</i> Trùm đã hạ ${bosses.toLocaleString('vi-VN')} <small>· cập nhật ${esc(updatedText)}</small></div>
+    <div class="world-profile-equip">${slots}</div>`, () => {
+      document.querySelectorAll('#mBody [data-profile-item]').forEach(button => {
+        button.onclick = () => {
+          const item = profile.equipment[button.dataset.profileItem];
+          if (item && typeof window.showSharedItem === 'function') window.showSharedItem(item, null);
+        };
+      });
+    });
+  const modalEl = document.getElementById('modal');
+  if (modalEl) modalEl.classList.add('item-preview-modal', 'world-player-profile');
+}
+window.showWorldChatProfile = showWorldChatProfile;
+
 function setUnread(value) {
   unread = value;
   unreadBadge.textContent = unread > 99 ? '99+' : String(unread);
@@ -221,11 +304,20 @@ function renderMessage(message) {
   timeSpace.className = 'wc-time-space';
   timeSpace.textContent = ' ';
   timeSpace.hidden = !showTime;
-  const player = document.createElement('b');
-  player.className = 'wc-name';
+  const player = document.createElement('button');
+  player.type = 'button';
+  player.className = 'wc-name wc-profile-link';
   const isGm = message.is_gm === true;
   if (isGm) player.classList.add('wc-gm-name');
+  if (message.challenge_mode === 'white') player.classList.add('wc-boyo-name');
+  if (message.challenge_mode === 'hard') player.classList.add('wc-hard-name');
   player.textContent = `${isGm ? '[GM]' : ''}${String(message.name || 'Tân thủ')}`;
+  player.title = 'Xem hồ sơ khi nhân vật đang trực tuyến';
+  player.setAttribute('aria-label', `Xem hồ sơ trực tuyến của ${String(message.name || 'Tân thủ')}`);
+  player.addEventListener('click', event => {
+    event.preventDefault(); event.stopPropagation();
+    openProfile(String(message.name || ''));
+  });
   const faction = FAC[message.faction];
   const factionName = document.createElement('span');
   factionName.className = 'wc-faction';

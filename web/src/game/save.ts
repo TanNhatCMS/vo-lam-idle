@@ -43,7 +43,7 @@ const FEMALE_FAC = ['emei', 'cuiyan'];       // phai nu: trang phuc nu; con lai 
 export function newSave() {
   return { v: SAVE_V, name: 'Tân thủ', fac: null, sex: 0, lvl: 1, xp: 0, gold: 0, attrPts: 0, attr: { str: 0, dex: 0, vit: 0, eng: 0 }, attrBonusEarned: 0, attrBookBonus: 0, useN: {}, attrPotentialV: 1,
     skPts: 1, sk: {}, main: 0, eq: {}, inv: [], stage: 1, maxStage: 1, wave: 1, push: true, uid: 1, autoSell: 0,
-    kps: 0.2, totalKills: 0, autoEquip: true, autoPts: false, diff: 1, autoForge: false, autoBuy: true, tut: 0, hints: {}, bakAt: 0, potOff: false, potUsed: 0, potStock: { life: {}, mana: {} }, ctrl: 'auto', joy: 'fixed', slots: [0, 0, 0, 0], fieldMode: false,
+    kps: 0.2, totalKills: 0, autoEquip: true, autoPts: false, diff: 1, autoForge: false, autoBuy: true, tut: 0, hints: {}, bakAt: 0, potOff: false, potUsed: 0, potStock: { life: {}, mana: {} }, ctrl: 'auto', joy: 'fixed', slots: [0, 0, 0, 0], fieldMode: false, whiteOverlevel: false,
     autoFind: true, autoBossPriority: true, autoRange: 'medium', autoSkillSlots: [true, true, true, true],
     autoHpPotion: true, hpPotionAt: 50, autoMpPotion: true, mpPotionAt: 30, autoTownHp: false, townHpAt: 20,
     invExpansions: 0, invOrder: [], invSort: 'new',
@@ -235,6 +235,7 @@ function migrate(o) {
   /* Sách điểm: useN = số cuốn đã dùng mỗi loại (ttk/vlmt), attrBookBonus = tổng điểm sách thô. */
   s.useN = safeKeys(s.useN);
   s.attrBookBonus = Math.min(BOOK_POINT_CAP, safePotentialValue(s.attrBookBonus));
+  s.whiteOverlevel = s.whiteOverlevel === true;   // vuot cap quai (chi co tac dung o thach Bố Y)
   s.attrPotentialArchive = cleanPotentialArchive(o.attrPotentialArchive);
   let potentialChanged = o.attrPotentialV !== 1 || !attrWasClean || !bonusWasClean || !Number.isSafeInteger(+o.attrPts) || +o.attrPts !== s.attrPts;
   // Khôi phục archive tới ngưỡng 3.000 điểm, hoặc tới ngân sách cấp hiện tại nếu cao hơn.

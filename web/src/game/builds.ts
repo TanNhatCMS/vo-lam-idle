@@ -35,6 +35,7 @@ export function respecQuote(scope) {
   return { attrs, skills, hasSkills, gold: (attrs ? respecCost('attr') : 0) + (hasSkills ? respecCost('skill') : 0) };
 }
 function respecPoints(scope) {
+  if (R.tyvo) { toast('Không thể đổi bộ võ học trong lúc Tỷ Võ'); return { ok: false, msg: 'Không thể đổi bộ võ học trong lúc Tỷ Võ' }; }
   const q = respecQuote(scope);
   if (!q.attrs && !q.hasSkills) return { ok: false, msg: 'Chưa có điểm đã cộng để tẩy' };
   if (S.gold < q.gold) return { ok: false, msg: `Cần ${fmt(q.gold)} lượng để tẩy, còn thiếu ${fmt(q.gold - S.gold)}` };
@@ -44,6 +45,7 @@ function respecPoints(scope) {
   return { ok: true, attrs, skills, gold: q.gold, msg: `Đã trả ${attrs} điểm tiềm năng và ${skills} điểm kỹ năng · phí ${fmt(q.gold)} lượng` };
 }
 export function respecModal(scope, rerender) {
+  if (R.tyvo) { toast('Không thể đổi bộ võ học trong lúc Tỷ Võ'); return; }
   const q = respecQuote(scope);
   if (!q.attrs && !q.hasSkills) { toast('Chưa có điểm đã cộng để tẩy'); return; }
   const title = scope === 'attr' ? 'Tẩy điểm tiềm năng?' : scope === 'skill' ? 'Tẩy điểm kỹ năng?' : 'Tẩy toàn bộ điểm?';
@@ -70,6 +72,7 @@ function buildLoadCost(i) {
 }
 /* Dùng một bộ: chỉ thu phí khi bộ mới đổi phân bổ điểm; bộ không đủ điểm thì từ chối, không thay đổi gì. */
 function buildLoad(i) {
+  if (R.tyvo) { toast('Không thể đổi bộ võ học trong lúc Tỷ Võ'); return { ok: false, msg: 'Không thể đổi bộ võ học trong lúc Tỷ Võ' }; }
   if (!Number.isInteger(i) || i < 0 || i >= buildN()) return { ok: false, msg: 'Ô bộ võ học chưa mở' };
   const b = builds()[i]; if (!b) return { ok: false, msg: 'Bộ trống' };
   const attrs = ['str', 'dex', 'vit', 'eng'], validPoints = n => Number.isSafeInteger(n) && n >= 0;

@@ -95,6 +95,9 @@ button[disabled]{opacity:.4;cursor:default}
 .wc-line{font-size:clamp(10px,2.7vw,12px);line-height:1.5;color:#f1f0d7;overflow-wrap:anywhere}
 .wc-time{color:#ddd9c2}
 .wc-name{color:#9ff18a;font-weight:700}
+.wc-name.wc-profile-link{font:inherit;font-weight:700;line-height:inherit;text-align:inherit;cursor:default;background:0 0;border:0;padding:0;text-decoration:none;display:inline}
+.wc-name.wc-boyo-name{color:#69aaff}
+.wc-name.wc-hard-name{color:#ff7070}
 .wc-name.wc-gm-name{color:#ffbf00;-webkit-text-stroke:.45px #000;paint-order:stroke fill;text-shadow:-1px -1px 0 #000,0 -1px 0 #000,1px -1px 0 #000,-1px 0 0 #000,1px 0 0 #000,-1px 1px 0 #000,0 1px 0 #000,1px 1px 0 #000}
 .wc-faction{color:#a8edb2}
 .wc-level{color:#d6f2b6}
@@ -800,8 +803,8 @@ input.nameinp{background:#0b100e;color:var(--text);border:1px solid var(--line2)
 #petChip small{position:absolute;right:-4px;bottom:-5px;font-size:8px;color:var(--gold);background:#0b100e;border:1px solid var(--gold2);border-radius:8px;padding:0 3px;line-height:12px}
 #adminQuickBtn{position:relative;flex:none;width:32px;height:32px;border-radius:50%;border:1px solid var(--gold2);background:radial-gradient(#3a2f1c,#120d06);font-size:14px;line-height:30px;cursor:pointer}
 #adminQuickBtn:hover{border-color:#ffeb99;box-shadow:0 0 8px rgba(255,215,0,.5)}
-/* Cụm nút trái sân đấu: xoay chiêu / Luyện Công / Boss Thế Giới / Tự điều khiển */
-#wbBtn{right:auto;left:8px;top:auto;bottom:216px}
+/* Nút Boss Thế Giới: gọn bên phải sân đấu, ngay dưới cụm bản đồ mini */
+#wbBtn{right:8px;left:auto;top:170px;bottom:auto}
 /* #svBtn/#rotBtn da bo khoi san (Luyen Cong o hang nut nhanh, Xoay chieu trong Cai dat Auto);
    #ctrlBtn la cong tac iOS trong #autoControls goc phai — khong ep vi tri nhu cu */
 body.sv #wbBtn{display:none!important}
@@ -875,3 +878,122 @@ body.sv #wbBtn{display:none!important}
 .lg-view{max-height:52vh;overflow:auto;margin:8px 0;padding:8px 10px;border:1px solid var(--line2);border-radius:6px;background:#070b09;font:11px/1.5 var(--font);white-space:pre-wrap;word-break:break-word}
 .lg-line{padding:1px 0;border-bottom:1px solid #121a15}
 .lg-t{color:#6d756f}
+
+/* ====== Ho so nhan vat (chat the gioi — bam ten de xem) ====== */
+#modal.world-player-profile .mbox{box-sizing:border-box;background-color:#0e1713b8;background-image:linear-gradient(135deg,#1b2a23d1,#0a110ed6);border-color:#70917bc7;width:min(92vw,760px);max-height:min(86dvh,760px);padding:14px}
+.world-profile-heading{border-bottom:1px solid var(--line2);align-items:center;min-height:46px;padding:0 42px 10px 6px;display:flex}
+.world-profile-heading h3{color:#ead7a0;margin:0;font-size:clamp(16px,2.4vw,22px);line-height:1.25}
+.world-profile-meta{color:#a9b0a7;flex-wrap:wrap;align-items:center;gap:7px;margin-top:3px;font-size:clamp(11px,1.7vw,15px);display:flex}
+.world-profile-challenge{color:#70b4ff}
+.world-profile-stats{color:#e8dfc6;padding:10px 4px 13px;font-size:clamp(12px,1.8vw,17px);line-height:1.4}
+.world-profile-stats i{color:#99a39a;padding:0 4px;font-style:normal}
+.world-profile-stats small{color:#99a39a;font-size:.82em}
+.world-profile-equip{grid-template-columns:repeat(4,minmax(0,1fr));gap:8px 6px;max-width:620px;margin:0 auto;padding:0 4px 4px;display:grid}
+.world-profile-slot{color:#9fa99e;text-align:center;align-content:start;justify-items:center;gap:4px;min-width:0;font-size:clamp(10px,1.5vw,14px);display:grid}
+.world-profile-slot>span{text-overflow:ellipsis;white-space:nowrap;max-width:100%;overflow:hidden}
+.world-profile-item,.world-profile-empty{box-sizing:border-box;aspect-ratio:1;border-radius:2px;width:min(100%,112px)}
+.world-profile-item{border-color:var(--line2);cursor:pointer;touch-action:manipulation;padding:2px}
+.world-profile-item:hover,.world-profile-item:focus-visible{outline-offset:2px;outline:2px solid #ead080}
+.world-profile-item img{max-width:88%;max-height:88%}
+.world-profile-item em{color:#ffd24a;text-shadow:0 1px 3px #000,0 0 3px #000;font-weight:700;top:auto;bottom:1px;left:3px}
+.world-profile-item i{color:#aeb7aa;text-shadow:0 1px 3px #000;font-size:clamp(10px,1.6vw,14px);bottom:1px;right:3px}
+.world-profile-item .s5{z-index:2;top:auto;bottom:5px;left:4px}
+.world-profile-item .lk{z-index:3;text-shadow:0 1px 3px #000;font-size:12px;text-decoration:none;position:absolute;top:0;right:2px}
+#modal.world-player-profile .world-profile-item .lk{border-radius:0;width:auto;height:auto;line-height:1;display:block;inset:0 2px auto auto}
+.world-profile-empty{color:#59665c;background:#080e0b66;border:1px dashed #526057;place-items:center;font-size:20px;display:grid}
+@media(max-width:560px){.world-profile-equip{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px 5px}}
+
+/* ====== Vượt cấp quái (thách Bố Y — stagectl) ====== */
+.stagectl-overlevel{color:#b5beb3;font:inherit;white-space:nowrap;cursor:pointer;background:0 0;border:0;align-items:center;gap:4px;margin-left:1px;padding:0;font-size:10px;line-height:1;display:inline-flex}
+.stagectl-overlevel:focus-visible{outline-offset:3px;border-radius:3px;outline:2px solid #8bc995}
+.stagectl-switch{box-sizing:border-box;background:#29342c;border:1px solid #4b594e;border-radius:999px;align-items:center;width:27px;height:16px;padding:2px;display:inline-flex;position:relative;box-shadow:inset 0 1px 2px #0008}
+.stagectl-switch i{background:#d2d6d0;border-radius:50%;width:10px;height:10px;transition:transform .16s;display:block;box-shadow:0 1px 2px #0008}
+.stagectl-overlevel[aria-checked=true]{color:#b9ecc1}
+.stagectl-overlevel[aria-checked=true] .stagectl-switch{background:#27653a;border-color:#58a66b}
+.stagectl-overlevel[aria-checked=true] .stagectl-switch i{background:#f4fff5;transform:translate(11px)}
+/* ==== TỶ VÕ TRƯỜNG (port từ volam.vinarpg.com — đấu trường mô phỏng) ==== */
+.tyvo-panel { color:#efe8d5; gap:9px; display:grid }
+.tyvo-heading { background:radial-gradient(at 12% 0,#c89d4828,#0000 55%),linear-gradient(135deg,#202a22,#111713 78%); border:1px solid #a17b3d; border-radius:11px; justify-content:space-between; align-items:center; gap:12px; padding:12px; display:flex; box-shadow:inset 0 1px #ffffff0a }
+.tyvo-heading h3 { color:#ffe5a0; letter-spacing:.02em; margin:2px 0 3px; font-size:18px }
+.tyvo-heading p { color:#c0b9a7; margin:0; font-size:10px; line-height:1.45 }
+.tyvo-eyebrow { color:#d4b568; letter-spacing:.14em; font-size:8px; font-weight:700 }
+.tyvo-currency { background:#080d0bcc; border:1px solid #a88442; border-radius:8px; flex:none; justify-items:end; gap:3px; min-width:76px; padding:7px 9px; display:grid }
+.tyvo-currency small { color:#c5ad72; letter-spacing:.12em; font-size:8px }
+.tyvo-currency b { color:#ffe09a; font-variant-numeric:tabular-nums; font-size:18px }
+.tyvo-reset-line { color:#b9b29f; justify-content:space-between; align-items:center; gap:8px; padding:0 2px; font-size:9px; display:flex }
+.tyvo-reset-line b { color:#e6ce8e }
+.tyvo-reset-line small { color:#899489; flex:none; font-size:9px }
+.tyvo-mode-switch { background:#0b110e; border:1px solid #344339; border-radius:9px; grid-template-columns:1fr 1fr; gap:5px; padding:4px; display:grid }
+.tyvo-mode-switch button { color:#aaa999; background:0 0; border:1px solid #0000; border-radius:7px; min-height:32px; padding:5px 7px; font-size:10px; font-weight:700; line-height:1.25 }
+.tyvo-mode-switch button.on { color:#ffe4a0; background:linear-gradient(135deg,#3b321e,#20251d); border-color:#907440; box-shadow:inset 0 1px #ffffff0b }
+.tyvo-opponent-card { background:linear-gradient(120deg,#1b291e,#101713 72%); border:1px solid #556549; border-radius:9px; align-items:center; gap:10px; padding:10px; display:flex }
+.tyvo-opponent-medal { color:#ffe19a; background:radial-gradient(circle,#5c4a27,#151a14 72%); border:1px solid #bd9b53; border-radius:50%; flex:none; place-items:center; width:39px; height:39px; font-size:19px; display:grid; box-shadow:0 0 14px #d5aa4c20 }
+.tyvo-opponent-copy { flex:1; gap:3px; min-width:0; display:grid }
+.tyvo-opponent-copy small { color:#c9aa5b; letter-spacing:.1em; font-size:8px }
+.tyvo-opponent-copy b { color:#f4e5bd; text-overflow:ellipsis; white-space:nowrap; font-size:11px; overflow:hidden }
+.tyvo-opponent-copy span { color:#9fa595; font-size:9px }
+.tyvo-reroll { color:#d8c17b; background:#101812; border:1px solid #65735d; border-radius:50%; flex:none; width:29px; height:29px; min-height:0; padding:0; font-size:19px; line-height:1 }
+.tyvo-reroll:hover { background:#2c2b1e; border-color:#d2b462 }
+.tyvo-progress { background:#0e1511; border:1px solid #3d4b3e; border-radius:8px; gap:6px; padding:9px 10px; display:grid }
+.tyvo-progress>div:first-child { color:#9da594; justify-content:space-between; gap:8px; font-size:9px; display:flex }
+.tyvo-progress>div:first-child b { color:#e5d4a3; text-align:right; font-size:10px }
+.tyvo-progress-track { background:#080c09; border:1px solid #625431; border-radius:7px; height:6px; overflow:hidden }
+.tyvo-progress-track i { border-radius:inherit; background:linear-gradient(90deg,#9c762d,#f0d07b); height:100%; transition:width .2s; display:block; box-shadow:0 0 9px #e8c76c55 }
+.tyvo-progress>small { color:#8e9989; font-size:8px }
+.tyvo-difficulty { grid-template-columns:repeat(3,minmax(0,1fr)); gap:5px; display:grid }
+.tyvo-difficulty button { color:#aeb3a3; text-align:center; background:#0d1410; border:1px solid #344238; border-radius:8px; gap:4px; min-width:0; padding:7px 4px; display:grid }
+.tyvo-difficulty button b { font-size:9px }
+.tyvo-difficulty button small { color:#899284; white-space:nowrap; font-size:8px }
+.tyvo-difficulty button.on { color:#ffe3a0; background:linear-gradient(145deg,#312a1b,#171d17); border-color:#ab8742; box-shadow:inset 0 0 0 1px #e6c66b15 }
+.tyvo-difficulty button.on small { color:#d6bf7a }
+.tyvo-start-row { justify-content:space-between; align-items:center; gap:8px; padding:2px 1px; display:flex }
+.tyvo-start-row>span { color:#a4aa9a; font-size:9px }
+.tyvo-start-row .btn { min-width:106px }
+.tyvo-rule { background:#a987470d; border-left:2px solid #a98747; border-radius:0 7px 7px 0; gap:3px; padding:8px 9px; display:grid }
+.tyvo-rule b { color:#d9c17b; font-size:9px }
+.tyvo-rule span { color:#9fa595; font-size:9px; line-height:1.45 }
+.tyvo-active-card { background:linear-gradient(110deg,#1d2a1e,#101712); border:1px solid #627247; border-radius:9px; align-items:center; gap:9px; padding:10px; display:flex }
+.tyvo-active-card>div { flex:1; gap:3px; min-width:0; display:grid }
+.tyvo-active-card small { color:#cbb462; letter-spacing:.07em; font-size:8px }
+.tyvo-active-card b { color:#f2e2bc; text-overflow:ellipsis; white-space:nowrap; font-size:10px; overflow:hidden }
+.tyvo-active-card span:not(.tyvo-live-dot) { color:#a5ad9a; font-size:9px }
+.tyvo-live-dot { background:#83d16c; border-radius:50%; flex:none; width:9px; height:9px; animation:1.8s ease-in-out infinite tyvo-pulse; box-shadow:0 0 0 4px #83d16c20,0 0 10px #83d16c70 }
+@keyframes tyvo-pulse {
+    50% { box-shadow:0 0 0 6px #83d16c12,0 0 4px #83d16c35 }
+}
+.tyvo-history { background:#0d1410; border:1px solid #334138; border-radius:8px; overflow:hidden }
+.tyvo-history summary { color:#c8bd9a; cursor:pointer; justify-content:space-between; padding:8px 9px; font-size:9px; list-style:none; display:flex }
+.tyvo-history summary::-webkit-details-marker { display:none }
+.tyvo-history>div { gap:1px; padding:0 8px 6px; display:grid }
+.tyvo-history-row { border-top:1px solid #ffffff0b; grid-template-columns:35px minmax(0,1fr); gap:2px 6px; padding:5px 1px; display:grid }
+.tyvo-history-row>b { color:#d8d2c2; text-overflow:ellipsis; white-space:nowrap; font-size:9px; overflow:hidden }
+.tyvo-history-row>small { color:#879083; grid-column:2; font-size:8px }
+.tyvo-history-result { grid-row:span 2; font-size:8px }
+.tyvo-shop-head { border-bottom:1px solid #544932; justify-content:space-between; align-items:center; margin-top:2px; padding-bottom:4px; display:flex }
+.tyvo-shop-head b { color:#e7d9b0; font-size:10px }
+.tyvo-shop-head small { color:#838d81; font-size:8px }
+.tyvo-shop-row { border-bottom:1px solid #ffffff0a; grid-template-columns:minmax(0,1fr) auto auto; align-items:center; gap:7px; padding:5px 1px; display:grid }
+.tyvo-shop-row>span { color:#c8c4b3; font-size:9px }
+.tyvo-shop-row>small { color:#d8bd70; white-space:nowrap; font-size:8px }
+.tyvo-shop-row .btn { min-width:46px }
+.tyvo-hud { z-index:7; text-align:center; pointer-events:auto; background:linear-gradient(135deg,#101812eb,#080d0be8); border:1px solid #d1b36b99; border-radius:9px; gap:4px; width:min(330px,100% - 120px); padding:8px 10px; display:grid; position:absolute; top:9px; left:50%; transform:translate(-50%); box-shadow:0 5px 18px #0008,inset 0 1px #ffffff0a }
+.tyvo-hud-kicker { color:#d4b568; letter-spacing:.12em; font-size:7px; font-weight:700 }
+.tyvo-hud>b { color:#f7e9c4; text-overflow:ellipsis; white-space:nowrap; font-size:10px; overflow:hidden }
+.tyvo-hud-meta,.tyvo-round-clock { color:#aeb5a4; font-size:8px }
+.tyvo-round-clock b { color:#f0d489; font-variant-numeric:tabular-nums; margin-left:4px; font-size:13px }
+.tyvo-hud-stop { color:#f0b4a3; background:#351e1a; border:1px solid #815146; border-radius:12px; justify-self:center; min-height:21px; padding:2px 10px; font-size:8px }
+body.tyvo-active #bg { filter:saturate(.8)brightness(.9); background-image:radial-gradient(at 50% 48%,#826d3b44 0%,#273027d9 35%,#080e0c 86%)!important }
+body.tyvo-active #battle:after { background:radial-gradient(at 50% 48%,#0000 36%,#0008 100%) }
+body.tyvo-active #worldChat { display:none!important }
+@media (width<=420px) {
+    .tyvo-heading { padding:10px }
+    .tyvo-heading h3 { font-size:16px }
+    .tyvo-currency { min-width:64px; padding:6px 7px }
+    .tyvo-currency b { font-size:16px }
+    .tyvo-reset-line { flex-direction:column; align-items:flex-start; gap:2px }
+    .tyvo-start-row>span { max-width:54% }
+    .tyvo-difficulty button { padding:6px 2px }
+    .tyvo-hud { width:min(270px,100% - 90px); top:7px }
+    .tyvo-hud-kicker { font-size:6.5px }
+}
+body.mobile-landscape.tyvo-active .tyvo-hud { top:calc(var(--mobile-top) + 106px) }

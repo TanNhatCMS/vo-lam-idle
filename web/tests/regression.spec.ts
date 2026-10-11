@@ -26,7 +26,7 @@ async function createCharacter(page: Page, name = 'TestHiệp') {
   await page.locator('#bNotice').click();
   const skip = page.locator('#tSkip');
   if (await skip.isVisible({ timeout: 3000 }).catch(() => false)) await skip.click();
-  await expect(page.locator('#qBar .qb')).toHaveCount(13);
+  await expect(page.locator('#qBar .qb')).toHaveCount(14);
 }
 
 /* Đóng modal đang mở (test chỉ verify đường MỞ — nơi thiếu import giết nút). */
@@ -48,7 +48,7 @@ test('tao nhan vat: chon phai -> ten -> vao game, luu save, danh nhau tu dong', 
 
   // lưu save → reload vẫn giữ nhân vật (không về màn chọn phái)
   await page.reload();
-  await expect(page.locator('#qBar .qb')).toHaveCount(13);
+  await expect(page.locator('#qBar .qb')).toHaveCount(14);
   const S2 = await page.evaluate(() => (window as any).__G.S);
   expect(S2.fac).toBe(S.fac);
   expect(S2.name).toBe('TestHiệp');

@@ -93,6 +93,7 @@ import { tamPhapModal, tpPending, applyWeekMod } from './depth';
 import { TOWER2, t2mul, tp2Pending, tower2Bonuses, tower2Floor, tower2Level, tower2OptionModal, tower2Unlocked } from './tower2';
 import { localISODay } from './journal';
 import { actBind, actBody } from './activities';
+import { tyvoBody, tyvoBind } from './tyvo';
 
 /* ======================= PHAN THUONG NGOAI GAME GOC (docs/DE_XUAT.md) =======================
    1 diem danh 7/30 ngay · 2 nhiem vu ngay · 3 thanh tuu + danh hieu · 4 trum Hoang Kim dinh ky · 5 thuong offline theo moc
@@ -129,7 +130,7 @@ function addPotential(pts) {                   // upstream Be(): cộng điểm 
   return { accepted, blocked: pts - accepted };
 }
 export function useBook(k) {
-  if (R.tower || R.tk) { toast('Hãy rời trận trước khi dùng vật phẩm'); return; }
+  if (R.tower || R.tk || R.tyvo) { toast('Hãy rời trận trước khi dùng vật phẩm'); return; }
   if (k !== 'ttk' && k !== 'vlmt') return;
   if (matHave('misc', k) < 1) { toast(`Không có ${BOOK_NAMES[k]}`); return; }
   const useN = bookUseN();
@@ -361,6 +362,7 @@ export function offlineChests(secs) {
 
 /* ---------- 6. thap thu thach (Phong Ky) ---------- */
 function towerStart() {
+  if (R.tyvo) { toast('Hãy kết thúc Tỷ Võ trước khi vào Tháp'); return; }
   if (R.town) backFromTown();
   petRealmAbort(true);                                   // vao thap: nghi bi canh
   R.tower = { floor: Math.max(1, RW().stat.towerBest - 4) }; R.enemies = []; R.corpses = []; R.spawnT = 0.5;
@@ -415,6 +417,7 @@ export function towerExit(dead) {
 }
 /* Vao Thap II: can chuyen sinh 5, vao tu con tro tower2Floor (mac dinh ky luc + 1) */
 export function tower2Start() {
+  if (R.tyvo) { toast('Hãy kết thúc Tỷ Võ trước khi vào Tháp II'); return; }
   if (R.town) backFromTown();
   petRealmAbort(true);
   if (!tower2Unlocked()) { toast(`Tháp II mở ở chuyển sinh ${TOWER2.reborn}`); return; }
@@ -943,7 +946,7 @@ export function petAutoEquip() {
 /* ---------- 8d. Ngu Hanh Bi Canh: 5 cua theo he, ep he quai, thuong nguyen lieu tien hoa ---------- */
 export function petRealmEnter(elem) {
   const r = RW(); if (!petUnlocked() || !r.pet) return;
-  if (R.tower || R.wbArena) { toast('Đang trong Tháp / Boss Thế Giới'); return; }
+  if (R.tower || R.wbArena || R.tyvo) { toast('Đang trong Tháp / Boss Thế Giới / Tỷ Võ'); return; }
   if ((r.realmCd[elem] || 0) > Date.now()) { toast(`Bí Cảnh ${SERIES[elem]} đang hồi (${Math.ceil((r.realmCd[elem] - Date.now()) / 60000)} phút)`); return; }
   if (R.town) backFromTown();
   R.petRealm = { elem, got: 0, need: REALM_KILLS };
@@ -1353,6 +1356,7 @@ function txBody(r) {
 }
 function giftBody(r) {
   if (giftTab === 'tm') return thanMaBody();
+  if (giftTab === 'tyvo') return tyvoBody(r);
   if (giftTab === 'tx') return txBody(r);
   const act = actBody(giftTab); if (act) return act;
   if (giftTab === 'login') {
@@ -1451,7 +1455,7 @@ export function titleModal() {
 }
 export function giftModal() {
   if (!S.fac) return;
-  const r = RW(), tabs = [['newbie', 'Tân thủ'], ['code', 'Mã quà'], ['login', 'Điểm danh'], ['lvms', 'Mốc cấp'], ['quest', 'Nhiệm vụ'], ['ach', 'Thành tựu'], ['chest', 'Phúc Duyên'], ['so', 'Quay Sò'], ['event', 'Sự kiện'], ['tower', 'Tháp'], ['tx', 'Tài Xỉu'], ['pet', 'Đồng hành'], ['tm', 'Thần Mã'], ['yt', 'Dã Tẩu'], ['guild', 'Bang hội'], ['tk', 'Tống Kim'], ['reborn', 'Chuyển sinh']];
+  const r = RW(), tabs = [['newbie', 'Tân thủ'], ['code', 'Mã quà'], ['login', 'Điểm danh'], ['lvms', 'Mốc cấp'], ['quest', 'Nhiệm vụ'], ['ach', 'Thành tựu'], ['chest', 'Phúc Duyên'], ['so', 'Quay Sò'], ['event', 'Sự kiện'], ['tower', 'Tháp'], ['tx', 'Tài Xỉu'], ['pet', 'Đồng hành'], ['tm', 'Thần Mã'], ['yt', 'Dã Tẩu'], ['guild', 'Bang hội'], ['tk', 'Tống Kim'], ['tyvo', 'Tỷ Võ'], ['reborn', 'Chuyển sinh']];
   modal(`<h3>Phần thưởng <small>Phúc Duyên ${r.fd}</small></h3><div class="dtabs" id="giftTabs">${tabs.map(([k, n]) => `<button data-g="${k}" class="${k === giftTab ? 'on' : ''}">${n}</button>`).join('')}</div>${giftBody(r)}`, () => {
     document.querySelectorAll('#mBody #giftTabs button').forEach(x => x.onclick = () => { giftTab = x.dataset.g; giftModal(); });
     const on = (id, fn) => { const el = $(id); if (el) el.onclick = fn; };
@@ -1476,5 +1480,6 @@ export function giftModal() {
     /* cac tab phu gan CUOI + boc loi: mot module loi khong duoc lam chet bind loi cua cac tab chinh */
     try { thanMaBind(refreshGift); } catch (e) { console.error('thanMaBind', e); }
     try { actBind(refreshGift); } catch (e) { console.error('actBind', e); }
+    try { tyvoBind(); } catch (e) { console.error('tyvoBind', e); }
   });
 }

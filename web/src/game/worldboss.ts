@@ -153,6 +153,7 @@ export function wbSpawnModal() {
 export function goBossArena() {
   const w = wb();
   if (!S || !S.fac || !w.up) return;
+  if (R.tyvo) { toast('Hãy kết thúc Tỷ Võ trước khi vào bí cảnh'); return; }
   if (R.tower) { toast('Rời tháp thử thách trước khi vào bí cảnh'); return; }
   if (SV.on) { toast('Tạm dừng Luyện Công trước khi vào bí cảnh'); return; }
   R.town = false; R.wbArena = true; R.enemies = []; R.corpses = []; R.pickTarget = null; R.moveTo = null; R.autoPick = null; INPUT.target = null;

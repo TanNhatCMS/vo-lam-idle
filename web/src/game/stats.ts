@@ -165,7 +165,11 @@ export function calc(eq) {
   P.regen = 1 + lv * 0.08 + av(A, 'lifereplenish_v') + P.life * av(A, 'lifereplenish_p') / 10000;
   P.manaRegen = 1 + lv * 0.05 + av(A, 'manareplenish_v') + P.eng * 0.02;
   // chinh xac / ne tranh (KPlayer::SetNpcAttackRating / SetNpcDefence)
-  P.ar = Math.max(10, (P.dex * 4 - 28 + av(A, 'attackrating_v') + av(A, 'attackratingenhance_v')) * (1 + (av(A, 'attackratingenhance_p') + av(A, 'attackrating_p')) / 100));
+  // can bang v91 (port upstream 2026-10-11): Suc khong gop x2 vao chinh xac
+  // cua vu khi can chien (dex*4 + str*2); vu khi tam xa (d===1 am khi) chi dex.
+  const wpn = eq.weapon && typeof eq.weapon === 'object' ? eq.weapon : null;
+  const meleeAR = P.dex * 4 + (wpn && wpn.d === 1 ? 0 : P.str * 2);
+  P.ar = Math.max(10, (meleeAR - 28 + av(A, 'attackrating_v') + av(A, 'attackratingenhance_v')) * (1 + (av(A, 'attackratingenhance_p') + av(A, 'attackrating_p')) / 100));
   P.def = Math.max(0, P.dex / 4 + av(A, 'adddefense_v') + av(A, 'armordefense_v') * 0.25) * (1 + av(A, 'armordefenseenhance_p') / 100);
   // khang: goc theo he (level_add) + trang bi / ky nang, gioi han 75 (+ allresmax)
   const baseRes = { phys: add.physicres, poison: add.poisonres, cold: add.coldres, fire: add.fireres, light: add.lightingres };

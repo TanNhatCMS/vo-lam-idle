@@ -11,6 +11,7 @@ import { htModal } from './forge';
 import { forgeReadyCounts } from './auto';
 import { uiSfx } from './audio';
 import { tkBadge, ytBadge } from './activities';
+import { tvVh } from './tyvo';
 
 /* ======================= SO TAY: thong ke 7 ngay gan nhat (luu trong save) =======================
    Port tu js/journal.js ban vinarpg. Kinh nghiem / vang moi gio choi that, do rot theo do hiem,
@@ -78,6 +79,7 @@ function quickBarItems() {
     ['ui/quick/tai-xiu.png', 'Tài Xỉu', () => openGiftTab('tx'), txBadge()],
     ['ui/quick/training.png', 'Luyện Công', () => svIntro(), ''],
     ['ui/quick/spare.png', 'Đồng hành', () => openGiftTab('pet'), ''],
+    ['ui/quick/tyvo.png', 'Tỷ Võ', () => openGiftTab('tyvo'), tvVh() > 0 ? fmt(tvVh()) : ''],
   ];
 }
 export function quickBarHTML() {

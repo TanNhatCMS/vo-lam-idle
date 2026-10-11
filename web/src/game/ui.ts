@@ -6,8 +6,10 @@ import {
   H,
   R,
   diffOf,
+  enemyStageLevel,
   inZone,
   isBossStage,
+  makeEnemy,
   recalc,
   stageLevel,
   zoneIdx,
@@ -100,7 +102,7 @@ import {
   switchCharacter,
   writeSlot,
 } from './save';
-import { stashDeposit, stashDepositPotion, stashDone, stashModal, stashWithdrawPotion, storageUpgradeModal } from './stash';
+import { stashDeposit, stashDepositPotion, stashDone, stashMax, stashModal, stashTx, stashWithdrawPotion, storageUpgradeModal } from './stash';
 import { SV } from './survival';
 import {
   activeInfo,
@@ -303,13 +305,14 @@ export function betterThanEquipped(it, currentPower = null, requirementsChecked 
   return equipGain(it, currentPower, requirementsChecked) > 0.01;
 }
 export function equip(it, quiet) {
+  if (R.tyvo) { toast('Không thể đổi trang bị trong lúc Tỷ Võ'); return; }
   if (!reqOk(it)) { if (!quiet) toast('Chưa mặc được: ' + reqProblems(it).join('; ')); return; }
   const slot = slotFor(it), old = S.eq[slot];
   S.inv = S.inv.filter(x => x !== it); if (old) S.inv.unshift(old);
   S.eq[slot] = it; R.dirty = true; invDirty = true; if (!quiet) uiSfx(it.d <= 1 ? 'equipWeapon' : 'equipCloth');
   if (!quiet) { closeModal(); refresh(); }
 }
-function unequip(slot) { const it = S.eq[slot]; if (!it) return; if (invUsed() >= invMax()) { toast('Túi đầy'); return; } delete S.eq[slot]; S.inv.unshift(it); R.dirty = true; invDirty = true; closeModal(); refresh(); }
+function unequip(slot) { if (R.tyvo) { toast('Không thể đổi trang bị trong lúc Tỷ Võ'); return; } const it = S.eq[slot]; if (!it) return; if (invUsed() >= invMax()) { toast('Túi đầy'); return; } delete S.eq[slot]; S.inv.unshift(it); R.dirty = true; invDirty = true; closeModal(); refresh(); }
 /* Ban mon khong khop bo loc (nut trong the Hanh trang, cua hang, Tho Dia Phu): khong bao gio ban do bo, do Tim dang kham, Bach Kim da thang cap */
 export const sellProtected = it => !!(it.set || it.vio || it.plv || it.petOnly);
 export function sellUnmatched() {
@@ -513,6 +516,7 @@ export function itemHTML(it) {
 }
 /* Cong diem tiem nang de du yeu cau Suc manh / Than phap / Sinh khi / Noi cong cua mon do (neu du diem) */
 function fixReqPoints(it) {
+  if (R.tyvo) { toast('Không thể đổi chỉ số trong lúc Tỷ Võ'); return false; }
   const d = reqDeficit(it), need = Object.values(d).reduce((a, b) => a + b, 0);
   if (!need) return false; if (S.attrPts < need) { toast(`Cần ${need} điểm tiềm năng, đang có ${S.attrPts}`); return false; }
   for (const k in d) { S.attr[k] += d[k]; S.attrPts -= d[k]; }
@@ -599,6 +603,25 @@ function showSharedItem(data, anchor = null) {
     } } : {})
   };
   itemModal(shared, undefined, 'inspect', 'tooltip', anchor);
+  // "Luu vao kho": luu MOT BAN SAO vao kho chung (mon nay khong nam trong hanh trang nen dung stashDeposit).
+  const row = document.querySelector('#mBody .btnrow');
+  if (row) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'btn'; b.textContent = 'Lưu vào kho';
+    b.onclick = () => {
+      const r = stashTx(st => {
+        // stashUsed khong duoc xuat ra khoi stash.ts: tinh lai o da dung (do + binh thuoc) nhu ben trong do
+        const used = st.items.length + Object.values(st.potions || {}).reduce((n, tiers) => n + Object.values(tiers || {}).filter(v => v > 0).length, 0);
+        if (used >= stashMax(st)) return { ok: false, msg: `Kho đầy (${stashMax(st)} ô)` };
+        const copy = JSON.parse(JSON.stringify(shared));
+        copy.uid = S.uid++; delete copy.locked;   // bản lưu kho: khoá lại không nghĩa lý
+        st.items.push(copy);
+        return { ok: true, msg: `Đã lưu vào kho: ${shared.n}` };
+      });
+      toast(r.msg); if (r.ok) { save(); refresh(); }
+    };
+    row.appendChild(b);
+  }
 }
 window.showSharedItem = showSharedItem;
 
@@ -723,12 +746,12 @@ function bindInvHoverPreview() {
 /* ---------- the: chien truong ---------- */
 function renderLog() {
   const z = zoneOf(Math.min(S.stage, STAGES));
-  const inActivity = !!(R.tower || R.tk || SV.on);
+  const inActivity = !!(R.tower || R.tk || SV.on || R.tyvo);
   const zl = ZONES.map((q, i) => {
     const first = i * ZONE_STAGES + 1, open = S.maxStage >= first, cur = zoneIdx(Math.min(S.stage, STAGES)) === i;
     return `<button class="zrow${cur ? ' cur' : ''}${open ? '' : ' lock'}" data-z="${i}" ${open && !inActivity ? '' : 'disabled'}><b>${esc(q.n)}</b><span>Cấp ${q.lo}–${q.hi}</span></button>`;
   }).join('');
-  $('#t-log').innerHTML = `${quickBarHTML()}${todoHTML()}<div class="card stagectl"><div><b>${esc(z.n)}</b> · Ải ${inZone(S.stage)}/${ZONE_STAGES}${isBossStage(S.stage) ? ' <span class="boss">(Trùm)</span>' : ''}<br><small class="dim">Quái cấp ${stageLevel(S.stage)} · ngũ hành: ${z.sw.map((w, i) => w ? `<span style="color:${SERIES_COL[i]}">${SERIES[i]}</span>` : '').filter(Boolean).join(' ')}</small></div>
+  $('#t-log').innerHTML = `${quickBarHTML()}${todoHTML()}<div class="card stagectl"><div><b>${esc(z.n)}</b> · Ải ${inZone(S.stage)}/${ZONE_STAGES}${isBossStage(S.stage) ? ' <span class="boss">(Trùm)</span>' : ''}<br><small class="dim">Quái cấp ${enemyStageLevel()}${S.chal === 'white' ? ` <button type="button" class="stagectl-overlevel" id="bWhiteOverlevel" role="switch" aria-checked="${S.whiteOverlevel === true}" aria-label="Vượt cấp quái" title="${S.whiteOverlevel === true ? 'Đang bật vượt cấp quái theo ải' : 'Giới hạn quái ở cấp nhân vật +50'}"><span>Vượt cấp</span><span class="stagectl-switch" aria-hidden="true"><i></i></span></button>` : ''} · ngũ hành: ${z.sw.map((w, i) => w ? `<span style="color:${SERIES_COL[i]}">${SERIES[i]}</span>` : '').filter(Boolean).join(' ')}</small></div>
     <div class="row"><button class="btn sm" id="bPrev" ${inActivity ? 'disabled' : ''}>◀</button><button class="btn sm ${S.push ? 'on' : ''}" id="bPush" ${inActivity ? 'disabled' : ''}>${S.push ? 'Vượt ải' : 'Luyện công'}</button><button class="btn sm" id="bNext" ${!inActivity && S.stage < S.maxStage ? '' : 'disabled'}>▶</button><button class="btn sm" id="bMax" title="Đến ải cao nhất đã mở" ${!inActivity && S.stage < S.maxStage ? '' : 'disabled'}>Ải max</button></div></div>
     <div class="log" id="logBox">${R.logs.map(l => `<div>${l}</div>`).join('')}</div>
     <h3>Bản đồ luyện công</h3><div class="zlist">${zl}</div>`;
@@ -737,11 +760,26 @@ function renderLog() {
   $('#bNext').onclick = () => gotoStage(S.stage + 1);
   $('#bMax').onclick = () => gotoStage(S.maxStage);
   $('#bPush').onclick = () => { S.push = !S.push; renderLog(); };
+  const bWhite = $('#bWhiteOverlevel');
+  if (bWhite) bWhite.onclick = () => {
+    S.whiteOverlevel = S.whiteOverlevel !== true;
+    let n = 0;
+    if (R.field) {                                   // cap nhat luon quái chưa giao chiến
+      const freshL = enemyStageLevel(S.stage, S.wave === WAVES && isBossStage(S.stage) ? 1 : 0);
+      for (const e of R.enemies) if (e.fieldSlot && !e.aggro && e.hp === e.max && e.L !== freshL) {
+        const slot = e.fieldSlot, fresh = makeEnemy(e.tid, freshL, e.cls, e.x, e.y);
+        Object.assign(e, fresh, { fieldSlot: slot, homeX: slot.x, homeY: slot.y, aggro: false });
+        n++;
+      }
+    }
+    renderLog();
+    log(`${S.whiteOverlevel ? 'Bật' : 'Tắt'} vượt cấp quái${n ? ` · đã cập nhật ${n} quái chưa giao chiến` : ''}${R.enemies.some(e => e.aggro) ? ' · quái đang giao chiến giữ cấp hiện tại' : ''}`);
+  };
   document.querySelectorAll('.zrow').forEach(b => b.onclick = () => gotoStage(+b.dataset.z * ZONE_STAGES + 1));
 }
 export function renderLogOnly() { const b = $('#logBox'); if (b) b.innerHTML = R.logs.map(l => `<div>${l}</div>`).join(''); }
 function gotoStage(st) {
-  if (R.tower || R.tk || SV.on) { toast('Hãy rời trận trước khi đổi bản đồ'); return; }
+  if (R.tower || R.tk || SV.on || R.tyvo) { toast('Hãy rời trận trước khi đổi bản đồ'); return; }
   st = clamp(st, 1, S.maxStage); if (st === S.stage && !R.town) return;
   const prevZone = zoneOf(Math.min(S.stage, STAGES)), wasTown = R.town;
   petRealmAbort(true);
@@ -787,7 +825,7 @@ function renderChar() {
       <span>Chiêu chính</span><span>${esc(P.main.n)} (${fmt(P.main.tot)})</span>
       <span>Chính xác</span><span>${Math.round(P.ar)}</span><span>Né tránh</span><span>${Math.round(P.def)}</span>
       <span>Chí mạng</span><span>${Math.round(P.main.crit)}%</span><span>Tốc độ đánh</span><span>${P.aspd.toFixed(2)}</span>${res}</div>`;
-  document.querySelectorAll('#t-char .plus').forEach(b => b.onclick = () => { const k = b.dataset.a; if (!S.attrPts) return; S.attr[k]++; S.attrPts--; R.dirty = true; recalc(); renderChar(); });
+  document.querySelectorAll('#t-char .plus').forEach(b => b.onclick = () => { if (R.tyvo) { toast('Không thể đổi chỉ số trong lúc Tỷ Võ'); return; } const k = b.dataset.a; if (!S.attrPts) return; S.attr[k]++; S.attrPts--; R.dirty = true; recalc(); renderChar(); });
   document.querySelectorAll('#t-char [data-edit-a]').forEach(b => b.onclick = () => { attrEditKey = b.dataset.editA; attrEditValue = String(S.attr[attrEditKey] || 0); renderChar(); const input = $('#attrPointInput'); if (input) { input.focus(); input.select(); } });
   const attrPointInput = $('#attrPointInput');
   if (attrPointInput) {
@@ -795,6 +833,7 @@ function renderChar() {
     attrPointInput.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); const ap = document.querySelector('#t-char [data-apply-a]'); if (ap) ap.click(); } if (e.key === 'Escape') { attrEditKey = null; renderChar(); } };
     document.querySelector('#t-char [data-cancel-a]').onclick = () => { attrEditKey = null; renderChar(); };
     document.querySelector('#t-char [data-apply-a]').onclick = () => {
+      if (R.tyvo) { toast('Không thể đổi chỉ số trong lúc Tỷ Võ'); return; }
       const target = Number(attrPointInput.value), k = attrEditKey, current = S.attr[k] || 0, delta = target - current;
       if (!attrPointInput.value.trim() || !Number.isInteger(target) || target < 0) { toast('Nhập số điểm từ 0 trở lên'); attrPointInput.focus(); return; }
       if (delta > S.attrPts) { toast(`Bạn chỉ còn ${S.attrPts} điểm tiềm năng`); attrPointInput.focus(); attrPointInput.select(); return; }
@@ -806,13 +845,14 @@ function renderChar() {
   }
   $('#bTitle').onclick = () => titleModal(); $('#bPower').onclick = powerModal; $('#bSugAt').onclick = suggestModal; $('#bRespecAt').onclick = () => respecModal('attr', renderChar);
   document.querySelectorAll('#t-char [data-bk]').forEach(b => b.onclick = () => useBook(b.dataset.bk));
-  document.querySelectorAll('#t-char .minus').forEach(b => b.onclick = () => unspendAttr(b.dataset.a));
+  document.querySelectorAll('#t-char .minus').forEach(b => b.onclick = () => { if (R.tyvo) { toast('Không thể đổi chỉ số trong lúc Tỷ Võ'); return; } unspendAttr(b.dataset.a); });
   document.querySelectorAll('#t-char .slot .it').forEach(b => b.onclick = () => itemModal(findItem(b.dataset.uid), b.parentNode.dataset.slot));
 }
 
 /* ---------- the: ky nang ---------- */
 /* Rut lai 1 diem ky nang (cong nham): tra diem, bo chieu khoi o / chieu chinh khi ve 0 */
 function unlearnSkill(id) {
+  if (R.tyvo) { toast('Không thể đổi võ công trong lúc Tỷ Võ'); return false; }
   const L = S.sk[id] || 0; if (!L) return false;
   if (!chargePointRefund('skill')) return false;          // rút điểm tốn vàng theo cấp (bản vinarpg)
   if (L <= 1) delete S.sk[id]; else S.sk[id] = L - 1;
@@ -823,7 +863,8 @@ function unlearnSkill(id) {
   return true;
 }
 /* Rut lai 1 diem tiem nang */
-function unspendAttr(k) {
+function unspentAttr(k) {
+  if (R.tyvo) { toast('Không thể đổi chỉ số trong lúc Tỷ Võ'); return false; }
   if (!(S.attr[k] > 0)) return false;
   if (!chargePointRefund('attr')) return false;           // rút điểm tốn vàng theo cấp (bản vinarpg)
   S.attr[k]--; S.attrPts++; R.dirty = true; recalc(); renderChar(); updateDots(); save(); return true;
@@ -855,8 +896,8 @@ function skillModal(id) {
     <div class="sl"><b>${L ? 'Cấp hiện tại ' + L : 'Nếu học (cấp 1)'}</b>${lines(show)}</div>
     ${next && L ? `<div class="sl"><b>Cấp kế tiếp ${next}</b>${lines(next)}</div>` : ''}
     <div class="btnrow">${act && L ? '<button class="btn" id="skMain">Chọn làm chiêu chính</button>' : ''}<button class="btn" id="skPlus" ${canLearn(s) ? '' : 'disabled'}>+ Cộng điểm</button><button class="btn red" id="skMinus" ${L ? '' : 'disabled'}>− Rút điểm</button></div>`, () => {
-    const m = $('#skMain'); if (m) m.onclick = () => { S.main = s.id; S.mainLock = true; R.dirty = true; recalc(); renderSkill(); toast('Chiêu chính: ' + s.n); skillModal(id); };
-    $('#skPlus').onclick = () => { if (!canLearn(s)) return; S.skPts--; S.sk[id] = (S.sk[id] || 0) + 1; uiSfx('learn'); R.dirty = true; recalc(); renderSkill(); save(); skillModal(id); };
+    const m = $('#skMain'); if (m) m.onclick = () => { if (R.tyvo) { toast('Không thể đổi võ công trong lúc Tỷ Võ'); return; } S.main = s.id; S.mainLock = true; R.dirty = true; recalc(); renderSkill(); toast('Chiêu chính: ' + s.n); skillModal(id); };
+    $('#skPlus').onclick = () => { if (R.tyvo) { toast('Không thể đổi võ công trong lúc Tỷ Võ'); return; } if (!canLearn(s)) return; S.skPts--; S.sk[id] = (S.sk[id] || 0) + 1; uiSfx('learn'); R.dirty = true; recalc(); renderSkill(); save(); skillModal(id); };
     $('#skMinus').onclick = () => { if (unlearnSkill(id)) skillModal(id); };
   });
 }
@@ -873,15 +914,15 @@ function renderSkill() {
       ${act && L ? `<div class="slots">Ô: ${[0, 1, 2, 3].map(i => `<button data-slot="${i}" data-sid="${id}" class="${(S.slots || [])[i] === +id ? 'on' : ''}">${i + 1}</button>`).join('')}</div>` : ''}</div>`;
   }).join('');
   $('#t-skill').innerHTML = buildsHTML() + `<h3>${esc(f.n)} <small>${S.skPts} điểm kỹ năng</small> <button class="btn sm" id="bSugSk">Gợi ý</button></h3><div class="card"><label><input type="checkbox" id="cRot" ${S.rot === false ? '' : 'checked'}> Xoay chiêu tự động khi farm: luân phiên các chiêu gán ở ô 1 đến 4 (phím R), luôn có 2 chiêu mạnh nhất, bỏ chiêu hết nội lực</label></div><p class="dim small">Chạm vào chiêu tấn công đã học để khóa làm chiêu chính${S.mainLock ? ' (<a id="bAutoMain">bỏ khóa</a>)' : ' (đang tự chọn chiêu mạnh nhất)'}.</p>${rows}`;
-  document.querySelectorAll('#t-skill .plus').forEach(b => b.onclick = e => { e.stopPropagation(); const s = SK[b.dataset.id]; if (!canLearn(s)) return; S.skPts--; S.sk[s.id] = (S.sk[s.id] || 0) + 1; uiSfx('learn'); R.dirty = true; recalc(); renderSkill(); save(); });
+  document.querySelectorAll('#t-skill .plus').forEach(b => b.onclick = e => { e.stopPropagation(); if (R.tyvo) { toast('Không thể đổi võ công trong lúc Tỷ Võ'); return; } const s = SK[b.dataset.id]; if (!canLearn(s)) return; S.skPts--; S.sk[s.id] = (S.sk[s.id] || 0) + 1; uiSfx('learn'); R.dirty = true; recalc(); renderSkill(); save(); });
   document.querySelectorAll('#t-skill .minus').forEach(b => b.onclick = e => { e.stopPropagation(); unlearnSkill(+b.dataset.id); });
   document.querySelectorAll('#t-skill .skinfo').forEach(b => b.onclick = e => { e.stopPropagation(); skillModal(+b.dataset.id); });
-  document.querySelectorAll('#t-skill .slots button').forEach(b => b.onclick = e => { e.stopPropagation(); assignSlot(+b.dataset.slot, +b.dataset.sid); renderSkill(); });
+  document.querySelectorAll('#t-skill .slots button').forEach(b => b.onclick = e => { e.stopPropagation(); if (R.tyvo) { toast('Không thể đổi võ công trong lúc Tỷ Võ'); return; } assignSlot(+b.dataset.slot, +b.dataset.sid); renderSkill(); });
   $('#bSugSk').onclick = suggestModal;
   $('#cRot').onchange = () => toggleRot();
-  const am = $('#bAutoMain'); if (am) am.onclick = () => { S.mainLock = false; R.dirty = true; recalc(); renderSkill(); };
+  const am = $('#bAutoMain'); if (am) am.onclick = () => { if (R.tyvo) { toast('Không thể đổi võ công trong lúc Tỷ Võ'); return; } S.mainLock = false; R.dirty = true; recalc(); renderSkill(); };
   bindBuilds(renderSkill);
-  document.querySelectorAll('#t-skill .skl').forEach(r => r.onclick = () => { const s = SK[r.dataset.id]; if (isAttack(s) && S.sk[s.id]) { S.main = s.id; S.mainLock = true; R.dirty = true; recalc(); renderSkill(); toast('Chiêu chính: ' + s.n); } else skillModal(s.id); });
+  document.querySelectorAll('#t-skill .skl').forEach(r => r.onclick = () => { if (R.tyvo) { toast('Không thể đổi võ công trong lúc Tỷ Võ'); return; } const s = SK[r.dataset.id]; if (isAttack(s) && S.sk[s.id]) { S.main = s.id; S.mainLock = true; R.dirty = true; recalc(); renderSkill(); toast('Chiêu chính: ' + s.n); } else skillModal(s.id); });
 }
 
 /* ---------- the: tui do ---------- */

@@ -67,6 +67,7 @@ import {
   towerSpawn,
 } from './rewards';
 import { backFromBossArena, wbTick, wbVictory } from './worldboss';
+import { tyvoDamageCap, tyvoDailyTick, tyvoFighterAI, tyvoSpawnOpponent, tyvoStop, tyvoWin } from './tyvo';
 import { S } from './save';
 import { rollSetDrop } from './sets';
 import { takeStock } from './shop';
@@ -87,6 +88,15 @@ export const inZone = st => ((st - 1) % ZONE_STAGES) + 1;
 export function stageLevel(st) {
   if (st > STAGES) return Math.min(MAX_LEVEL, 160 + Math.floor((st - STAGES) / 2));   // ai sau vung cuoi kep o cap toi da: nhip len cap 99 (tests: pacing) da hieu chinh voi kep nay; bo kep thi cap 99 mat > 60 gio
   const z = zoneOf(st); return Math.round(z.lo + (inZone(st) - 1) * (z.hi - z.lo) / (ZONE_STAGES - 1));
+}
+/* Cap quái thuc tế (port upstream fc 2026-10-11): o thach Bố Y (chal=white),
+   quái bị gioi han o cap nhan vat +50 cho den khi bat vuot cap (whiteOverlevel)
+   — chong quái vuot cap lam ban khi dang thach Bố Y. bonus = +cap (trùm +1,
+   lam moi field). */
+export function enemyStageLevel(st = S.stage, bonus = 0) {
+  const n = stageLevel(st) + bonus;
+  const cap = S && S.chal === 'white' && S.whiteOverlevel !== true ? S.lvl + 50 : MAX_LEVEL;
+  return Math.max(1, Math.min(MAX_LEVEL, n, cap));
 }
 export const isBossStage = st => inZone(st) === ZONE_STAGES;
 
@@ -121,7 +131,7 @@ export function makeEnemy(tid, L, cls, x, y) {
 function spawnWave() {
   if (R.petRealm) { petRealmSpawn(); return; }             // Bi canh Ngu Hanh: quai ep he, khong sinh theo vung
   R.enemies = []; R.stall = 0;
-  const z = zoneOf(S.stage), L = stageLevel(S.stage);
+  const z = zoneOf(S.stage), L = enemyStageLevel();
   if (fieldMode() && !R.wbArena) { populateField(); }      // bãi quái ngoài bản đồ (field.ts)
   else {
   R.field = null;
@@ -129,7 +139,7 @@ function spawnWave() {
   const around = (r0, r1) => { const a = rnd(0, Math.PI * 2), r = rnd(r0, r1); return inWorld(H.x + Math.cos(a) * r, H.y + Math.sin(a) * r); };
   const sx = () => (R.sp = around(140, 240))[0], sy = () => R.sp[1];
   if (S.wave === WAVES && isBossStage(S.stage)) {
-    const bp = around(220, 260); R.enemies.push(makeEnemy(z.boss, L + 1, 'boss', bp[0], bp[1]));
+    const bp = around(220, 260); R.enemies.push(makeEnemy(z.boss, enemyStageLevel(S.stage, 1), 'boss', bp[0], bp[1]));
     R.enemies.push(makeEnemy(pick(z.m), L, 'elite', sx(), sy()));
     log(`<b class="boss">${esc(MON[z.boss].n)}</b> xuất hiện!`);
   } else {
@@ -186,15 +196,16 @@ function heroHit(a, e) {
   addText(e.x, e.y - e.r - 6, fmt(tot) + k, crit ? '#ffe14a' : ELEM_COL[best], crit ? 16 : 12);
   return tot;
 }
-function enemyHit(e) {
+export function enemyHit(e, ov = null) {
   const cm = curseMod(e);   // bua hai: dich giam sat thuong va chinh xac
   if (Math.random() * 100 >= hitPercent(e.ar + (cm ? cm.ar : 0), R.P.def)) { addText(H.x, H.y - 30, 'Né', '#9cf', 11); return; }
-  const el = e.series === 1 && Math.random() < 0.4 ? 'poison' : e.series === 2 && Math.random() < 0.4 ? 'cold' : e.series === 3 && Math.random() < 0.4 ? 'fire' : e.series === 4 && Math.random() < 0.3 ? 'light' : 'phys';
-  let d = e.dmg * rnd(0.8, 1.2) * (cm ? 1 + cm.dmg / 100 : 1) * (1 - tpStacks().ho * 0.01) * tower2Bonuses(e).taken;   // Ho The hoa giai + TS6 Ho Thap
+  const el = ov && ov.el ? ov.el : (e.series === 1 && Math.random() < 0.4 ? 'poison' : e.series === 2 && Math.random() < 0.4 ? 'cold' : e.series === 3 && Math.random() < 0.4 ? 'fire' : e.series === 4 && Math.random() < 0.3 ? 'light' : 'phys');
+  let d = (ov && ov.dmg != null ? ov.dmg : e.dmg * rnd(0.8, 1.2)) * (cm ? 1 + cm.dmg / 100 : 1) * (1 - tpStacks().ho * 0.01) * tower2Bonuses(e).taken;   // Ho The hoa giai + TS6 Ho Thap
   d = applyPart(d, el, e.series, R.P.series, R.P.res, PLAYER_RES_MAX, 10);
   if (R.P.res5 && !counters(e.series, R.P.series)) d = Math.max(1, d - R.P.res5); // ngu hanh khang (five_elements_resist_v)
   if (R.petGuardT > 0) d *= R.petGuardMult || 0.82;        // Ho Menh: pet giam sat thuong nhan vao
   d = absorbDamageWithMana(d);   // lá chắn nội lực: hut phan sat thuong vao noi luc truoc khi tru máu
+  if (R.tyvo) d = tyvoDamageCap(d);   // Tỷ Võ: cửa sổ sát thương (12%/đòn, 28%/3 giây)
   R.life -= d; R.hurtT = 0.25; if (H.act !== 'at' && Math.random() < 0.3) { H.act = 'hurt'; H.actT = 0; }
   if (R.P.retMelee || R.P.retMeleeP) { const ret = R.P.retMelee + d * R.P.retMeleeP / 100; if (ret > 0) { e.hp -= ret; } }
   addText(H.x + rnd(-10, 10), H.y - 36, '-' + fmt(d), '#ff6a5a', 12);
@@ -334,19 +345,21 @@ function enemyAI(e, dt) {
     e.ultCd = (e.ultCd === undefined ? BOSS_ULT_EVERY * 0.4 : e.ultCd) - dt;
     if (e.ultCd <= 0 && d <= reach + 80) { e.ultCd = BOSS_ULT_EVERY; bossUlt(e); }
   }
+  if (R.tyvo && e.tvFighter) tyvoFighterAI(e, dt, d, reach);   // Tỷ Võ: cao thủ dùng chiêu (hỗ trợ + chiêu thức)
   e.atkCd -= dt * petSlow;
   if (d <= reach + 4 && e.atkCd <= 0) { const cm2 = curseMod(e); e.atkCd = e.cd * (cm2 ? Math.max(0.5, Math.min(2, 1 + cm2.slow / 100)) : 1); enemyHit(e); e.act = 'at'; e.actT = 0; npcSfx(e.animKey || MON[e.tid].anim, 'at', 0.35); if (e.ranged) fxLine(e, H, { parts: { phys: 1 } }); }
 }
 export function tick(dt) {
   obsFrame();
   skillSysTick(dt);
-  if ((R.sweepT = (R.sweepT || 0) + dt) > 30) { R.sweepT = 0; autoEquipAll(); petAutoEquip(); sweepJunk(); autoBuyWeapon(); autoForge(); blessSweep(); checkHints(); }
+  if ((R.sweepT = (R.sweepT || 0) + dt) > 30) { R.sweepT = 0; if (!R.tyvo) { autoEquipAll(); petAutoEquip(); sweepJunk(); autoBuyWeapon(); autoForge(); blessSweep(); checkHints(); } }
   if (R.dirty) recalc();
+  if (R.tyvo && tyvoDailyTick(dt)) return;   // Tỷ Võ: reset ngày mới (00:00 VN) giữa trận
   const P = R.P;
   if (R.deadT > 0) { R.deadT -= dt; if (R.deadT <= 0) { R.life = P.life; R.mana = P.mana; S.wave = 1; if (R.wbArena) backFromBossArena(); else spawnWave(); } return; }
   R.life = Math.min(P.life, R.life + P.regen * dt); R.mana = Math.min(P.mana, R.mana + P.manaRegen * dt);
   autoPotion(dt);
-  if (S.autoTownHp && !R.town && (R.tpCd || 0) <= 0 && !R.wbArena && !R.tower && !R.tk && !R.petRealm
+  if (S.autoTownHp && !R.town && (R.tpCd || 0) <= 0 && !R.wbArena && !R.tower && !R.tk && !R.petRealm && !R.tyvo
     && R.life < P.life * (S.townHpAt ?? 20) / 100) goTown();   // Ve thanh khi HP duoi nguong (Tho Dia Phu hoi phuc nhanh)
   if (R.hurtT > 0) R.hurtT -= dt;
   for (const k of ['poisonT', 'burnT', 'coldT']) if (H[k] > 0) H[k] = Math.max(0, H[k] - dt);   // status tren nhan vat (Doc / Dong / Hoa cua Tuyet chieu)
@@ -362,6 +375,7 @@ export function tick(dt) {
     if (R.spawnT > 0) { R.spawnT -= dt; return; }
     R.lootWait = 0;
     if (R.wbArena) return;                                 // bí cảnh boss: không sinh đợt quái thường
+    if (R.tyvo) { tyvoSpawnOpponent(); return; }              // Tỷ Võ: sinh đối thủ (luôn có 1 địch)
     if (R.tower) towerSpawn(); else if (R.tk) tkSpawn(); else { spawnWave(); if (goldBossDue()) spawnGoldBoss(); }
     return;
   }
@@ -376,7 +390,7 @@ export function tick(dt) {
   for (const e of alive()) enemyAI(e, dt);
   killCheck();
   // Bãi quái: thời gian chỉ tính lúc giao tranh (đi xa quái không bị coi là đánh quá lâu).
-  if (R.tower || !fieldActive() || alive().some(e => e.aggro && Math.hypot(e.x - H.x, e.y - H.y) < FIELD_MOBS.leash)) {
+  if (!R.tyvo && (R.tower || !fieldActive() || alive().some(e => e.aggro && Math.hypot(e.x - H.x, e.y - H.y) < FIELD_MOBS.leash))) {
     R.stall += dt; if (R.stall > 45) stallOut();
   }
   if (R.life <= 0) heroDeath();
@@ -397,7 +411,7 @@ function stallOut() {
   spawnWave();
 }
 function killCheck() {
-  for (const e of R.enemies) if (e.hp <= 0 && !e.dead) { e.dead = true; onKill(e); if (fieldActive()) fieldKilled(e); npcSfx(MON[e.tid].anim, 'die', 0.5); if (!R.quiet) { e.act = 'die'; e.actT = 0; R.corpses.push(e); } }
+  for (const e of R.enemies) if (e.hp <= 0 && !e.dead) { e.dead = true; if (!R.tyvo) onKill(e); if (fieldActive()) fieldKilled(e); npcSfx(MON[e.tid].anim, 'die', 0.5); if (!R.quiet) { e.act = 'die'; e.actT = 0; R.corpses.push(e); } }
   if (fieldActive()) {
     R.enemies = R.enemies.filter(e => !e.dead);
     if (fieldWaveCleared()) {
@@ -406,7 +420,10 @@ function killCheck() {
     }
     return;
   }
-  if (R.enemies.length && R.enemies.every(e => e.dead)) { R.enemies = []; waveCleared(); }
+  if (R.enemies.length && R.enemies.every(e => e.dead)) {
+    if (R.tyvo) { tyvoWin(); return; }                       // Tỷ Võ: hạ đối thủ = 1 thắng
+    R.enemies = []; waveCleared();
+  }
 }
 function onKill(e) {
   R.kills++; S.totalKills = (S.totalKills || 0) + 1;
@@ -454,9 +471,10 @@ function waveCleared() {
 function heroDeath() {
   if (R.enemies.some(e => e.goldBoss && !e.dead)) RW().gbT = GB_RETRY;   // thua trum Hoang Kim: 5 phut sau quay lai
   petRealmAbort(true);                                   // guc trong bi canh: roi ra, khong mat cooldown
-  jrDeath(R.tower ? 'Luyện Công' : R.wbArena ? 'Boss Thế Giới' : 'đánh ải');   // so tay: nhat ky lan guc
+  jrDeath(R.tower ? 'Luyện Công' : R.wbArena ? 'Boss Thế Giới' : R.tyvo ? 'Tỷ Võ' : 'đánh ải');   // so tay: nhat ky lan guc
   R.deadT = 3; R.life = 0; R.enemies = [];
   log('<span class="bad">Bạn đã trọng thương.</span>');
+  if (R.tyvo) { tyvoStop(false, 'loss'); return; }          // Tỷ Võ: gục = đứt chuỗi, giữ nguyên tiến trình
   if (R.tk) { tkExit(true, false); return; }               // gục ở Tống Kim: kết thúc trận, vẫn nhận lệnh
   if (R.tower) { towerExit(true); return; }               // gục trong thap: roi thap, khong lui ai
   if (R.wbArena) { log('<span class="dim">Boss Thế Giới vẫn chờ ở bí cảnh — hồi sức rồi vào lại.</span>'); return; }

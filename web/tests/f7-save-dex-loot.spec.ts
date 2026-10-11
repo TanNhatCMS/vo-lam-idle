@@ -29,7 +29,7 @@ async function createCharacter(page: Page, name = 'TestHiệp') {
   await page.locator('#bNotice').click();
   const skip = page.locator('#tSkip');
   if (await skip.isVisible({ timeout: 3000 }).catch(() => false)) await skip.click();
-  await expect(page.locator('#qBar .qb')).toHaveCount(13);
+  await expect(page.locator('#qBar .qb')).toHaveCount(14);
 }
 
 const readS = (page: Page) => page.evaluate(() => (window as any).__G.S);
@@ -79,7 +79,7 @@ test('F9 sưu tập bộ đồ: mặc bộ Hoàng Kim (Bảng thử nghiệm) ->
   await page.locator('#mBody [data-ad="gear"]').click();
   // reload: pagehide -> save() -> load() -> migrate backfill S.setSeen từ đồ bộ đang mặc
   await page.reload();
-  await expect(page.locator('#qBar .qb')).toHaveCount(13);
+  await expect(page.locator('#qBar .qb')).toHaveCount(14);
   const s = await readS(page);
   const goldEquipped = Object.values((s.eq || {}) as any[]).filter((it: any) => it && it.set).length;
   expect(goldEquipped, 'bộ Hoàng Kim phải đang mặc sau reload').toBeGreaterThan(0);
@@ -114,7 +114,7 @@ test('F7 luu trữ điểm tiềm năng: archive trong save cũ được khôi p
   });
   expect(injected).toBe('ok');
   await page.reload();
-  await expect(page.locator('#qBar .qb')).toHaveCount(13);
+  await expect(page.locator('#qBar .qb')).toHaveCount(14);
   const s = await readS(page);
   // nhân vật cấp 1: ngân sách 0 -> ngưỡng phục hồi 3.000 -> archive 150 điểm được hoàn trả hết
   expect(s.attr.str, '100 điểm STR khóa trong archive phải được khôi phục').toBe(100);

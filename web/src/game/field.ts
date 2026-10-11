@@ -5,7 +5,7 @@
    hoi mau khi rãnh, sinh lai sau vài giây khi bi ha. Tống ải = dot N quái (quest);
    ài trum co trum đi voi. Chi chay khi S.fieldMode = true (cài đặt Auto);
    mac dinh tắt — mô hình đợt quái quanh nhan vat như cuốn. */
-import { H, R, zoneOf, stageLevel, isBossStage, inZone, makeEnemy } from './combat';
+import { H, R, zoneOf, stageLevel, enemyStageLevel, isBossStage, inZone, makeEnemy } from './combat';
 import { OBS, obsLoad, obsWalk, obsLine, obsMove, obsSteer } from './mapobs';
 import { WORLD, WAVES, MAX_LEVEL, inWorld, pick, rnd, esc } from './core';
 import { dirOf } from './render';
@@ -49,7 +49,7 @@ function fieldSpawnPoints() {
   return points.length ? points : [inWorld(H.x + 180, H.y)];
 }
 function fieldMob(slot) {
-  const z = zoneOf(S.stage), e = makeEnemy(slot.tid, stageLevel(S.stage), slot.cls, slot.x, slot.y);
+  const z = zoneOf(S.stage), e = makeEnemy(slot.tid, enemyStageLevel(), slot.cls, slot.x, slot.y);
   e.fieldSlot = slot; e.homeX = slot.x; e.homeY = slot.y; e.aggro = false; e.fieldWanderT = rnd(0, 3);
   slot.enemy = e; R.enemies.push(e); return e;
 }
@@ -57,18 +57,27 @@ export function startFieldWave() {
   R.stall = 0; R.spawnT = 0; R.moveTo = null;
   const bossWave = S.wave === WAVES && isBossStage(S.stage);
   R.field.quest = { kills: 0, target: bossWave ? 3 : 6 + (inZone(S.stage) > 5 ? 2 : 0), boss: null };
-  // Chi nang cap quái chưa giao tranh; không hôi mau hay doi chi số giữa lúc đang đánh.
-  for (const e of R.enemies) if (e.fieldSlot && !e.aggro && e.hp === e.max && e.L !== stageLevel(S.stage)) {
-    const slot = e.fieldSlot, fresh = makeEnemy(e.tid, stageLevel(S.stage), e.cls, e.x, e.y);
-    Object.assign(e, fresh, { fieldSlot: slot, homeX: slot.x, homeY: slot.y, aggro: false });
-  }
+  refreshFieldLevels(bossWave);
   if (bossWave) {
     const home = pick(R.field.slots), z = zoneOf(S.stage);
-    const e = makeEnemy(z.boss, Math.min(MAX_LEVEL, stageLevel(S.stage) + 1), 'boss', home.x, home.y);
+    const e = makeEnemy(z.boss, enemyStageLevel(S.stage, 1), 'boss', home.x, home.y);
     e.homeX = home.x; e.homeY = home.y; e.aggro = false;
     R.field.quest.boss = e; R.enemies.push(e);
     log(`<b class="boss">${esc(e.n)}</b> xuất hiện trên bản đồ!`);
   }
+}
+/* Chi nang cap quái chưa giao tranh ve muc enemyStageLevel (vuot cap
+   quai: goi khi bam chuyen doi — quái dang giao tranh giu nguyen). */
+export function refreshFieldLevels(bossWave = false) {
+  if (!R.field) return 0;
+  const freshL = enemyStageLevel(S.stage, bossWave ? 1 : 0);
+  let n = 0;
+  for (const e of R.enemies) if (e.fieldSlot && !e.aggro && e.hp === e.max && e.L !== freshL) {
+    const slot = e.fieldSlot, fresh = makeEnemy(e.tid, freshL, e.cls, e.x, e.y);
+    Object.assign(e, fresh, { fieldSlot: slot, homeX: slot.x, homeY: slot.y, aggro: false });
+    n++;
+  }
+  return n;
 }
 export function populateField() {
   const z = zoneOf(S.stage);

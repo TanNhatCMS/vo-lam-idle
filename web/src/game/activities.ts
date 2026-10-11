@@ -82,6 +82,7 @@ export const TK_WAVES = TK_ELITE_WAVES + 1;
 function tkState() { const r = RW(); if (!r.tk || r.tk.week !== weekKey()) r.tk = { week: weekKey(), used: 0, best: 0 }; return r.tk; }
 function tkTokens() { const r = RW(); r.tkTok = r.tkTok || 0; return r.tkTok; }
 export function tkStart() {
+  if (R.tyvo) { toast('Hãy kết thúc Tỷ Võ trước khi vào Tống Kim'); return; }
   if (!S.fac || !unlocked(30) || R.tk || SV.on) return;
   const t = tkState();
   if (t.used >= 1) { toast('Tuần này đã đánh Tống Kim rồi, thứ Hai quay lại'); return; }

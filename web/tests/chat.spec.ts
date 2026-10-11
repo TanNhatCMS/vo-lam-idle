@@ -25,7 +25,7 @@ async function createCharacter(page: Page, name = 'ChatHiệp') {
   await page.locator('#bNotice').click();
   const skip = page.locator('#tSkip');
   if (await skip.isVisible({ timeout: 3000 }).catch(() => false)) await skip.click();
-  await expect(page.locator('#qBar .qb')).toHaveCount(13);
+  await expect(page.locator('#qBar .qb')).toHaveCount(14);
 }
 
 /* Dung luong chat chung cho cac test: tin goc + tin da gui (server "luu"

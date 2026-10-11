@@ -27,7 +27,7 @@ async function createCharacter(page: Page, name = 'TestEvo') {
   await page.locator('#bNotice').click();
   const skip = page.locator('#tSkip');
   if (await skip.isVisible({ timeout: 3000 }).catch(() => false)) await skip.click();
-  await expect(page.locator('#qBar .qb')).toHaveCount(13);
+  await expect(page.locator('#qBar .qb')).toHaveCount(14);
 }
 
 /* Vao Luyện Công (nut nhanh 11 -> modal gioi thieu -> "Vào Luyện Công"). */
@@ -140,7 +140,7 @@ test('tien hoa sinh ton: bien the persist qua reload (S.sv.evo trong save)', asy
   await page.locator('#modal:not(.hidden) #svQuit').click();
   await page.locator('#svOk').click();
   await page.reload();
-  await expect(page.locator('#qBar .qb')).toHaveCount(13);     // nhan van duoc nap tu save
+  await expect(page.locator('#qBar .qb')).toHaveCount(14);     // nhan van duoc nap tu save
   const evoAfter = await page.evaluate(() => {
     const S = (window as any).__G.S;
     return S.sv ? JSON.stringify(S.sv.evo) : null;

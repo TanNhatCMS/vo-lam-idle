@@ -62,6 +62,7 @@ const rerollCost = it => Math.round((500 + it.lvl * 400) * (1 + (it.mag || []).l
 export const canReroll = it => !it.set && !it.vio && (it.mag || []).length > 0;
 function payGold(c) { if (S.gold < c) { toast('Không đủ ngân lượng'); return false; } S.gold -= c; return true; }
 function enhance(it) {
+  if (R.tyvo) { toast('Không thể rèn trang bị trong lúc Tỷ Võ'); return; }
   if (!owned(it)) { closeModal(); return; }
   if ((it.enh || 0) >= ENH_MAX || !payGold(enhCost(it))) return;
   if (Math.random() < enhChance(it)) { it.enh = (it.enh || 0) + 1; toast(`Cường hóa thành công: +${it.enh}`); uiSfx('learn'); log(`Cường hóa <b>${esc(it.n)}</b> lên +${it.enh}`); }
@@ -69,6 +70,7 @@ function enhance(it) {
   R.dirty = true; setInvDirty(true); save(); forgeModal(it);
 }
 function reroll(it) {
+  if (R.tyvo) { toast('Không thể rèn trang bị trong lúc Tỷ Võ'); return; }
   if (!owned(it)) { closeModal(); return; }
   if (!canReroll(it) || !payGold(rerollCost(it))) return;
   it.mag = rollMagic(it, magicLevels(it.mag.length, it.lvl), R.P ? R.P.lucky : 0); delete it.leg;
@@ -154,6 +156,7 @@ function petForgeCard() {
     <div class="btnrow"><button class="btn" id="fPet" ${ok ? '' : 'disabled'}>Đúc</button></div></div>`;
 }
 export function forgeModal(it) {
+  if (R.tyvo) { toast('Không thể rèn trang bị trong lúc Tỷ Võ'); return; }
   const max = (it.enh || 0) >= ENH_MAX;
   modal(`<h3>Rèn đồ <small>${fmt(S.gold)} lượng</small></h3>${itemHTML(it)}
     <div class="card"><b>Cường hóa</b> <small class="dim">+${it.enh || 0} / +${ENH_MAX} · mỗi cấp +${Math.round(ENH_STEP * 100)}% thuộc tính gốc</small><br>
@@ -174,6 +177,7 @@ export function forgeModal(it) {
 /* Lo Huyen Tinh: hop tu 3 mon, thang cap Huyen Tinh va khoang */
 let htSel = [], pkSel = [];
 export function htModal() {
+  if (R.tyvo) { toast('Không thể rèn trang bị trong lúc Tỷ Võ'); return; }
   const pool = S.inv.filter(canFuse), hts = Object.keys(mats().ht).map(Number).sort((a, b) => a - b), ores = Object.keys(mats().ore).sort();
   const rfProfile = randomForgeProfile();
   htSel = htSel.filter(i => pool.includes(i));

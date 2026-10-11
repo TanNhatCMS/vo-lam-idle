@@ -76,7 +76,7 @@ import {
 import { RW, achCheck, questTick, towerExit } from './rewards';
 import { S, save } from './save';
 import { activeInfo, heroSeries } from './stats';
-import { addItem, closeModal, log, modal, refresh } from './ui';
+import { addItem, closeModal, log, modal, refresh, toast } from './ui';
 import type { SurvivalState } from './types';
 
 /* ======================= LUYEN CONG: CHE DO SINH TON (ngoai game goc) =======================
@@ -233,6 +233,7 @@ function svSlotInfo(id) {
 
 /* ---------- bat dau / ket thuc ---------- */
 function svStart() {
+  if (R.tyvo) { toast('Hãy kết thúc Tỷ Võ trước khi vào Luyện Công'); return; }
   if (!S.fac || SV.on) return;
   if (R.town) backFromTown();
   if (R.tower) towerExit(false);
