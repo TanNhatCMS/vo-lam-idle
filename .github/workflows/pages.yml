@@ -27,7 +27,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Thiết lập GitHub Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
 
       - name: Tải lên Landing Page artifact
         uses: actions/upload-pages-artifact@v5
