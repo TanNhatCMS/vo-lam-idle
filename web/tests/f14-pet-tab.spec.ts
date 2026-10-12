@@ -41,15 +41,29 @@ async function createCharacter(page: Page, name: string, facMatch: RegExp) {
 
 async function openPetTab(page: Page) {
   await page.evaluate(() => { const S = (window as any).__G.S; S.lvl = 30; S.xp = 0; S.maxStage = 20; });
-  await page.locator('#qBar .qb').nth(0).click();          // Tháp I -> mở modal Phần thưởng
-  await expect(page.locator('#giftTabs')).toBeVisible({ timeout: 8000 });
-  await page.locator('#giftTabs [data-g="pet"]').click();
-  await expect(page.locator('#mBody .pet-preview')).toBeVisible({ timeout: 5000 });
+  await page.locator('#qBar .qb[data-q="12"]').click();   // nút nhanh "Đồng hành" -> modal riêng
+  await expect(page.locator('#mBody .pet-preview')).toBeVisible({ timeout: 8000 });
 }
 
-test('phần thưởng — thẻ Đồng hành: preview + vai trò + kỹ năng + nhóm vùng', async ({ page }) => {
+test('thẻ Đồng hành (modal riêng): preview + vai trò + kỹ năng + nhóm vùng', async ({ page }) => {
   await createCharacter(page, 'PET E2E', /Thiếu Lâm/);
   await openPetTab(page);
+
+  /* modal riêng: có class pet-card-modal, KHÔNG có dãy tab Phần thưởng */
+  await expect(page.locator('#modal')).toHaveClass(/pet-card-modal/);
+  await expect(page.locator('#giftTabs')).toHaveCount(0);
+  await expect(page.locator('#mBody h3')).toContainText('Đồng hành');
+
+  /* layout: .petpick display block (không bị rule grid cũ của #t-pet đè) ->
+     nhóm vùng xếp DỌC full-width, card không bị chèn ép hẹp lại */
+  const layout = await page.evaluate(() => {
+    const pick = document.querySelector('#mBody .petpick');
+    const g = document.querySelector('#mBody .petgroup');
+    const body = document.getElementById('mBody');
+    return { display: getComputedStyle(pick).display, gW: Math.round(g.getBoundingClientRect().width), bW: Math.round(body.getBoundingClientRect().width) };
+  });
+  expect(layout.display, '.petpick phải display:block').toBe('block');
+  expect(layout.gW, 'nhóm vùng full-width (không bị chia cột)').toBeGreaterThanOrEqual(layout.bW - 4);
 
   /* cấu trúc mới */
   await expect(page.locator('#mBody .pet-preview-head small')).toHaveText('ĐANG XEM ĐỒNG HÀNH');
@@ -96,12 +110,10 @@ test('phần thưởng — thẻ Đồng hành: preview + vai trò + kỹ năng 
   assertNoErrors();
 });
 
-test('phần thưởng — thẻ Đồng hành: chưa mở khóa (dưới cấp 20) báo khóa', async ({ page }) => {
+test('thẻ Đồng hành (modal riêng): chưa mở khóa (dưới cấp 20) báo khóa', async ({ page }) => {
   await createCharacter(page, 'PET LOCK', /Thiếu Lâm/);
   await page.evaluate(() => { const S = (window as any).__G.S; S.lvl = 10; });
-  await page.locator('#qBar .qb').nth(0).click();
-  await expect(page.locator('#giftTabs')).toBeVisible({ timeout: 8000 });
-  await page.locator('#giftTabs [data-g="pet"]').click();
+  await page.locator('#qBar .qb[data-q="12"]').click();
   await expect(page.locator('#mBody')).toContainText('Đồng hành mở khóa ở cấp 20');
   assertNoErrors();
 });

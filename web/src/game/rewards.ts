@@ -550,6 +550,7 @@ function petAdopt(tid) {
   R.petPos = null; R.petLoot = null; R.dirty = true;
   toast(`Đồng hành: ${MON[tid].n} · hệ ${SERIES[petElemOf(tid)]}`);
   save(); refresh(); refreshGift();
+  if ($('#modal').classList.contains('pet-card-modal')) petModal();   // đang mở thẻ Đồng hành -> render lại trạng thái "Đang dẫn"
 }
 /* Doi thanh vien doi hinh: i=0 ra tran (pet.roster), i=1..2 ho menh (khong trung loai) */
 export function teamSet(i, tid) {
@@ -1387,6 +1388,19 @@ function petTabBody(r) {
     </section>
     <div class="petpick">${petZoneGroups().map(({ zone: z, pets }) => `<section class="petgroup"><h4>${esc(z.n)}<small>Quái cấp ${z.lo}–${z.hi}</small></h4><div class="petgroup-grid">${pets.map(t => `<button data-p-preview="${t}" class="${view === t ? 'on' : ''}${p && p.tid === t ? ' active' : ''}">${MON[t].img ? `<img src="${esc(MON[t].img)}" alt="">` : ''}<b>${esc(MON[t].n)}</b><span class="pet-card-tags">${petRoleTags(t)}</span><small class="pet-active-hint">${p && p.tid === t ? 'Đang dẫn' : ''}</small><small class="pet-skill-hint">${skHint(t)}</small></button>`).join('')}</div></section>`).join('')}</div>`;
 }
+/* Thẻ Đồng hành: modal RIÊNG (tách khỏi Phần thưởng) — mở từ nút nhanh
+   "Đồng hành" trên thanh Giang hồ (openGiftTab('pet')). Đánh dấu class
+   pet-card-modal để CSS bỏ giới hạn 40vh của danh sách loài, hộp tự cuộn. */
+export function petModal() {
+  if (!S.fac) return;
+  const r = RW();
+  modal(`<h3>Đồng hành</h3>${petTabBody(r)}`, () => {
+    document.querySelectorAll('#mBody [data-p-preview]').forEach(x => x.onclick = () => { petView = +x.dataset.pPreview; petModal(); });
+    document.querySelectorAll('#mBody [data-p-adopt]').forEach(x => x.onclick = () => petAdopt(+x.dataset.pAdopt));
+  });
+  const m = document.getElementById('modal');
+  if (m) m.classList.add('pet-card-modal');
+}
 function giftBody(r) {
   if (giftTab === 'tm') return thanMaBody();
   if (giftTab === 'tyvo') return tyvoBody(r);
@@ -1450,14 +1464,17 @@ function giftBody(r) {
       <p class="desc">Mở ở chuyển sinh 5. Quái mạnh gấp nhiều lần theo tầng, gục lùi 10 tầng; mỗi 10 tầng lần đầu nhận 1 món bộ <b>Thiên Cực</b>. Điểm chuyển sinh TS6–TS10 chỉ tác dụng ở đây.</p>
       <p>Kỷ lục: <b>tầng ${r.stat.tower2Best || 0}</b>${R.tower && R.tower.id === 2 ? ` · đang ở tầng ${R.tower.floor}` : ''}</p>
       <div class="btnrow">${R.tower && R.tower.id === 2 ? '<button class="btn red" id="gTowerOut">Rời tháp</button>' : !tower2Unlocked() ? `<button class="btn" disabled>Cần chuyển sinh ${TOWER2.reborn}</button>` : `<button class="btn" id="gTower2">Vào Tháp II (tầng ${tower2Floor(r.tower2Floor == null ? (r.stat.tower2Best || 0) + 1 : r.tower2Floor)})</button>`}</div>`;
-  if (giftTab === 'pet') return petTabBody(r);
   const bo = rebornBonus(), full = r.stat.reborn >= REBORN_MAX, need = rebornLevelAt(r.stat.reborn);
   return `<p class="desc">Từ cấp 100, mỗi lần chuyển sinh cần thêm 25 cấp (lần 2: cấp 125, lần 3: 150…): về cấp 1, giữ trang bị và võ công, nhận 50 điểm tiềm năng × số lần chuyển sinh, thưởng vĩnh viễn +20% kinh nghiệm và +10% sát thương mỗi lần (tối đa ${REBORN_MAX} lần). Điểm từ Tẩy Tỵ Kinh được giữ qua chuyển sinh.</p>
       <p>Đã chuyển sinh: <b>${r.stat.reborn}</b> lần · hiện +${Math.round(bo.xp * 100)}% kinh nghiệm, +${Math.round(bo.dmg * 100)}% sát thương.</p>
       <div class="btnrow"><button class="btn red" id="gReborn" ${S.lvl >= need && !full ? '' : 'disabled'}>${full ? 'Đã chuyển sinh tối đa' : S.lvl >= need ? 'Chuyển sinh' : `Cần cấp ${need}`}</button></div>`;
 }
-/* Mo hop qua tang dung the chi dinh (hang nut nhanh the Giang ho) */
-export function openGiftTab(tab) { giftTab = tab; giftModal(); }
+/* Mo hop qua tang dung the chi dinh (hang nut nhanh the Giang ho).
+   'pet' = the Dong hanh: modal rieng, khong con la tab trong Phần thưởng. */
+export function openGiftTab(tab) {
+  if (tab === 'pet') return petModal();
+  giftTab = tab; giftModal();
+}
 
 /* Danh hieu tren the Nhan vat: tien do + bang chon danh hieu (cach rieng so voi tab Thanh tuu) */
 export function titleProgress() {
@@ -1482,7 +1499,7 @@ export function titleModal() {
 }
 export function giftModal() {
   if (!S.fac) return;
-  const r = RW(), tabs = [['newbie', 'Tân thủ'], ['code', 'Mã quà'], ['login', 'Điểm danh'], ['lvms', 'Mốc cấp'], ['quest', 'Nhiệm vụ'], ['ach', 'Thành tựu'], ['chest', 'Phúc Duyên'], ['so', 'Quay Sò'], ['event', 'Sự kiện'], ['tower', 'Tháp'], ['tx', 'Tài Xỉu'], ['pet', 'Đồng hành'], ['tm', 'Thần Mã'], ['yt', 'Dã Tẩu'], ['guild', 'Bang hội'], ['tk', 'Tống Kim'], ['tyvo', 'Tỷ Võ'], ['reborn', 'Chuyển sinh']];
+  const r = RW(), tabs = [['newbie', 'Tân thủ'], ['code', 'Mã quà'], ['login', 'Điểm danh'], ['lvms', 'Mốc cấp'], ['quest', 'Nhiệm vụ'], ['ach', 'Thành tựu'], ['chest', 'Phúc Duyên'], ['so', 'Quay Sò'], ['event', 'Sự kiện'], ['tower', 'Tháp'], ['tx', 'Tài Xỉu'], ['tm', 'Thần Mã'], ['yt', 'Dã Tẩu'], ['guild', 'Bang hội'], ['tk', 'Tống Kim'], ['tyvo', 'Tỷ Võ'], ['reborn', 'Chuyển sinh']];
   modal(`<h3>Phần thưởng <small>Phúc Duyên ${r.fd}</small></h3><div class="dtabs" id="giftTabs">${tabs.map(([k, n]) => `<button data-g="${k}" class="${k === giftTab ? 'on' : ''}">${n}</button>`).join('')}</div>${giftBody(r)}`, () => {
     document.querySelectorAll('#mBody #giftTabs button').forEach(x => x.onclick = () => { giftTab = x.dataset.g; giftModal(); });
     const on = (id, fn) => { const el = $(id); if (el) el.onclick = fn; };

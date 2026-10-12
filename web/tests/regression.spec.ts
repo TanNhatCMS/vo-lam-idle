@@ -88,7 +88,7 @@ const QUICK: { i: number; ten: string; tab?: string; text?: string }[] = [
   { i: 9, ten: 'Gia tộc', text: 'Gia tộc' },
   { i: 10, ten: 'Tài Xỉu', tab: 'tx' },
   { i: 11, ten: 'Luyện Công', text: 'Luyện Công' },
-  { i: 12, ten: 'Đồng hành', tab: 'pet' },
+  { i: 12, ten: 'Đồng hành', text: 'Đồng hành' },  // modal riêng (pet-card-modal), không còn là tab Phần thưởng
 ];
 
 test('gia ng ho: 13 nut nhanh mo dung tinh nang', async ({ page }) => {
