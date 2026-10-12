@@ -44,6 +44,27 @@ function thanMaRow(def) {
 }
 export const isThanMa = it => !!(it && it.d === 10 && it.thanma && thanMaDef(it.thanma));
 export const horseLevel = it => clamp(Math.floor(+(it && it.hlv) || 0), 0, THAN_MA_MAX);
+/* Backfill save tu ban cu / editor ngoai: item ngua (d = 10) dung ten Than Ma
+   nhung thieu thanma (horse_id) — look.ts khong the giai ma sprite ngua
+   (row = -2 -> bo qua ca 3 phan ma truoc/trung/sau) nen nhan vat "len ngua"
+   ma khong thay ngua, tooltip chi ghi "Ngua" va Sổ Thần Mã không khai danh.
+   Dua thanma tu bang THAN_MA theo ten (NFC, thuong) — idempotent. */
+export function backfillThanMa(s) {
+  let n = 0;
+  const fix = it => {
+    if (!it || typeof it !== 'object' || it.d !== 10 || it.thanma) return;
+    const name = String(it.n || '').normalize('NFC').toLowerCase();
+    if (!name) return;
+    const def = THAN_MA.find(t => [t[2], t[3]].some(x => x && String(x).normalize('NFC').toLowerCase() === name));
+    if (def) { it.thanma = def[0]; n++; }
+  };
+  if (s) {
+    Object.values(s.eq || {}).forEach(fix);
+    (s.inv || []).forEach(fix);
+  }
+  try { const st = stashRead().st; (st && st.items || []).forEach(fix); } catch (_) { /* kho rong/mat */ }
+  return n;
+}
 const horseXpNeed = lv => 100 + lv * 30;
 function thanMaBook() {
   const r = RW();

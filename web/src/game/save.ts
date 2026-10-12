@@ -18,6 +18,7 @@ import { mats } from './recipes';
 import { offlineChests, petAutoEquip, REBORN_MAX } from './rewards';
 import { potStock } from './shop';
 import { sexReqOkFor } from './stats';
+import { backfillThanMa } from './horse';
 import { addItem, autoEquipAll, sweepJunk } from './ui';
 import type { SaveState } from './types';
 
@@ -263,6 +264,7 @@ function migrate(o) {
   const petEq = [].concat(...Object.values(s.rw.pets || {}).map(p => Object.values((p && p.eq) || {})));
   let maxUid = 0; for (const it of s.inv.concat(Object.values(s.eq || {}), Object.values(petEq))) if (it && it.uid > maxUid) maxUid = it.uid; s.uid = Math.max(+s.uid || 1, maxUid + 1);
   { const seen = new Set(); const dedupe = it => { if (seen.has(it.uid)) { it.uid = s.uid++; } seen.add(it.uid); }; s.inv.forEach(dedupe); petEq.forEach(dedupe); }   // uid trung (nhap ma sua tay): cap lai
+  backfillThanMa(s);   // Than Ma luu tu ban cu/editor: them thanma de ve ngua + Sổ Thần Mã
   s.diff = [0, 1, 2].includes(+o.diff) ? +o.diff : 1; s.hints = o.hints && typeof o.hints === 'object' ? o.hints : {};
   if (s.fac && !s.sexSet) s.sex = FEMALE_FAC.includes(s.fac) ? 1 : 0;   // gioi tinh theo phai, tru khi nguoi choi da tu chon (startFaction / setAppearance dat sexSet)
   const wrongSex = k => s.eq[k] && !sexReqOkFor(s.eq[k], s.sex);
