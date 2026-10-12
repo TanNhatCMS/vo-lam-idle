@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Võ Lâm Idle — Web & Android | Game Kiếm Hiệp Tự Động Kinh Điển</title>
+  
+  <!-- SEO Meta Tags -->
+  <meta name="description" content="Võ Lâm Idle — Game võ hiệp nhập vai idle kinh điển chơi trên Web và Android. Tự động luyện công, thập đại môn phái, ngũ hành tương khắc, rèn đồ hoàng kim, không quảng cáo, hoàn toàn miễn phí.">
+  <meta name="keywords" content="Võ Lâm Idle, Võ Lâm Truyền Kỳ idle, game kiếm hiệp web, game android võ lâm, game idle võ hiệp, thập đại môn phái, ngũ hành">
+  <meta name="author" content="TanNhatCMS">
+  <meta name="robots" content="index, follow">
+
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://tannhatcms.github.io/vo-lam-idle/">
+  <meta property="og:title" content="Võ Lâm Idle — Game Kiếm Hiệp Tự Động Trên Web & Android">
+  <meta property="og:description" content="Nhân vật tự đánh quái, tự nhặt đồ, tự rèn trang bị. 10 môn phái ngũ hành, boss thế giới, pet đồng hành. Chơi ngay trên Web hoặc tải APK Android!">
+  <meta property="og:image" content="assets/scenery.png">
+
+  <!-- Twitter -->
+  <meta property="twitter:card" content="summary_large_image">
+  <meta property="twitter:title" content="Võ Lâm Idle — Web & Android">
+  <meta property="twitter:description" content="Game kiếm hiệp idle tự động trên Web & Android. Thập đại môn phái, rèn đồ hoàng kim, hoàn toàn miễn phí.">
+  <meta property="twitter:image" content="assets/scenery.png">
+
+  <link rel="icon" type="image/png" href="assets/icon.png">
+  <link rel="apple-touch-icon" href="assets/icon.png">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800;900&family=Be+Vietnam+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  
+  <!-- Styles -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Header / Navigation -->
+  <header class="site-header" id="header">
+    <div class="container header-container">
+      <a href="#hero" class="brand-logo" id="logo-link">
+        <img src="assets/icon.png" alt="Võ Lâm Idle Logo" class="brand-icon">
+        <div class="brand-text">
+          <span class="brand-title">Võ Lâm Idle</span>
+          <span class="brand-badge">Web · Android</span>
+        </div>
+      </a>
+
+      <nav class="nav-menu" id="navMenu">
+        <a href="#features" class="nav-link">Tính Năng</a>
+        <a href="#factions" class="nav-link">10 Môn Phái</a>
+        <a href="#gameplay" class="nav-link">Hình Ảnh</a>
+        <a href="#download" class="nav-link">Tải & Cài Đặt</a>
+        <a href="#giftcode" class="nav-link">Giftcode</a>
+        <a href="#faq" class="nav-link">Hỏi Đáp</a>
+      </nav>
+
+      <div class="header-actions">
+        <a href="https://vo-lam-idle.tannhatcms.io.vn" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm btn-play-nav" id="btnPlayNav">
+          <span class="btn-icon">⚔️</span> Chơi Trên Web
+        </a>
+        <a href="#download" class="btn btn-outline btn-sm btn-download-nav" id="btnDownloadNav">
+          <span class="btn-icon">📲</span> Tải APK
+        </a>
+        <button class="mobile-toggle" id="mobileToggle" aria-label="Mở menu">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- Hero Section -->
+    <section class="hero-section" id="hero">
+      <div class="hero-bg-overlay"></div>
+      <div class="container hero-container">
+        <div class="hero-content">
+          <div class="hero-tag-wrap">
+            <span class="hero-tag">🌟 GAME VÕ HIỆP IDLE TỰ ĐỘNG 100%</span>
+            <span class="hero-tag-sub">Miễn phí · Không quảng cáo · Không nạp thẻ</span>
+          </div>
+
+          <h1 class="hero-title">
+            Bôn Tẩu Giang Hồ <br>
+            <span class="text-gold">Tái Hiện Ký Ức</span> Võ Lâm
+          </h1>
+
+          <p class="hero-desc">
+            Nhân vật tự đi, tự xuất chiêu, tự nhặt đồ và rèn trang bị. Trải nghiệm trọn vẹn chất kiếm hiệp 
+            <strong>Thập Đại Môn Phái</strong>, hệ thống <strong>Ngũ Hành Tương Khắc</strong>, săn Boss Hoàng Kim, 
+            nuôi Pet đồng hành — Chơi mượt mà ngay trên trình duyệt hoặc tải app Android cập nhật OTA siêu tốc!
+          </p>
+
+          <div class="hero-cta-group">
+            <a href="https://vo-lam-idle.tannhatcms.io.vn" target="_blank" rel="noopener noreferrer" class="btn btn-hero-primary" id="btnHeroWeb">
+              <span class="btn-icon-lg">⚔️</span>
+              <div class="btn-hero-text">
+                <span class="btn-main-label">Chơi Ngay Trên Web</span>
+                <span class="btn-sub-label">Không cần tải · Lưu máy an toàn</span>
+              </div>
+            </a>
+
+            <a href="https://github.com/TanNhatCMS/vo-lam-idle/releases/latest" target="_blank" rel="noopener noreferrer" class="btn btn-hero-gold" id="btnHeroApk">
+              <span class="btn-icon-lg">🤖</span>
+              <div class="btn-hero-text">
+                <span class="btn-main-label">Tải Bản Android APK</span>
+                <span class="btn-sub-label">Release mới nhất · Nhẹ mượt</span>
+              </div>
+            </a>
+
+            <a href="https://github.com/TanNhatCMS/vo-lam-idle" target="_blank" rel="noopener noreferrer" class="btn btn-hero-github" id="btnHeroGithub">
+              <span class="btn-icon-lg">⭐</span>
+              <div class="btn-hero-text">
+                <span class="btn-main-label">GitHub Source</span>
+                <span class="btn-sub-label">Mã nguồn mở</span>
+              </div>
+            </a>
+          </div>
+
+          <!-- Quick Stats / Highlights -->
+          <div class="hero-stats-grid">
+            <div class="stat-card">
+              <div class="stat-val text-gold">10</div>
+              <div class="stat-lbl">Môn Phái Võ Lâm</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-val text-teal">5</div>
+              <div class="stat-lbl">Hệ Ngũ Hành Khắc Chế</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-val text-red">0đ</div>
+              <div class="stat-lbl">Hoàn Toàn Miễn Phí</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-val text-green">8h</div>
+              <div class="stat-lbl">Luyện Công Offline</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="hero-visual">
+          <div class="device-mockup">
+            <div class="device-frame">
+              <img src="assets/screenshots/battle.png" alt="Võ Lâm Idle Gameplay" class="device-screen">
+              <div class="device-glow"></div>
+            </div>
+            <div class="floating-badge badge-pet">
+              <span class="badge-icon">🐾</span>
+              <div class="badge-info">
+                <strong>Đồng Hành Trợ Chiến</strong>
+                <span>Trận pháp ngũ hành kích hoạt</span>
+              </div>
+            </div>
+            <div class="floating-badge badge-auto">
+              <span class="badge-icon">⚡</span>
+              <div class="badge-info">
+                <strong>Tự Động 24/7</strong>
+                <span>Tự nhặt đồ & khảm ngọc</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Core Features Section -->
+    <section class="features-section" id="features">
+      <div class="container">
+        <div class="section-header text-center">
+          <span class="section-subtitle">ĐẶC SẮC TRÒ CHƠI</span>
+          <h2 class="section-title">Tinh Hoa Kiếm Hiệp Trong Tầm Tay</h2>
+          <div class="title-divider"></div>
+          <p class="section-desc">
+            Kết hợp hoàn hảo giữa hoài niệm Võ Lâm một thời cùng trải nghiệm rảnh tay hiện đại, tối ưu cho cuộc sống bận rộn.
+          </p>
+        </div>
+
+        <div class="features-grid">
+          <!-- Feature 1 -->
+          <div class="feature-card">
+            <div class="feature-icon-wrapper feat-gold">
+              <span class="feature-emoji">🏹</span>
+            </div>
+            <h3 class="feature-heading">Hành Tẩu & Tự Động Luyện Công</h3>
+            <p class="feature-text">
+              Nhân vật tự tìm quái, phối hợp chiêu thức, uống bình máu/mana và vượt ải liên tục. Có sẵn cần xoay ảo (Joystick) khi muốn tự tay thao tác săn Boss hiểm nghèo.
+            </p>
+            <ul class="feature-list">
+              <li>✓ Tự lọc và nhặt trang bị phẩm chất cao</li>
+              <li>✓ Tự so sánh trang bị và thay thế đồ mạnh hơn</li>
+              <li>✓ Cơ chế Luyện Công Sinh Tồn 10 phút nghẹt thở</li>
+            </ul>
+          </div>
+
+          <!-- Feature 2 -->
+          <div class="feature-card">
+            <div class="feature-icon-wrapper feat-blue">
+              <span class="feature-emoji">☯️</span>
+            </div>
+            <h3 class="feature-heading">Ngũ Hành Tương Sinh Tương Khắc</h3>
+            <p class="feature-text">
+              Kim – Mộc – Thủy – Hỏa – Thổ gắn liền với từng hệ phái và thuộc tính trang bị. Khắc chế đối thủ giúp gia tăng vượt trội sát thương và sức chống chịu.
+            </p>
+            <ul class="feature-list">
+              <li>✓ Kháng ngũ hành: Kháng Độc, Hỏa, Lôi, Băng, Phổ</li>
+              <li>✓ Tỷ lệ làm choáng, đẩy lùi, làm chậm, trúng độc</li>
+              <li>✓ Hóa giải sát thương & đòn chí tử chuẩn xác</li>
+            </ul>
+          </div>
+
+          <!-- Feature 3 -->
+          <div class="feature-card">
+            <div class="feature-icon-wrapper feat-purple">
+              <span class="feature-emoji">💎</span>
+            </div>
+            <h3 class="feature-heading">Rèn Đồ Tím, Hoàng Kim & Bạch Kim</h3>
+            <p class="feature-text">
+              Hệ thống rèn đúc trang bị có chiều sâu: Hợp thành Huyền Tinh từ nhẫn, dây chuyền, ngọc bội để khảm nạm dòng ẩn; thu thập mảnh đúc vũ khí Hoàng Kim trấn phái.
+            </p>
+            <ul class="feature-list">
+              <li>✓ Rèn đồ 3 chặng bài bản: Tím → Hoàng Kim → Bạch Kim</li>
+              <li>✓ Tính năng "Tự động rèn đồ" tiện ích</li>
+              <li>✓ Tự do tẩy luyện, kích hoạt thuộc tính bộ trang bị</li>
+            </ul>
+          </div>
+
+          <!-- Feature 4 -->
+          <div class="feature-card">
+            <div class="feature-icon-wrapper feat-green">
+              <span class="feature-emoji">🐺</span>
+            </div>
+            <h3 class="feature-heading">Đồng Hành (Pet) & Trận Pháp</h3>
+            <p class="feature-text">
+              Chiêu mộ dàn Pet đồng hành uy dũng trợ chiến. Mỗi Pet sở hữu hệ ngũ hành riêng, trang bị chuyên biệt, trận pháp hỗ trợ tăng vọt công lực cho chủ nhân.
+            </p>
+            <ul class="feature-list">
+              <li>✓ Đội hình xuất chiến đa dạng linh hoạt</li>
+              <li>✓ Kỹ năng nội tại & bí kíp bồi dưỡng Pet độc đáo</li>
+              <li>✓ Trận pháp ngũ hành cộng hưởng sức mạnh</li>
+            </ul>
+          </div>
+
+          <!-- Feature 5 -->
+          <div class="feature-card">
+            <div class="feature-icon-wrapper feat-red">
+              <span class="feature-emoji">🐉</span>
+            </div>
+            <h3 class="feature-heading">Boss Thế Giới & Tỷ Võ Trường</h3>
+            <p class="feature-text">
+              Khẳng định thực lực giang hồ tại Tỷ Võ Trường, so tài cao thấp cùng đại hiệp bốn phương; khiêu chiến Boss Thế Giới đoạt rương báu và thần binh hiếm có.
+            </p>
+            <ul class="feature-list">
+              <li>✓ Vượt Ải trảm tướng từ Hoa Sơn tới Kiếm Các</li>
+              <li>✓ Boss Thế Giới rơi mảnh Hoàng Kim & Huyền Tinh cao cấp</li>
+              <li>✓ Vận may Quay Vỏ Sò săn báu vật võ lâm</li>
+            </ul>
+          </div>
+
+          <!-- Feature 6 -->
+          <div class="feature-card">
+            <div class="feature-icon-wrapper feat-amber">
+              <span class="feature-emoji">💾</span>
+            </div>
+            <h3 class="feature-heading">Đa Nhân Vật, Sao Lưu & Offline 8H</h3>
+            <p class="feature-text">
+              Hỗ trợ 3 slot nhân vật khác nhau trên cùng một máy. Rời game vẫn nhận nguyên vẹn điểm kinh nghiệm, ngân lượng và đồ rơi khi đăng nhập trở lại!
+            </p>
+            <ul class="feature-list">
+              <li>✓ Xuất / Nhập file lưu trữ (Save JSON) giữa Web & Android</li>
+              <li>✓ Tự động sao lưu định kỳ, không lo mất tiến trình</li>
+              <li>✓ Cập nhật game qua OTA per-file siêu tốc, không cần tải lại APK</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 10 Môn Phái Section -->
+    <section class="factions-section" id="factions">
+      <div class="container">
+        <div class="section-header text-center">
+          <span class="section-subtitle">DANH CHẤN GIANG HỒ</span>
+          <h2 class="section-title">Thập Đại Môn Phái & Ngũ Hành</h2>
+          <div class="title-divider"></div>
+          <p class="section-desc">
+            Chọn hệ phái khởi đầu bước vào giang hồ. Mỗi môn phái mang phong cách chiến đấu, hệ phái vũ khí và bí kíp trấn phái riêng biệt.
+          </p>
+        </div>
+
+        <!-- Element Filter Tabs -->
+        <div class="element-tabs" id="elementTabs">
+          <button class="elem-btn active" data-series="all">
+            <span class="elem-dot dot-all"></span> Tất Cả (10)
+          </button>
+          <button class="elem-btn" data-series="0">
+            <span class="elem-dot dot-metal"></span> Hệ Kim (2)
+          </button>
+          <button class="elem-btn" data-series="1">
+            <span class="elem-dot dot-wood"></span> Hệ Mộc (2)
+          </button>
+          <button class="elem-btn" data-series="2">
+            <span class="elem-dot dot-water"></span> Hệ Thủy (2)
+          </button>
+          <button class="elem-btn" data-series="3">
+            <span class="elem-dot dot-fire"></span> Hệ Hỏa (2)
+          </button>
+          <button class="elem-btn" data-series="4">
+            <span class="elem-dot dot-earth"></span> Hệ Thổ (2)
+          </button>
+        </div>
+
+        <!-- Factions Grid -->
+        <div class="factions-grid" id="factionsGrid">
+          <!-- Thiếu Lâm -->
+          <div class="faction-card series-metal" data-series="0">
+            <div class="faction-header">
+              <div class="faction-meta">
+                <span class="elem-badge badge-metal">Hệ Kim</span>
+                <span class="camp-badge">Chính Phái</span>
+              </div>
+              <h3 class="faction-name">Thiếu Lâm Phái</h3>
+            </div>
+            <p class="faction-lore">
+              Thái Sơn Bắc Đẩu võ lâm trung nguyên. Ngoại công thâm hậu, phòng ngự vững như kim cương, phản hồi sát thương cực mạnh khi bị bao vây.
+            </p>
+            <div class="faction-details">
+              <div class="detail-row">
+                <span class="detail-label">Vũ Khí:</span>
+                <span class="detail-val">Quyền, Côn, Đao</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Tuyệt Kỹ:</span>
+                <span class="detail-val text-gold">La Hán Trận, Dịch Cân Kinh, Sư Tử Hống</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Phong Cách:</span>
+                <span class="detail-val">Đỡ đòn, phản đòn diện rộng</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Thiên Vương Bang -->
+          <div class="faction-card series-metal" data-series="0">
+            <div class="faction-header">
+              <div class="faction-meta">
+                <span class="elem-badge badge-metal">Hệ Kim</span>
+                <span class="camp-badge">Trung Lập</span>
+              </div>
+              <h3 class="faction-name">Thiên Vương Bang</h3>
+            </div>
+            <p class="faction-lore">
+              Hào kiệt Động Đình Hồ, sinh lực dồi dào, cận chiến càn quét mãnh liệt với chiêu thức dứt khoát, áp đảo trực diện.
+            </p>
+            <div class="faction-details">
+              <div class="detail-row">
+                <span class="detail-label">Vũ Khí:</span>
+                <span class="detail-val">Thương, Đao, Chùy</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Tuyệt Kỹ:</span>
+                <span class="detail-val text-gold">Trảm Long Quyết, Kim Chung Tráo</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Phong Cách:</span>
+                <span class="detail-val">Sát thương vật lý đơn mục tiêu cao</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Đường Môn -->
+          <div class="faction-card series-wood" data-series="1">
+            <div class="faction-header">
+              <div class="faction-meta">
+                <span class="elem-badge badge-wood">Hệ Mộc</span>
+                <span class="camp-badge">Trung Lập</span>
+              </div>
+              <h3 class="faction-name">Đường Môn</h3>
+            </div>
+            <p class="faction-lore">
+              Gia tộc Ba Thục khét tiếng với thuật dùng ám khí cơ quan và cạm bẫy bí hiểm, tầm bắn xa với sát thương chí mạng cực hiểm.
+            </p>
+            <div class="faction-details">
+              <div class="detail-row">
+                <span class="detail-label">Vũ Khí:</span>
+                <span class="detail-val">Ám Khí, Phi Đao, Nỏ</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Tuyệt Kỹ:</span>
+                <span class="detail-val text-wood">Bạo Vũ Lê Hoa, Cửu Cung Phi Tinh</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Phong Cách:</span>
+                <span class="detail-val">Tầm xa, bạo kích bùng nổ</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Ngũ Độc Giáo -->
+          <div class="faction-card series-wood" data-series="1">
+            <div class="faction-header">
+              <div class="faction-meta">
+                <span class="elem-badge badge-wood">Hệ Mộc</span>
+                <span class="camp-badge">Tà Phái</span>
+              </div>
+              <h3 class="faction-name">Ngũ Độc Giáo</h3>
+            </div>
+            <p class="faction-lore">
+              Bí ẩn vùng Miêu Cương, nổi danh với tà thuật dụng độc liên hoàn, gieo rắc độc sát rút máu theo thời gian và nguyền rủa đối thủ.
+            </p>
+            <div class="faction-details">
+              <div class="detail-row">
+                <span class="detail-label">Vũ Khí:</span>
+                <span class="detail-val">Đao, Chưởng, Bùa chú</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Tuyệt Kỹ:</span>
+                <span class="detail-val text-wood">Vạn Cổ Thực Tâm, Vô Hình Cổ</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Phong Cách:</span>
+                <span class="detail-val">Độc sát liên tục, giảm kháng địch</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Nga My -->
+          <div class="faction-card series-water" data-series="2">
+            <div class="faction-header">
+              <div class="faction-meta">
+                <span class="elem-badge badge-water">Hệ Thủy</span>
+                <span class="camp-badge">Chính Phái</span>
+              </div>
+              <h3 class="faction-name">Nga My Phái</h3>
+            </div>
+            <p class="faction-lore">
+              Nữ hiệp non thiêng Nga My, dung hòa nội công thanh nhã cùng khả năng trị liệu cứu trợ đồng đội và Băng sát làm chậm kẻ thù.
+            </p>
+            <div class="faction-details">
+              <div class="detail-row">
+                <span class="detail-label">Vũ Khí:</span>
+                <span class="detail-val">Kiếm, Chưởng</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Tuyệt Kỹ:</span>
+                <span class="detail-val text-water">Từ Hàng Phổ Độ, Phong Sương Toái Ảnh</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Phong Cách:</span>
+                <span class="detail-val">Hồi máu sinh tồn, khống chế Băng sát</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Thúy Yên -->
+          <div class="faction-card series-water" data-series="2">
+            <div class="faction-header">
+              <div class="faction-meta">
+                <span class="elem-badge badge-water">Hệ Thủy</span>
+                <span class="camp-badge">Trung Lập</span>
+              </div>
+              <h3 class="faction-name">Thúy Yên Môn</h3>
+            </div>
+            <p class="faction-lore">
+              Ẩn cư tại Điền Trì hoa lệ, thân thủ phiêu dật, xuất chiêu thần tốc đóng băng toàn bộ kẻ địch trong chớp mắt.
+            </p>
+            <div class="faction-details">
+              <div class="detail-row">
+                <span class="detail-label">Vũ Khí:</span>
+                <span class="detail-val">Đao, Song Đao</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Tuyệt Kỹ:</span>
+                <span class="detail-val text-water">Băng Tung Vô Ảnh, Vũ Đả Lê Hoa</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Phong Cách:</span>
+                <span class="detail-val">Băng sát đóng băng, tàng hình biến ảo</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Cái Bang -->
+          <div class="faction-card series-fire" data-series="3">
+            <div class="faction-header">
+              <div class="faction-meta">
+                <span class="elem-badge badge-fire">Hệ Hỏa</span>
+                <span class="camp-badge">Chính Phái</span>
+              </div>
+              <h3 class="faction-name">Cái Bang</h3>
+            </div>
+            <p class="faction-lore">
+              Thiên Hạ Đệ Nhất Bang trượng nghĩa khí khái. Chưởng rồng dũng mãnh cuồng bạo, thiêu đốt chiến trường, thân pháp né tránh ảo diệu.
+            </p>
+            <div class="faction-details">
+              <div class="detail-row">
+                <span class="detail-label">Vũ Khí:</span>
+                <span class="detail-val">Chưởng (Tay không), Bổng</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Tuyệt Kỹ:</span>
+                <span class="detail-val text-fire">Hàng Long Thập Bát Chưởng, Đả Cẩu Bổng Pháp</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Phong Cách:</span>
+                <span class="detail-val">Hỏa sát bùng cháy diện rộng, né tránh cao</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Thiên Nhẫn Giáo -->
+          <div class="faction-card series-fire" data-series="3">
+            <div class="faction-header">
+              <div class="faction-meta">
+                <span class="elem-badge badge-fire">Hệ Hỏa</span>
+                <span class="camp-badge">Tà Phái</span>
+              </div>
+              <h3 class="faction-name">Thiên Nhẫn Giáo</h3>
+            </div>
+            <p class="faction-lore">
+              Thánh địa phương bắc với ma công hừng hực lửa đỏ. Khả năng công kích vũ bão, thiêu đốt sinh lực địch và bùa chú làm suy yếu khốc liệt.
+            </p>
+            <div class="faction-details">
+              <div class="detail-row">
+                <span class="detail-label">Vũ Khí:</span>
+                <span class="detail-val">Đao, Thương</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Tuyệt Kỹ:</span>
+                <span class="detail-val text-fire">Ma Diệm Thất Sát, Thiên Ngoại Lưu Tinh</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Phong Cách:</span>
+                <span class="detail-val">Sát thương thiêu đốt dồn dập, hút sinh lực</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Võ Đang -->
+          <div class="faction-card series-earth" data-series="4">
+            <div class="faction-header">
+              <div class="faction-meta">
+                <span class="elem-badge badge-earth">Hệ Thổ</span>
+                <span class="camp-badge">Chính Phái</span>
+              </div>
+              <h3 class="faction-name">Võ Đang Phái</h3>
+            </div>
+            <p class="faction-lore">
+              Đạo gia thanh tịnh trên đỉnh núi Võ Đang. Kiếm khí phi phàm cùng thần công Tọa Vọng Vô Vi chuyển hóa sát thương thành nội lực, Lôi sát làm choáng.
+            </p>
+            <div class="faction-details">
+              <div class="detail-row">
+                <span class="detail-label">Vũ Khí:</span>
+                <span class="detail-val">Kiếm, Quyền</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Tuyệt Kỹ:</span>
+                <span class="detail-val text-earth">Thái Cực Thần Công, Tọa Vọng Vô Vi, Thiên Địa Vô Cực</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Phong Cách:</span>
+                <span class="detail-val">Khiên nội lực hóa giải đòn, Lôi sát choáng</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Côn Lôn -->
+          <div class="faction-card series-earth" data-series="4">
+            <div class="faction-header">
+              <div class="faction-meta">
+                <span class="elem-badge badge-earth">Hệ Thổ</span>
+                <span class="camp-badge">Trung Lập</span>
+              </div>
+              <h3 class="faction-name">Côn Lôn Phái</h3>
+            </div>
+            <p class="faction-lore">
+              Chốn Tây Vực băng sơn tuyết phủ, chiêu thức biến hóa khó lường như sấm chớp cuồng phong, sát thương Lôi sát liên hoàn và tăng tốc thần tốc.
+            </p>
+            <div class="faction-details">
+              <div class="detail-row">
+                <span class="detail-label">Vũ Khí:</span>
+                <span class="detail-val">Đao, Kiếm</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Tuyệt Kỹ:</span>
+                <span class="detail-val text-earth">Cuồng Phong Sậu Vũ, Lôi Động Cửu Thiên</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Phong Cách:</span>
+                <span class="detail-val">Tốc độ xuất chiêu cao, Lôi sát diện rộng</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Gameplay Preview / Screenshots Gallery -->
+    <section class="gallery-section" id="gameplay">
+      <div class="container">
+        <div class="section-header text-center">
+          <span class="section-subtitle">HÌNH ẢNH TRẢI NGHIỆM</span>
+          <h2 class="section-title">Giao Diện & Chiến Trường Chân Thực</h2>
+          <div class="title-divider"></div>
+          <p class="section-desc">
+            Hình ảnh chụp trực tiếp từ game Võ Lâm Idle. Giao diện trực quan, đậm chất hoài niệm võ hiệp 2D kinh điển.
+          </p>
+        </div>
+
+        <div class="gallery-grid">
+          <div class="gallery-item" data-full="assets/screenshots/battle.png">
+            <div class="gallery-thumb-wrap">
+              <img src="assets/screenshots/battle.png" alt="Chiến trường Kiếm Các Tây Bắc" class="gallery-img" loading="lazy">
+              <div class="gallery-overlay">
+                <span class="overlay-icon">🔍</span>
+                <span class="overlay-text">Chiến trường luyện công & Tự động diệt quái</span>
+              </div>
+            </div>
+            <div class="gallery-caption">
+              <strong>Chiến Trường Kiếm Các</strong>
+              <span>Tự động đánh quái, nhặt đồ và vượt ải</span>
+            </div>
+          </div>
+
+          <div class="gallery-item" data-full="assets/screenshots/combat-skills.png">
+            <div class="gallery-thumb-wrap">
+              <img src="assets/screenshots/combat-skills.png" alt="Xuất chiêu võ công uy lực" class="gallery-img" loading="lazy">
+              <div class="gallery-overlay">
+                <span class="overlay-icon">🔍</span>
+                <span class="overlay-text">Hiệu ứng võ công & Ngũ hành chiêu thức</span>
+              </div>
+            </div>
+            <div class="gallery-caption">
+              <strong>Tuyệt Kỹ Trấn Phái</strong>
+              <span>Hiệu ứng xuất chiêu võ công ngũ hành</span>
+            </div>
+          </div>
+
+          <div class="gallery-item" data-full="assets/screenshots/offline-rewards.png">
+            <div class="gallery-thumb-wrap">
+              <img src="assets/screenshots/offline-rewards.png" alt="Phần thưởng luyện công ngoại tuyến" class="gallery-img" loading="lazy">
+              <div class="gallery-overlay">
+                <span class="overlay-icon">🔍</span>
+                <span class="overlay-text">Nhận thưởng offline lên đến 8 giờ</span>
+              </div>
+            </div>
+            <div class="gallery-caption">
+              <strong>Tu Luyện Ngoại Tuyến</strong>
+              <span>Rời game vẫn nhận trọn vẹn EXP & Ngân lượng</span>
+            </div>
+          </div>
+
+          <div class="gallery-item" data-full="assets/screenshots/app-launch.png">
+            <div class="gallery-thumb-wrap">
+              <img src="assets/screenshots/app-launch.png" alt="Màn hình khởi động và cập nhật OTA" class="gallery-img" loading="lazy">
+              <div class="gallery-overlay">
+                <span class="overlay-icon">🔍</span>
+                <span class="overlay-text">Khởi động nhanh & Cập nhật OTA tự động</span>
+              </div>
+            </div>
+            <div class="gallery-caption">
+              <strong>Khởi Động Nhanh & OTA</strong>
+              <span>Cập nhật per-file siêu tốc, không cần cài lại APK</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Download & How to Play Section -->
+    <section class="download-section" id="download">
+      <div class="container">
+        <div class="section-header text-center">
+          <span class="section-subtitle">THAM GIA NGAY</span>
+          <h2 class="section-title">Trải Nghiệm Trên Mọi Thiết Bị</h2>
+          <div class="title-divider"></div>
+          <p class="section-desc">
+            Chọn nền tảng phù hợp với bạn: Chơi trực tiếp trên trình duyệt hoặc cài đặt ứng dụng Android.
+          </p>
+        </div>
+
+        <div class="platform-cards-grid">
+          <!-- Web Version Card -->
+          <div class="platform-card platform-web">
+            <div class="platform-badge">TRUY CẬP TỨC THÌ</div>
+            <div class="platform-header">
+              <div class="platform-icon">🌐</div>
+              <div>
+                <h3 class="platform-title">Phiên Bản Web</h3>
+                <span class="platform-meta">Mọi trình duyệt PC, Tablet & Mobile</span>
+              </div>
+            </div>
+            <p class="platform-desc">
+              Không cần tải hay cài đặt dung lượng. Mở trình duyệt bất kỳ là vào ngay giang hồ. Dữ liệu lưu an toàn trên máy (LocalStorage), hỗ trợ xuất file sao lưu bất cứ lúc nào.
+            </p>
+            <ul class="platform-perks">
+              <li>✓ Tương thích Chrome, Safari, Edge, Firefox, Cốc Cốc</li>
+              <li>✓ Tốc độ tải trang dưới 1 giây, phản hồi tức thì</li>
+              <li>✓ Chơi mượt mà cả trên máy tính lẫn điện thoại</li>
+              <li>✓ Cho phép xuất save đem sang bản Android chơi tiếp</li>
+            </ul>
+            <div class="platform-action">
+              <a href="https://vo-lam-idle.tannhatcms.io.vn" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-block btn-lg" id="btnLaunchWeb">
+                <span class="btn-icon">⚔️</span> Chơi Ngay Tại Đây
+              </a>
+              <span class="platform-url-hint">Tên miền chính thức: vo-lam-idle.tannhatcms.io.vn</span>
+            </div>
+          </div>
+
+          <!-- Android Version Card -->
+          <div class="platform-card platform-android">
+            <div class="platform-badge badge-green">KHUYÊN DÙNG CHO MOBILE</div>
+            <div class="platform-header">
+              <div class="platform-icon">📱</div>
+              <div>
+                <h3 class="platform-title">Phiên Bản Android APK</h3>
+                <span class="platform-meta">Android 7.0 trở lên · Tải trực tiếp APK</span>
+              </div>
+            </div>
+            <p class="platform-desc">
+              Bản ứng dụng Android tối ưu WebView với cơ chế OTA thông minh: APK nhẹ chỉ ~8MB, tự động cập nhật tài nguyên mới nhất mà không cần cài lại file cài đặt.
+            </p>
+            <ul class="platform-perks">
+              <li>✓ Trải nghiệm toàn màn hình (Fullscreen) không bị thanh địa chỉ làm phiền</li>
+              <li>✓ Cơ chế OTA 2 tầng (Code delta & Assets ZIP) tiết kiệm dữ liệu 4G</li>
+              <li>✓ Tự động giữ màn hình sáng khi luyện công</li>
+              <li>✓ Tự động sao lưu dự phòng tiến trình chơi</li>
+            </ul>
+            <div class="platform-action">
+              <a href="https://github.com/TanNhatCMS/vo-lam-idle/releases/latest" target="_blank" rel="noopener noreferrer" class="btn btn-gold btn-block btn-lg" id="btnDownloadApk">
+                <span class="btn-icon">📥</span> Tải APK (GitHub Releases)
+              </a>
+              <span class="platform-url-hint">Phát hành chính chủ trên GitHub · Quét virus 100% sạch</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Android Installation Steps -->
+        <div class="install-steps-wrap">
+          <h4 class="install-steps-title">📖 Hướng Dẫn Cài Đặt Android APK Chỉ Với 3 Bước:</h4>
+          <div class="install-steps-grid">
+            <div class="step-card">
+              <div class="step-num">1</div>
+              <div class="step-text">
+                <strong>Tải File APK</strong>
+                <span>Bấm nút "Tải APK" ở trên và chọn file <code>volam-idle-v...-release.apk</code> từ trang Releases.</span>
+              </div>
+            </div>
+            <div class="step-card">
+              <div class="step-num">2</div>
+              <div class="step-text">
+                <strong>Cho Phép Cài Đặt</strong>
+                <span>Mở file APK vừa tải. Nếu máy hỏi, bật quyền <em>"Cho phép cài đặt ứng dụng từ nguồn này"</em>.</span>
+              </div>
+            </div>
+            <div class="step-card">
+              <div class="step-num">3</div>
+              <div class="step-text">
+                <strong>Mở App & Hành Tẩu</strong>
+                <span>Mở app, game sẽ tự động chuẩn bị tài nguyên trong vài giây và sẵn sàng vào chiến trường!</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Giftcode Section -->
+    <section class="giftcode-section" id="giftcode">
+      <div class="container">
+        <div class="giftcode-box">
+          <div class="giftcode-header">
+            <span class="giftcode-badge">🎁 QUÀ TÂN THỦ GIANG HỒ</span>
+            <h2 class="giftcode-title">Nhập Giftcode Nhận Thần Trang & Báu Vật</h2>
+            <p class="giftcode-desc">
+              Hành trang bước chân vào giang hồ thêm phần vững vàng với những phần quà khởi đầu quý giá. Nhập mã tại mục <strong>Khác → Nhập Giftcode</strong> trong game!
+            </p>
+          </div>
+
+          <div class="giftcode-grid">
+            <div class="code-card">
+              <div class="code-info">
+                <span class="code-tag">Tân Thủ 1</span>
+                <span class="code-val" id="code1">TANTHU</span>
+                <span class="code-rewards">Ngân lượng khởi đầu + Thuốc hồi phục</span>
+              </div>
+              <button class="btn btn-copy" data-target="code1" aria-label="Sao chép TANTHU">
+                <span>Sao chép</span>
+              </button>
+            </div>
+
+            <div class="code-card">
+              <div class="code-info">
+                <span class="code-tag">Tân Thủ 2</span>
+                <span class="code-val" id="code2">VOLAMIDLE</span>
+                <span class="code-rewards">Huyền Tinh đúc đồ + Rương báu vật phẩm</span>
+              </div>
+              <button class="btn btn-copy" data-target="code2" aria-label="Sao chép VOLAMIDLE">
+                <span>Sao chép</span>
+              </button>
+            </div>
+
+            <div class="code-card">
+              <div class="code-info">
+                <span class="code-tag">Cộng Đồng</span>
+                <span class="code-val" id="code3">GIANGHO</span>
+                <span class="code-rewards">Đồng hành Pet sơ cấp + Vé quay vỏ sò</span>
+              </div>
+              <button class="btn btn-copy" data-target="code3" aria-label="Sao chép GIANGHO">
+                <span>Sao chép</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FAQ Section -->
+    <section class="faq-section" id="faq">
+      <div class="container faq-container">
+        <div class="section-header text-center">
+          <span class="section-subtitle">GIẢI ĐÁP THẮC MẮC</span>
+          <h2 class="section-title">Câu Hỏi Thường Gặp (FAQ)</h2>
+          <div class="title-divider"></div>
+        </div>
+
+        <div class="accordion" id="faqAccordion">
+          <!-- Item 1 -->
+          <div class="faq-item">
+            <button class="faq-question" aria-expanded="false">
+              <span>Game có nạp tiền hoặc xem quảng cáo không?</span>
+              <span class="faq-arrow">▼</span>
+            </button>
+            <div class="faq-answer">
+              <p>
+                <strong>Hoàn toàn KHÔNG!</strong> Võ Lâm Idle là dự án phi lợi nhuận hướng tới cộng đồng yêu thích võ hiệp Võ Lâm Truyền Kỳ kinh điển. Trò chơi không có bất kỳ hệ thống nạp tiền, VIP, nạp thẻ hay quảng cáo gây gián đoạn nào. Tất cả trang bị, tính năng đều nhận được qua quá trình cày cuốc tự nhiên.
+              </p>
+            </div>
+          </div>
+
+          <!-- Item 2 -->
+          <div class="faq-item">
+            <button class="faq-question" aria-expanded="false">
+              <span>Dữ liệu chơi được lưu ở đâu? Có bị mất tiến trình không?</span>
+              <span class="faq-arrow">▼</span>
+            </button>
+            <div class="faq-answer">
+              <p>
+                Dữ liệu được lưu trữ trực tiếp trên thiết bị của bạn (qua LocalStorage trình duyệt hoặc bộ nhớ nội bộ của app Android). Game tự động lưu sau mỗi 10 giây và có cơ chế backup slot dự phòng. Ngoài ra bạn có thể vào mục <strong>Khác → Xuất file lưu</strong> để tải về file sao lưu (JSON) dự phòng bất cứ khi nào.
+              </p>
+            </div>
+          </div>
+
+          <!-- Item 3 -->
+          <div class="faq-item">
+            <button class="faq-question" aria-expanded="false">
+              <span>Có thể đồng bộ dữ liệu giữa máy tính (Web) và điện thoại (Android) không?</span>
+              <span class="faq-arrow">▼</span>
+            </button>
+            <div class="faq-answer">
+              <p>
+                Hoàn toàn được! Trên phiên bản Web bạn bấm <strong>Khác → Xuất file lưu</strong>, sau đó gửi file JSON này sang điện thoại và dùng nút <strong>Nhập file lưu</strong> trong bản Android (hoặc ngược lại). Nhân vật và hành trang sẽ được chuyển giao trọn vẹn.
+              </p>
+            </div>
+          </div>
+
+          <!-- Item 4 -->
+          <div class="faq-item">
+            <button class="faq-question" aria-expanded="false">
+              <span>Cơ chế luyện công Offline hoạt động như thế nào?</span>
+              <span class="faq-arrow">▼</span>
+            </button>
+            <div class="faq-answer">
+              <p>
+                Khi bạn đóng trình duyệt hoặc thoát app, nhân vật vẫn tiếp tục luyện công tại bản đồ đang đứng tối đa <strong>8 tiếng</strong>. Khi quay lại game, bảng tổng kết sẽ hiển thị số quái đã tiêu diệt, kinh nghiệm nhận được, ngân lượng và vật phẩm rớt vào túi đồ.
+              </p>
+            </div>
+          </div>
+
+          <!-- Item 5 -->
+          <div class="faq-item">
+            <button class="faq-question" aria-expanded="false">
+              <span>Cập nhật game Android qua OTA là gì? Có tốn dung lượng không?</span>
+              <span class="faq-arrow">▼</span>
+            </button>
+            <div class="faq-answer">
+              <p>
+                OTA (Over-The-Air) cho phép game cập nhật code giao diện, tính năng mới và cân bằng môn phái tức thì mỗi khi mở app mà bạn không cần phải tải lại file cài đặt APK cồng kềnh. Gói cập nhật code thường chỉ dưới 1MB nên cực kỳ nhanh chóng và tiết kiệm 4G.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Screenshot Modal (Lightbox) -->
+  <div class="modal" id="lightboxModal" aria-hidden="true">
+    <div class="modal-backdrop" id="modalBackdrop"></div>
+    <div class="modal-container">
+      <button class="modal-close" id="modalClose" aria-label="Đóng ảnh">&times;</button>
+      <img src="" alt="Gameplay Preview" class="modal-img" id="modalImg">
+      <div class="modal-caption" id="modalCaption"></div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div class="toast" id="toastNotification" aria-live="polite"></div>
+
+  <!-- Site Footer -->
+  <footer class="site-footer">
+    <div class="container footer-container">
+      <div class="footer-brand">
+        <div class="footer-logo">
+          <img src="assets/icon.png" alt="Logo" class="footer-logo-img">
+          <span class="footer-title">Võ Lâm Idle</span>
+        </div>
+        <p class="footer-about">
+          Dự án game võ hiệp nhàn rỗi mã nguồn mở, tái hiện cảm xúc hành tẩu giang hồ với công nghệ Web & Android hiện đại.
+        </p>
+        <div class="footer-socials">
+          <a href="https://github.com/TanNhatCMS/vo-lam-idle" target="_blank" rel="noopener noreferrer" class="social-link" title="GitHub Repository">
+            <span>⭐ GitHub Repo</span>
+          </a>
+          <a href="https://github.com/TanNhatCMS/vo-lam-idle/issues" target="_blank" rel="noopener noreferrer" class="social-link" title="Báo lỗi hoặc Góp ý">
+            <span>🐞 Báo Lỗi / Đóng Góp</span>
+          </a>
+          <a href="https://vo-lam-idle.tannhatcms.io.vn" target="_blank" rel="noopener noreferrer" class="social-link" title="Web Game">
+            <span>🌐 Web Game</span>
+          </a>
+        </div>
+      </div>
+
+      <div class="footer-links-col">
+        <h4 class="footer-col-title">Khám Phá</h4>
+        <ul class="footer-links-list">
+          <li><a href="#features">Tính năng đặc sắc</a></li>
+          <li><a href="#factions">Thập Đại Môn Phái</a></li>
+          <li><a href="#gameplay">Hình ảnh chiến trường</a></li>
+          <li><a href="#giftcode">Giftcode tân thủ</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-links-col">
+        <h4 class="footer-col-title">Tải & Chơi</h4>
+        <ul class="footer-links-list">
+          <li><a href="https://vo-lam-idle.tannhatcms.io.vn" target="_blank" rel="noopener">Chơi bản Web</a></li>
+          <li><a href="https://github.com/TanNhatCMS/vo-lam-idle/releases/latest" target="_blank" rel="noopener">Tải APK Android</a></li>
+          <li><a href="#download">Hướng dẫn cài đặt</a></li>
+          <li><a href="#faq">Câu hỏi thường gặp</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-links-col">
+        <h4 class="footer-col-title">Mã Nguồn</h4>
+        <ul class="footer-links-list">
+          <li><a href="https://github.com/TanNhatCMS/vo-lam-idle" target="_blank" rel="noopener">GitHub Project</a></li>
+          <li><a href="https://github.com/TanNhatCMS/vo-lam-idle/blob/main/README.md" target="_blank" rel="noopener">Tài liệu README</a></li>
+          <li><a href="https://github.com/TanNhatCMS/vo-lam-idle/blob/main/DESIGN.md" target="_blank" rel="noopener">Tài liệu Thiết Kế</a></li>
+          <li><a href="https://github.com/TanNhatCMS/vo-lam-idle/releases" target="_blank" rel="noopener">Lịch sử phiên bản</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="footer-bottom">
+      <div class="container footer-bottom-container">
+        <p class="copyright">
+          © 2026 <strong>TanNhatCMS / Võ Lâm Idle</strong>. Phát triển vì niềm đam mê kiếm hiệp. Phi thương mại.
+        </p>
+        <p class="disclaimer">
+          Dự án cộng đồng tôn vinh dòng game Võ Lâm Truyền Kỳ. Mọi hình ảnh và tài sản gốc thuộc về chủ sở hữu hợp pháp.
+        </p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="main.js"></script>
+</body>
+</html>

@@ -15,10 +15,15 @@
 - **Đa nhân vật & sao lưu** — Nhiều slot save, tự động backup, xuất/nhập file lưu giữa thiết bị.
 - **Chat thế giới** — Xem hồ sơ nhân vật nhanh trực tiếp trong chat.
 
+- **Chơi ngay trên Web:** [vo-lam-idle.tannhatcms.io.vn](https://vo-lam-idle.tannhatcms.io.vn)
+- **Trang giới thiệu (Landing Page):** [tannhatcms.github.io/vo-lam-idle](https://tannhatcms.github.io/vo-lam-idle/)
+- **Tải APK Android:** [GitHub Releases](https://github.com/TanNhatCMS/vo-lam-idle/releases/latest)
+
 ## Cấu trúc dự án
 
 ```
 VoLamIdleAndroid/
+├── landing/            # Landing Page GitHub Pages (HTML5/CSS3/JS, không phụ thuộc build)
 ├── app/                # Android app (Kotlin) – WebView + OTA manager
 ├── web/                # Next.js 16 + React 19 + TypeScript (source game)
 ├── game/               # Artifact chạy thật: index.html + _next/ + media (do android:sync)

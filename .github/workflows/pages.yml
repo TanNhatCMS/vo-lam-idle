@@ -1,0 +1,39 @@
+name: Deploy Landing Page to GitHub Pages
+
+# Tự động xuất bản thư mục landing/ lên GitHub Pages khi có commit trên main
+on:
+  push:
+    branches: [main]
+    paths: ['landing/**', '.github/workflows/pages.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: 'pages'
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout mã nguồn
+        uses: actions/checkout@v4
+
+      - name: Thiết lập GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Tải lên Landing Page artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: 'landing'
+
+      - name: Triển khai lên GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
