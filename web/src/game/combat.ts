@@ -157,6 +157,15 @@ export function hitPercent(ar, def, ignore = 0) {
   if (p > MAX_HIT + 4) p = MAX_HIT;
   return Math.max(MIN_HIT, p);
 }
+/* Don vat ly THUAN (danh thuong / chieu khong pha nguyen to — port ci() ban nguon v107):
+   that bai tran 3% roi giam tiep theo "chinh xac" accMissReduction (0-100, AR do do
+   cong them so voi nen dex/str) -> build ngoai cong gan nhu khong truot voi quai cung cap.
+   Chieu co pha nguyen to va quai danh nhan vat van dung hitPercent thuo. */
+export function hitChance(ar, def, ignore = 0, purePhysical = false, accMissReduction = 0) {
+  const base = hitPercent(ar, def, ignore);
+  if (!purePhysical) return base;
+  return 100 - Math.min(100 - base, 3) * (1 - clamp(accMissReduction, 0, 100) / 100);
+}
 /* Mot phan sat thuong (vat ly / nguyen to) vao muc tieu: ngu hanh -> khang -> nhan (100 - khang)% */
 export function applyPart(dmg, e, attackerSeries, targetSeries, targetRes, targetResMax, series5) {
   let res = targetRes[e];
@@ -169,7 +178,7 @@ function heroHit(a, e) {
   const cm = curseMod(e);   // bua hai: giam phong thu / khang / chinh xac cua dich
   if (e.homeX !== undefined) e.aggro = true;   // bãi quái: bị đánh là chú ý (field.ts)
   const resCm = cm ? Object.fromEntries(ELEM.map(x => [x, (e.res[x] || 0) + (cm.res[x] || 0)])) : e.res;
-  if (a.useAR && Math.random() * 100 >= hitPercent(R.P.ar, e.def + (cm ? cm.def : 0), a.ignore)) { addText(e.x, e.y - e.r - 8, 'Trượt', '#aaa', 11); return 0; }
+  if (a.useAR && Math.random() * 100 >= hitChance(R.P.ar, e.def + (cm ? cm.def : 0), a.ignore, a.purePhysical, R.P.accMissReduction)) { addText(e.x, e.y - e.r - 8, 'Trượt', '#aaa', 11); return 0; }
   const crit = Math.random() * 100 < a.crit;
   let tot = 0, best = 'phys', bv = 0;
   for (const el in a.parts) {

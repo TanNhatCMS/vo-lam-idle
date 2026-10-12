@@ -1,6 +1,6 @@
 // @ts-nocheck — chuyen tu vanilla JS: bat lai check tung file dan dan (xem README muc TypeScript)
 import { forgeReadyCounts } from './auto';
-import { H, R, hitPercent, recalc } from './combat';
+import { H, R, hitPercent, hitChance, recalc } from './combat';
 import {
   $,
   ELEM,
@@ -108,7 +108,7 @@ export function bindTodo() {
 /* ---------- 3. chi tiet luc chien ---------- */
 function powerBreakdown() {
   const P = R.P, L = S.lvl, eDef = 8 + 3.2 * L, eAr = 30 + 9 * L, a = P.main;
-  const hit = a.useAR ? hitPercent(P.ar, eDef, a.ignore) / 100 : 1, dodge = 1 - hitPercent(eAr, P.def) / 100;
+  const hit = a.useAR ? hitChance(P.ar, eDef, a.ignore, a.purePhysical, P.accMissReduction) / 100 : 1, dodge = 1 - hitPercent(eAr, P.def) / 100;
   const avgRes = ELEM.reduce((t, e) => t + P.res[e], 0) / ELEM.length;
   const info = { power: power(P), dps: a.dps * hit, hit, dodge, avgRes, ehp: P.life / Math.max(0.2, 1 - avgRes / 100) / Math.max(0.3, 1 - dodge), main: a.n };
   const full = power(calc(S.eq)), slots = [];

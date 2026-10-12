@@ -1,5 +1,5 @@
 // @ts-nocheck — chuyen tu vanilla JS: bat lai check tung file dan dan (xem README muc TypeScript)
-import { POT_TIER_LV, R, hitPercent } from './combat';
+import { POT_TIER_LV, R, hitPercent, hitChance } from './combat';
 import {
   $,
   CRIT_MULT,
@@ -170,6 +170,8 @@ export function calc(eq) {
   const wpn = eq.weapon && typeof eq.weapon === 'object' ? eq.weapon : null;
   const meleeAR = P.dex * 4 + (wpn && wpn.d === 1 ? 0 : P.str * 2);
   P.ar = Math.max(10, (meleeAR - 28 + av(A, 'attackrating_v') + av(A, 'attackratingenhance_v')) * (1 + (av(A, 'attackratingenhance_p') + av(A, 'attackrating_p')) / 100));
+  // can bang v107: AR do do (chinh xac) cong them so voi nen dex/str giam that bai cua don vat ly thuan (hitChance)
+  P.accMissReduction = clamp((P.ar / Math.max(10, meleeAR - 28) - 1) * 100, 0, 100);
   P.def = Math.max(0, P.dex / 4 + av(A, 'adddefense_v') + av(A, 'armordefense_v') * 0.25) * (1 + av(A, 'armordefenseenhance_p') / 100);
   // khang: goc theo he (level_add) + trang bi / ky nang, gioi han 75 (+ allresmax)
   const baseRes = { phys: add.physicres, poison: add.poisonres, cold: add.coldres, fire: add.fireres, light: add.lightingres };
@@ -272,7 +274,9 @@ export function activeInfo(P, s, L) {
   const stun = (skVal(s, 'stun_p', L) || [0])[0];
   const rate = s.phys ? P.aspd : P.aspd * 0.9;
   const info = { id: s.id, n: s.n, L, parts, tot, rad, melee: rad <= 120, targets, around: s.form === 7, cost, crit, series5, ignore, stun,
-    series: s.series >= 0 ? s.series : P.series, rate, dps: 0, useAR: s.phys };
+    series: s.series >= 0 ? s.series : P.series, rate, dps: 0, useAR: s.phys,
+    // vat ly thuan = chieu co suc dac cong KHONG pha nguyen to (doc, bang, hoa, loi) — hitChance tran 3% that bai
+    purePhysical: !!s.phys && !(parts.poison || parts.cold || parts.fire || parts.light) };
   // DPS du kien: so muc tieu trung thuc te + thoi gian danh cua chieu can chien (khong dung so muc tieu danh nghia)
   // doc: ~25% sat thuong mat khi quai chet truoc khi het doc (POISON_EFF) -> tinh vao DPS du kien (chon chieu, luc chien)
   info.dps = (tot - (parts.poison || 0) * (1 - POISON_EFF) + (parts.phys || 0) * crit / 100 * (CRIT_MULT - 1)) * expectedHits(info) * rate * (info.melee ? MELEE_UPTIME : 1);   // chi mang chi nhan doi phan vat ly (giong heroHit)
@@ -283,7 +287,7 @@ function basicAttack(P) {
   const parts = { phys }; for (const e in P.add) if (P.add[e]) parts[e] = P.add[e];
   let tot = 0; for (const e in parts) { parts[e] *= P.dmgMul || 1; tot += parts[e]; }
   return { id: 0, n: 'Đánh thường', L: 1, parts, tot, rad: P.ranged ? 260 : 60, melee: !P.ranged, targets: 1, cost: 0, crit: P.crit,
-    series5: 0, ignore: P.ignoreDef, stun: 0, series: P.series, rate: P.aspd, dps: tot * P.aspd * (P.ranged ? 1 : MELEE_UPTIME), useAR: 1 };
+    series5: 0, ignore: P.ignoreDef, stun: 0, series: P.series, rate: P.aspd, dps: tot * P.aspd * (P.ranged ? 1 : MELEE_UPTIME), useAR: 1, purePhysical: true };
 }
 
 /* Noi luc hoi duoc moi giay tu thuoc (Ngung Than dan tot nhat da mo khoa theo cap, uong noi nhau) */
@@ -335,7 +339,7 @@ const POWER_DPS_W = 0.7; // game idle: toc do ha quai quyet dinh tien trinh, mau
 /* Luc chien: DPS thuc te (nhan ti le trung vs quai cung cap) ^0.6 x mau hieu dung (khang, ne) ^0.4 */
 export function power(P) {
   const L = S.lvl, eDef = 8 + 3.2 * L, eAr = 30 + 9 * L, a = P.main;
-  const hit = a.useAR ? hitPercent(P.ar, eDef, a.ignore) / 100 : 1;
+  const hit = a.useAR ? hitChance(P.ar, eDef, a.ignore, a.purePhysical, P.accMissReduction) / 100 : 1;
   const dodge = 1 - hitPercent(eAr, P.def) / 100;
   const avgRes = ELEM.reduce((t, e) => t + P.res[e], 0) / ELEM.length;
   const dps = a.dps * hit;
