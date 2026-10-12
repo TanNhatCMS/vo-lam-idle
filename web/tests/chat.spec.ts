@@ -307,3 +307,41 @@ test('chat: presence heartbeat — day profile len server (profile chinh minh xe
   await expect.poll(() => mock.presences.length, { timeout: 3000 }).toBe(2);
   assertNoErrors();
 });
+
+/* Server chat tu choi profile co item nao > 16 dong ma thuật
+   (400 "Danh sách dòng ma thuật trang bị chia sẻ không hợp lệ")
+   — kiểm tra itemSharePayload cat dung 16. */
+test('chat: presence cat 16 dong magic tren moi item', async ({ page }) => {
+  const mock = mockChatApi(page, { holdStream: true });
+  await createCharacter(page);
+
+  // Weapon với 20 dòng magic — chen vao save, ky lai, chen bang
+  // addInitScript (chay truoc boot luc reload) vi pagehide se
+  // autosave ghi de state cu len localStorage.
+  const packed = await page.evaluate(() => localStorage.getItem('jxidle'));
+  const state = JSON.parse(JSON.parse(packed).d);
+  state.eq.weapon.mag = Array.from({ length: 20 }, (_, i) => ({ a: 240 + (i % 6), p: [i, -1, 0] }));
+  const d2 = JSON.stringify(state);
+  const signed = await page.evaluate(({ d2 }) => {
+    function sigOf(str) {
+      let h1 = 0xdeadbeef, h2 = 0x41c6ce57; const s = 'jx-idle-v1:' + str;
+      for (let i = 0; i < s.length; i++) { const c = s.charCodeAt(i); h1 = Math.imul(h1 ^ c, 2654435761); h2 = Math.imul(h2 ^ c, 1597334677); }
+      h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+      h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+      return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
+    }
+    return JSON.stringify({ d: d2, h: sigOf(d2) });
+  }, { d2 });
+  await page.addInitScript(p => localStorage.setItem('jxidle', p), signed);
+
+  await page.reload();
+  await expect(page.locator('#qBar .qb')).toHaveCount(14);
+  await expect.poll(() => mock.presences.some(x => x.profile && x.profile.equipment && x.profile.equipment.weapon)).toBe(true);
+  const wp = mock.presences.find(x => x.profile && x.profile.equipment && x.profile.equipment.weapon);
+  expect(wp.profile.equipment.weapon.magic).toHaveLength(16);
+  for (const slot of ['weapon', 'armor', 'helm', 'belt', 'boot', 'cuff', 'amulet', 'ring1', 'ring2', 'pendant', 'horse']) {
+    const item = wp.profile.equipment[slot];
+    if (item) expect(item.magic.length).toBeLessThanOrEqual(16);
+  }
+  assertNoErrors();
+});

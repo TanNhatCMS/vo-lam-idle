@@ -553,7 +553,9 @@ export function itemSharePayload(it) {
   const number = value => Number.isFinite(Number(value)) ? Number(value) : 0;
   const triples = rows => (Array.isArray(rows) ? rows : []).map(row => [number(row[0]), number(row[1]), number(row[2])]);
   const pairs = rows => (Array.isArray(rows) ? rows : []).map(row => [number(row[0]), number(row[1])]);
-  const magic = rows => (Array.isArray(rows) ? rows : []).map(row => ({
+  // Server chat chi nhanh toi da 16 dong ma thuật/item (17+ -> 400
+  // "Danh sách dòng ma thuật trang bị chia sẻ không hợp lệ", ca profile bi tu choi).
+  const magic = rows => (Array.isArray(rows) ? rows : []).slice(0, 16).map(row => ({
     a: number(row.a), p: (Array.isArray(row.p) ? row.p : []).slice(0, 3).map(number)
   }));
   return {
