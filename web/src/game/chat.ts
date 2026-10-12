@@ -1,6 +1,6 @@
 // @ts-nocheck — chuyen tu vanilla JS: bat lai check tung file dan dan (xem README muc TypeScript)
 import { FAC, RAR_COL, SERIES_COL, clamp, esc } from './core';
-import { itemSharePayload, modal, toast } from './ui';
+import { itemSharePayload, modal, setWorldLeaderboardReturn, setWorldProfilePreviewReturn, toast } from './ui';
 import { R } from './combat';
 import { S } from './save';
 
@@ -335,6 +335,7 @@ const profileReqLevel = item => {
 };
 function showWorldChatProfile(profile) {
   if (!profile || typeof profile !== 'object' || !profile.equipment) return;
+  setWorldProfilePreviewReturn(null);   // mo ho so moi = bo chuyen ve item preview cu
   const faction = FAC[profile.faction];
   const factionName = faction ? faction.n : String(profile.faction || 'Giang hồ');
   const updated = new Date(Number(profile.updated_at) * 1000);
@@ -365,7 +366,9 @@ function showWorldChatProfile(profile) {
       document.querySelectorAll('#mBody [data-profile-item]').forEach(button => {
         button.onclick = () => {
           const item = profile.equipment[button.dataset.profileItem];
-          if (item && typeof window.showSharedItem === 'function') window.showSharedItem(item, null);
+          if (!item) return;
+          setWorldProfilePreviewReturn(() => showWorldChatProfile(profile));   // dong item -> ve ho so nay
+          if (typeof window.showSharedItem === 'function') window.showSharedItem(item, null);
         };
       });
     });
@@ -387,6 +390,7 @@ function showWorldLeaderboard(type = 'tower', faction = 'all', mode = null) {
   const ownChal = (S && S.chal) || '';
   const ownMode = ownChal === 'white' ? 'white' : ownChal === '' ? 'normal' : 'all';
   if (mode !== 'all' && mode !== 'white' && mode !== 'normal') mode = ownMode;
+  setWorldLeaderboardReturn(null);   // mo BXH moi = bo chuyen ve ho so cu
   const seq = ++rankSeq;
   const tabs = Object.entries(RANK_KINDS).map(([key, label]) =>
     `<button type="button" class="rank-tab${key === type ? ' active' : ''}" data-rank-kind="${key}" aria-pressed="${key === type}">${label}</button>`).join('');
@@ -394,6 +398,7 @@ function showWorldLeaderboard(type = 'tower', faction = 'all', mode = null) {
     `<button type="button" class="rank-mode${key === mode ? ' active' : ''}" data-rank-mode="${key}" aria-pressed="${key === mode}">${label}</button>`).join('');
   const factionOptions = `<option value="all">Mọi phái</option>${Object.entries(FAC).map(([key, f]) =>
     `<option value="${esc(key)}"${key === faction ? ' selected' : ''}>${esc(f.n)}</option>`).join('')}`;
+  const factionLabel = faction === 'all' ? 'Mọi phái' : FAC[faction] ? FAC[faction].n : faction;
   const selfLabel = type === 'online' ? 'Người chơi đang online' : 'Hạng của bạn';
   const selfCell = type === 'online' ? '' : '<b class="world-rank-self">Đang tải…</b>';
   const foot = type === 'online' ? 'Danh sách online lấy từ phiên đang kết nối.'
@@ -433,7 +438,7 @@ function showWorldLeaderboard(type = 'tower', faction = 'all', mode = null) {
         if (selfEl) selfEl.textContent = S && S.rankId ? (result.my_rank ? `Hạng ${result.my_rank}` : 'Ngoài top 50') : 'Chưa có nhân vật';
         const rows = Array.isArray(result.rows) ? result.rows : [];
         if (!rows.length) {
-          tbody.innerHTML = `<tr><td colspan="4" class="world-rank-message">${esc(type === 'online' ? 'Hiện chưa có người chơi online.' : `Chưa có dữ liệu ${RANK_KINDS[type]}.`)}</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="4" class="world-rank-message">${esc(type === 'online' ? 'Hiện chưa có người chơi online.' : `Chưa có dữ liệu ${factionLabel}.`)}</td></tr>`;
           return;
         }
         tbody.innerHTML = rows.map((row, index) => {
@@ -457,6 +462,7 @@ function showWorldLeaderboard(type = 'tower', faction = 'all', mode = null) {
               const result = await response.json().catch(() => ({}));
               if (seq !== rankSeq || modalEl.classList.contains('hidden')) return;
               if (!response.ok) throw new Error(result.error || 'Không tải được hồ sơ nhân vật.');
+              setWorldLeaderboardReturn(() => showWorldLeaderboard(type, faction, mode));   // dong ho so -> mo lai BXH
               showWorldChatProfile(result.profile);
             } catch (e) {
               toast(e.message || 'Không tải được hồ sơ nhân vật.');
@@ -484,9 +490,10 @@ function showWorldLeaderboard(type = 'tower', faction = 'all', mode = null) {
     const factionSelect = modalEl.querySelector('#worldRankFaction');
     if (factionSelect) factionSelect.onchange = () => showWorldLeaderboard(type, factionSelect.value, mode);
     load();
-  });
+  }, undefined, false);   // khong focus .mbox (bang dang bang, giong nguon)
   const modalEl = document.getElementById('modal');
   if (modalEl) modalEl.classList.add('item-preview-modal', 'world-leaderboard-modal');
+  try { Object.defineProperty(window, 'worldLeaderboardRequest', { configurable: true, get: () => rankSeq, set: v => { rankSeq = v; } }); } catch (e) { /* bo qua */ }
 }
 
 function setUnread(value) {

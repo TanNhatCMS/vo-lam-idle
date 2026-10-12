@@ -130,8 +130,32 @@ export let curTab = 'log', invDirty = true;
 export function setInvDirty(v) { invDirty = v; }
 export function log(h) { if (R.quiet) return; R.logs.unshift(h); if (R.logs.length > 40) R.logs.pop(); R.logDirty = true; if (typeof window.syncWorldChatSystem === 'function') window.syncWorldChatSystem(R.logs); }
 export let toastT; export function toast(t) { const el = $('#toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('on'), 1800); }
-export function modal(html, bind?, locked?, focus = true) { const m = $('#modal'); m.classList.remove('modal-entering'); void m.offsetWidth; m.classList.add('modal-entering'); m.classList.remove('hidden', 'item-preview-modal', 'item-tooltip-preview', 'chat-item-tooltip', 'inventory-item-tooltip'); m.style.removeProperty('--chat-tooltip-left'); m.style.removeProperty('--chat-tooltip-top'); sharedItemTooltipPanel = null; sharedItemTooltipAnchor = null; sharedItemTooltipKind = ''; $('#mBody').innerHTML = html; m.dataset.locked = locked ? '1' : ''; if (bind) bind(); if (focus) try { $('#modal .mbox').focus({ preventScroll: true }); } catch (e) { /* bo qua */ } }
-export function closeModal(force?) { if ($('#modal').dataset.locked && !force) return; $('#modal').classList.remove('modal-entering'); $('#modal').classList.add('hidden'); }
+/* Chain quay lai giong nguon (v107 2026-10-12): dong item preview -> ve
+   ho so nhan vat, dong ho so -> ve bang xep hang. chat.ts gan cac ham
+   nay khi mo ho so tu BXH; closeModal chay chuoi khi dong. */
+let worldProfilePreviewReturn: (() => void) | null = null;
+let worldLeaderboardReturn: (() => void) | null = null;
+export function setWorldProfilePreviewReturn(fn) { worldProfilePreviewReturn = fn; }
+export function setWorldLeaderboardReturn(fn) { worldLeaderboardReturn = fn; }
+export function clearWorldLeaderboardReturn() { worldLeaderboardReturn = null; }
+try { Object.defineProperty(window, 'worldProfilePreviewReturn', { configurable: true, get: () => worldProfilePreviewReturn, set: v => { worldProfilePreviewReturn = v; } }); } catch (e) { /* bo qua */ }
+try { Object.defineProperty(window, 'worldLeaderboardReturn', { configurable: true, get: () => worldLeaderboardReturn, set: v => { worldLeaderboardReturn = v; } }); } catch (e) { /* bo qua */ }
+let modalEnterT = 0;
+export function modal(html, bind?, locked?, focus = true) { const m = $('#modal'); m.classList.remove('modal-entering'); void m.offsetWidth; m.classList.add('modal-entering'); clearTimeout(modalEnterT); modalEnterT = setTimeout(() => m.classList.remove('modal-entering'), 340); m.classList.remove('hidden', 'item-preview-modal', 'item-tooltip-preview', 'chat-item-tooltip', 'inventory-item-tooltip', 'world-player-profile', 'world-leaderboard-modal'); m.style.removeProperty('--chat-tooltip-left'); m.style.removeProperty('--chat-tooltip-top'); sharedItemTooltipPanel = null; sharedItemTooltipAnchor = null; sharedItemTooltipKind = ''; $('#mBody').innerHTML = html; m.dataset.locked = locked ? '1' : ''; m.setAttribute('aria-modal', 'true'); if (bind) bind(); if (focus) try { $('#modal .mbox').focus({ preventScroll: true }); } catch (e) { /* bo qua */ } }
+export function closeModal(force?) {
+  const m = $('#modal');
+  if (m.dataset.locked && !force) return;
+  if (force) { worldProfilePreviewReturn = null; worldLeaderboardReturn = null; }
+  else if (worldProfilePreviewReturn && !m.classList.contains('world-player-profile')) {
+    const back = worldProfilePreviewReturn; worldProfilePreviewReturn = null; back(); return;
+  } else if (m.classList.contains('world-player-profile') && worldLeaderboardReturn) {
+    const back = worldLeaderboardReturn; worldLeaderboardReturn = null; back(); return;
+  } else if (m.classList.contains('world-leaderboard-modal')) {
+    worldLeaderboardReturn = null;
+  }
+  m.classList.remove('modal-entering');
+  m.classList.add('hidden');
+}
 
 /* ---------- tooltip noi cua do (xem truoc khi re chuột / chia se chat) ---------- */
 let sharedItemTooltipPanel = null, sharedItemTooltipAnchor = null, sharedItemTooltipKind = '', itemTooltipDismissBound = false;

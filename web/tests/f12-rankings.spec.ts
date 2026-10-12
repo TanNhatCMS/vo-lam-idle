@@ -99,3 +99,69 @@ test('bxh: mo BXH, doi tab, xem profile, hang cua ban', async ({ page }) => {
 
   assertNoErrors();
 });
+
+test('bxh: chain quay lai (dong item -> ho so -> BXH) + thong bao rong theo phai', async ({ page }) => {
+  page.route('**/api/chat/status', route =>
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ ok: true, online: 1 }) }));
+  page.route('**/api/chat/stream*', () => { /* treo */ });
+  page.route('**/api/chat/messages*', route =>
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ ok: true, messages: [] }) }));
+  page.route('**/api/chat/presence*', route =>
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ ok: true }) }));
+  page.route('**/api/rankings/profile*', route =>
+    route.fulfill(
+      { contentType: 'application/json', body: JSON.stringify(
+        {
+          profile: {
+            name: 'CaoThu', faction: 'shaolin', level: 42, reborn: 1, updated_at: String(Math.floor(Date.now() / 1000)),
+            tower_best: 100, bosses: 10, combat_power: 50000,
+            equipment: { weapon: { snapshot_version: 2, name: 'TestVu', detail: 0, particular: 0, icon: 'img/i/g1.png', tier: 1, series: 0, rarity: 1, enhancement: 0, platinum: 0, base: [], requirements: [], magic: [], set_lines: [] } },
+          },
+        },
+      )
+    }
+  ));
+  page.route('**/api/rankings*', route => {
+    const u = new URL(route.request().url());
+    const empty = u.searchParams.get('faction') === 'shaolin';
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ rows: empty ? [] : ROWS, total: empty ? 0 : 3, my_rank: 2 }) });
+  });
+
+  await createCharacter(page);
+  await page.locator('#worldChat .wc-toggle').click();
+  await expect(page.locator('#worldChat .wc-panel')).toBeVisible();
+  await page.locator('.wc-ranking').click();
+  await expect(page.locator('.world-rank-board')).toBeVisible();
+
+  // loc phai Thieu Lam -> khong du lieu -> thong bao dung TEN PHAI (gieng nguon)
+  await page.locator('#worldRankFaction').selectOption('shaolin');
+  await expect(page.locator('.world-rank-message')).toHaveText('Chưa có dữ liệu Thiếu Lâm phái.');
+
+  // ve Tat ca, mo profile tu BXH
+  await page.locator('#worldRankFaction').selectOption('all');
+  await page.locator('.world-rank-name').first().click();
+  await expect(page.locator('#modal')).toHaveClass(/world-player-profile/);
+  await expect(page.locator('#mBody .world-profile-heading h3')).toHaveText('CaoThu');
+
+  // bam trang bi trong ho so -> itemModal; modal mat class profile (gieng nguon)
+  await page.locator('#mBody [data-profile-item="weapon"]').click();
+  await expect(page.locator('#mBody')).toContainText('TestVu');
+  await expect(page.locator('#modal')).not.toHaveClass(/world-player-profile/);
+
+  // Esc -> quay lai ho so (chain Ch)
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#modal')).toHaveClass(/world-player-profile/);
+  await expect(page.locator('#mBody .world-profile-heading h3')).toHaveText('CaoThu');
+
+  // Esc -> quay lai BXH (chain wh)
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#modal')).toHaveClass(/world-leaderboard-modal/);
+  await expect(page.locator('.world-rank-board')).toBeVisible();
+  await expect(page.locator('.world-rank-table tbody tr')).toHaveCount(3);
+
+  // dong BXH -> an modal (khong con chuyen ve)
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#modal')).toHaveClass(/hidden/);
+
+  assertNoErrors();
+});

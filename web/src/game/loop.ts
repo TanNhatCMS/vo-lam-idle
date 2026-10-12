@@ -125,6 +125,7 @@ function fitApp() {
   document.body.classList.toggle('mob', isMobileUI());
   const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
   if (h > 0) document.documentElement.style.setProperty('--app-h', Math.round(h) + 'px');
+  document.documentElement.scrollTop = 0; document.body.scrollTop = 0;   // tranh trinh duyet tu cuon lam xep UI
   if (CV) resizeArena();
 }
 /* Che do thu gon: an bang thong tin + thanh tab, san dau chiem ca man hinh */

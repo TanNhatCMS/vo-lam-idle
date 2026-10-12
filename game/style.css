@@ -4,7 +4,7 @@
   --safe-b:env(safe-area-inset-bottom,0px); --safe-t:env(safe-area-inset-top,0px);
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-html,body{height:100%;background:#050807;color:var(--text);font:14px/1.4 var(--font);overflow:hidden;user-select:none;-webkit-user-select:none}
+html,body{height:100%;background:#050807;color:var(--text);font:14px/1.4 var(--font);overflow:hidden;overscroll-behavior:none;user-select:none;-webkit-user-select:none}
 button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 button[disabled]{opacity:.4;cursor:default}
 .hidden{display:none!important}
@@ -700,8 +700,10 @@ body.sv #inBtn{top:44px}
 
 #inBtn{right:auto!important;left:8px;top:auto!important;bottom:188px}
 
-/* giao dien di dong nho di 20%: ung dung rong / cao 1,25 lan roi thu nho 0,8 (uiScale trong render.js) */
-body.mob #app{transform:scale(.8);transform-origin:0 0;width:125vw!important;height:calc(var(--app-h,100dvh)*1.25)!important;margin:0!important;max-width:none}
+/* giao dien di dong nho di 20%: ung dung rong / cao 1,25 lan roi thu nho 0,8 (uiScale trong render.js).
+   position:fixed de #app ngoai luong binh thuong -> body khong co scrollable overflow,
+   tranh trinh duyet tu cuon trang lam xep game + modal len tren, de trong duoi man hinh. */
+body.mob #app{position:fixed;top:0;left:0;transform:scale(.8);transform-origin:0 0;width:125vw!important;height:calc(var(--app-h,100dvh)*1.25)!important;margin:0!important;max-width:none}
 
 /* cong / rut diem / thong tin */
 .pm{display:inline-flex;gap:4px} .pm button{width:28px}

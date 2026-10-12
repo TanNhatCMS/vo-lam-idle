@@ -69,15 +69,17 @@ test('f6 mua huyen tinh: co nut mua, mua 2 vien cap 1 tra dung vang, du 3 vien',
   await expect(buyBtn).toBeEnabled();
 
   // click mua → vàng trừ đúng htBuyCost(1) × 2 = round(12000 × 2 × 1.3) × 2 = 62400
+  // (do gold = before - 62400, KHONG so absolute 1000000 - 62400: game idle
+  //  vẫn cong vang giua lan seed va lan click, nen "before" moi la moc dung)
   const res = await page.evaluate(() => {
     const G = (window as any).__G;
     const before = G.S.gold;
     (document.querySelector('#mBody [data-buy="1"]') as HTMLElement).click();
-    return { dGold: before - G.S.gold, ht1: G.S.mats.ht[1], gold: G.S.gold };
+    return { dGold: before - G.S.gold, ht1: G.S.mats.ht[1], gold: G.S.gold, before };
   });
   expect(res.dGold, 'mua 2 viên cấp 1 phải trừ đúng 62400 lượng').toBe(62400);
   expect(res.ht1, 'sau mua phải có đúng 3 viên cấp 1').toBe(3);
-  expect(res.gold).toBe(1000000 - 62400);
+  expect(res.gold).toBe(res.before - 62400);
   // modal tự mở lại sau afterRc
   await expect(page.locator('#modal:not(.hidden)')).toBeVisible();
   assertNoErrors();
