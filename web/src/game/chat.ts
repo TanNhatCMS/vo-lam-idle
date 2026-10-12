@@ -402,7 +402,7 @@ function showWorldLeaderboard(type = 'tower', faction = 'all', mode = null) {
   const selfLabel = type === 'online' ? 'Người chơi đang online' : 'Hạng của bạn';
   const selfCell = type === 'online' ? '' : '<b class="world-rank-self">Đang tải…</b>';
   const foot = type === 'online' ? 'Danh sách online lấy từ phiên đang kết nối.'
-    : `${type === 'power' ? 'Bấm tên nhân vật để xem trang bị. ' : ''}Mỗi bảng xếp hạng lưu tối đa 50 nhân vật; dữ liệu cập nhật khi người chơi kết nối.`;
+    : `${type === 'power' ? `Bấm tên nhân vật để xem trang bị. ${mode === 'normal' ? 'Chế độ Thường chỉ hiện nhân vật có lực chiến tối đa 522 triệu. ' : ''}` : ''}Mỗi bảng xếp hạng lưu tối đa 50 nhân vật; dữ liệu cập nhật khi người chơi kết nối.`;
   modal(`<section class="world-rank-board">
     <header class="world-rank-header"><h3>Bảng xếp hạng</h3></header>
     <nav class="world-rank-tabs" aria-label="Loại xếp hạng">${tabs}</nav>
