@@ -1,6 +1,6 @@
 // @ts-nocheck — chuyen tu vanilla JS: bat lai check tung file dan dan (xem README muc TypeScript)
 import { FAC, RAR_COL, SERIES_COL, clamp, esc } from './core';
-import { itemSharePayload, modal } from './ui';
+import { itemSharePayload, modal, toast } from './ui';
 import { R } from './combat';
 import { S } from './save';
 
@@ -200,7 +200,8 @@ function identity() {
     name: playerFaction ? String(st.name || playerFaction.n).trim().slice(0, 24) : '',
     faction: playerFaction ? st.fac : '',
     level: st && st.fac ? Math.max(1, Number(st.lvl) || 1) : 1,
-    challenge_mode: st && ['white', 'hard', 'nopot'].includes(st.chal) ? st.chal : ''
+    challenge_mode: st && ['white', 'hard', 'nopot'].includes(st.chal) ? st.chal : '',
+    rank_id: st && typeof st.rankId === 'string' && st.rankId ? st.rankId : ''
   };
 }
 
@@ -222,7 +223,7 @@ function chatProfile() {
   }
   return {
     ...who,
-    rank_id: null,
+    rank_id: who.rank_id || null,
     attributes: Object.fromEntries(['str', 'dex', 'vit', 'eng'].map(key => [key, Math.max(0, Math.floor(Number((st.attr || {})[key]) || 0))])),
     tower_best: Math.max(0, Number(stat.towerBest) || 0, Number(stat.tower2Best) || 0),
     bosses: Math.max(0, Number(stat.bosses) || 0),
@@ -372,6 +373,121 @@ function showWorldChatProfile(profile) {
   if (modalEl) modalEl.classList.add('item-preview-modal', 'world-player-profile');
 }
 window.showWorldChatProfile = showWorldChatProfile;
+
+/* ======================= BẢNG XẾP HẠNG (port upstream ng()) =======================
+   BXH gom profile tren server chat (cung nguồn vơi presence): loai
+   Cấp/Tháp/Trùm đã hạ/Lực chiến/Online, lọc theo phái + chê độ
+   (Tất cả/Bố Y/Thường — mac dinh = chê độ dang choi). "Hạng của
+   bạn" va xem profile theo rank_id can rankId (luu trong save). */
+const RANK_KINDS = { level: 'Cấp', tower: 'Tháp', bosses: 'Trùm đã hạ', power: 'Lực chiến', online: 'Online' };
+let rankSeq = 0;                     // doi tab/tai lai -> bo ket qua cu
+function showWorldLeaderboard(type = 'tower', faction = 'all', mode = null) {
+  if (!Object.prototype.hasOwnProperty.call(RANK_KINDS, type)) type = 'tower';
+  if (faction !== 'all' && !FAC[faction]) faction = 'all';
+  const ownChal = (S && S.chal) || '';
+  const ownMode = ownChal === 'white' ? 'white' : ownChal === '' ? 'normal' : 'all';
+  if (mode !== 'all' && mode !== 'white' && mode !== 'normal') mode = ownMode;
+  const seq = ++rankSeq;
+  const tabs = Object.entries(RANK_KINDS).map(([key, label]) =>
+    `<button type="button" class="rank-tab${key === type ? ' active' : ''}" data-rank-kind="${key}" aria-pressed="${key === type}">${label}</button>`).join('');
+  const modes = [['all', 'Tất cả'], ['white', 'Bố Y'], ['normal', 'Thường']].map(([key, label]) =>
+    `<button type="button" class="rank-mode${key === mode ? ' active' : ''}" data-rank-mode="${key}" aria-pressed="${key === mode}">${label}</button>`).join('');
+  const factionOptions = `<option value="all">Mọi phái</option>${Object.entries(FAC).map(([key, f]) =>
+    `<option value="${esc(key)}"${key === faction ? ' selected' : ''}>${esc(f.n)}</option>`).join('')}`;
+  const selfLabel = type === 'online' ? 'Người chơi đang online' : 'Hạng của bạn';
+  const selfCell = type === 'online' ? '' : '<b class="world-rank-self">Đang tải…</b>';
+  const foot = type === 'online' ? 'Danh sách online lấy từ phiên đang kết nối.'
+    : `${type === 'power' ? 'Bấm tên nhân vật để xem trang bị. ' : ''}Mỗi bảng xếp hạng lưu tối đa 50 nhân vật; dữ liệu cập nhật khi người chơi kết nối.`;
+  modal(`<section class="world-rank-board">
+    <header class="world-rank-header"><h3>Bảng xếp hạng</h3></header>
+    <nav class="world-rank-tabs" aria-label="Loại xếp hạng">${tabs}</nav>
+    <nav class="world-rank-modes" aria-label="Lọc theo chế độ">${modes}</nav>
+    <div class="world-rank-filter"><label for="worldRankFaction">${esc(selfLabel)}</label>
+      ${selfCell}
+      <select id="worldRankFaction" aria-label="Lọc theo môn phái">${factionOptions}</select>
+    </div>
+    <div class="world-rank-table-wrap"><table class="world-rank-table">
+      <thead><tr><th>#</th><th>Nhân vật</th><th>Phái</th><th>${esc(RANK_KINDS[type])}</th></tr></thead>
+      <tbody><tr><td colspan="4" class="world-rank-message">Đang tải bảng xếp hạng…</td></tr></tbody>
+    </table></div>
+    <small class="world-rank-foot">${esc(foot)}</small>
+  </section>`, () => {
+    const modalEl = document.getElementById('modal');
+    if (!modalEl) return;
+    modalEl.classList.add('world-leaderboard-modal');
+    const tbody = modalEl.querySelector('.world-rank-table tbody');
+    const selfEl = modalEl.querySelector('.world-rank-self');
+    const load = async () => {
+      const url = new URL(`${CHAT_API}/api/rankings`);
+      url.searchParams.set('type', type);
+      url.searchParams.set('faction', faction);
+      url.searchParams.set('mode', mode);
+      if (S && S.rankId) url.searchParams.set('rank_id', S.rankId);
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 12000);
+      try {
+        const response = await fetch(url, { cache: 'no-store', signal: controller.signal });
+        const result = await response.json().catch(() => ({}));
+        if (seq !== rankSeq || modalEl.classList.contains('hidden')) return;
+        if (!response.ok) throw new Error(result.error || 'Không tải được bảng xếp hạng.');
+        if (selfEl) selfEl.textContent = S && S.rankId ? (result.my_rank ? `Hạng ${result.my_rank}` : 'Ngoài top 50') : 'Chưa có nhân vật';
+        const rows = Array.isArray(result.rows) ? result.rows : [];
+        if (!rows.length) {
+          tbody.innerHTML = `<tr><td colspan="4" class="world-rank-message">${esc(type === 'online' ? 'Hiện chưa có người chơi online.' : `Chưa có dữ liệu ${RANK_KINDS[type]}.`)}</td></tr>`;
+          return;
+        }
+        tbody.innerHTML = rows.map((row, index) => {
+          const name = esc(String(row.name || 'Nhân vật').slice(0, 24));
+          const fac = FAC[row.faction] ? esc(FAC[row.faction].n) : row.faction ? esc(String(row.faction)) : 'Giang hồ';
+          const stat = type === 'tower' ? row.tower_best : type === 'level' ? row.level : type === 'bosses' ? row.bosses : type === 'power' ? row.combat_power : null;
+          const statText = type === 'online' ? 'Online' : Math.max(0, Number(stat) || 0).toLocaleString('vi-VN');
+          const clickable = type === 'tower' || type === 'online' || type === 'power';
+          const nameCell = clickable
+            ? `<button type="button" class="world-rank-name" data-rank-profile="${type}" data-rank-id="${esc(String(row.rank_id || ''))}" data-rank-name="${esc(String(row.name || ''))}">${name}</button>`
+            : name;
+          return `<tr><td>${Number(row.rank) || index + 1}</td><td>${nameCell}</td><td>${fac}</td><td>${statText}</td></tr>`;
+        }).join('');
+        tbody.querySelectorAll('[data-rank-profile]').forEach(button => {
+          button.onclick = async () => {
+            try {
+              const target = button.dataset.rankProfile === 'online'
+                ? `${CHAT_API}/api/chat/profile?name=${encodeURIComponent(button.dataset.rankName)}`
+                : `${CHAT_API}/api/rankings/profile?rank_id=${encodeURIComponent(button.dataset.rankId)}`;
+              const response = await fetch(target, { cache: 'no-store' });
+              const result = await response.json().catch(() => ({}));
+              if (seq !== rankSeq || modalEl.classList.contains('hidden')) return;
+              if (!response.ok) throw new Error(result.error || 'Không tải được hồ sơ nhân vật.');
+              showWorldChatProfile(result.profile);
+            } catch (e) {
+              toast(e.message || 'Không tải được hồ sơ nhân vật.');
+            }
+          };
+        });
+      } catch (e) {
+        if (seq === rankSeq && !modalEl.classList.contains('hidden')) {
+          const message = e && e.name === 'AbortError'
+            ? 'Máy chủ phản hồi quá lâu. Hãy đóng bảng rồi mở lại để thử lần nữa.'
+            : (e && e.message) || 'Không tải được bảng xếp hạng.';
+          if (selfEl) selfEl.textContent = 'Không tải được';
+          tbody.innerHTML = `<tr><td colspan="4" class="world-rank-message">${esc(message)}</td></tr>`;
+        }
+      } finally {
+        clearTimeout(timer);
+      }
+    };
+    modalEl.querySelectorAll('[data-rank-kind]').forEach(button => {
+      button.onclick = () => showWorldLeaderboard(button.dataset.rankKind, faction, mode);
+    });
+    modalEl.querySelectorAll('[data-rank-mode]').forEach(button => {
+      button.onclick = () => showWorldLeaderboard(type, faction, button.dataset.rankMode);
+    });
+    const factionSelect = modalEl.querySelector('#worldRankFaction');
+    if (factionSelect) factionSelect.onchange = () => showWorldLeaderboard(type, factionSelect.value, mode);
+    load();
+  });
+  const modalEl = document.getElementById('modal');
+  if (modalEl) modalEl.classList.add('item-preview-modal', 'world-leaderboard-modal');
+}
 
 function setUnread(value) {
   unread = value;
@@ -711,6 +827,7 @@ export function initWorldChat() {
         <nav class="wc-tabs" aria-label="Các tab chat">
           <button class="wc-tab active" type="button" data-chat-tab="world" aria-pressed="true">Thế giới</button>
           <button class="wc-tab" type="button" data-chat-tab="system" aria-pressed="false">Nhật ký</button>
+          <button class="wc-tab wc-ranking" type="button" title="Bảng xếp hạng" aria-label="Mở bảng xếp hạng">BXH</button>
         </nav>
         <div class="wc-header-right">
           <small class="wc-online">Online 0</small>
@@ -785,6 +902,8 @@ export function initWorldChat() {
     panel.addEventListener(type, showFrameAndStartIdle, { passive: type === 'pointermove' || type === 'wheel' });
   }
   tabButtons.forEach(button => button.addEventListener('click', () => setTab(button.dataset.chatTab)));
+  const rankingButton = root.querySelector('.wc-ranking');
+  if (rankingButton) rankingButton.addEventListener('click', () => showWorldLeaderboard());
   form.addEventListener('submit', send);
   window.prepareWorldChatItem = item => {
     if (!item || typeof item.name !== 'string') return false;

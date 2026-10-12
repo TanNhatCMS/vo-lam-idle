@@ -13,15 +13,17 @@ const CORS = {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    const isChat = url.pathname.startsWith("/api/chat/");
+    // Proxy /api/chat/* (chat the gioi) va /api/rankings* (bang xep hang —
+    // cung nguon server, gom profile tu presence cua moi player).
+    const isProxied = url.pathname.startsWith("/api/chat/") || url.pathname.startsWith("/api/rankings");
 
     // Preflight: tra 204 luon, khong len upstream.
-    if (request.method === "OPTIONS" && isChat) {
+    if (request.method === "OPTIONS" && isProxied) {
       return new Response(null, { status: 204, headers: CORS });
     }
 
-    // Path khong phai chat -> assets nhu cu.
-    if (!isChat) return env.ASSETS.fetch(request);
+    // Path khong phai chat/rankings -> assets nhu cu.
+    if (!isProxied) return env.ASSETS.fetch(request);
 
     // Build URL dich: giu nguyen pathname + search.
     const target = new URL(url.pathname + url.search, UPSTREAM);

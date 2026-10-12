@@ -997,3 +997,37 @@ body.tyvo-active #worldChat { display:none!important }
     .tyvo-hud-kicker { font-size:6.5px }
 }
 body.mobile-landscape.tyvo-active .tyvo-hud { top:calc(var(--mobile-top) + 106px) }
+
+/* Bảng xếp hạng (BXH) trong khung chat thế giới — port upstream game.BHLuGkwx.css */
+.world-rank-board{color:#e8dfc6;flex-direction:column;flex:1;min-width:0;min-height:0;font-size:clamp(11px,1.5vw,14px);display:flex}
+.world-rank-header{border-bottom:1px solid #d6c88c66;flex:none;justify-content:center;align-items:center;min-height:32px;display:flex}
+.world-rank-header h3{color:#eadfbe;text-align:center;margin:0;font-size:clamp(15px,2vw,20px)}
+.world-rank-tabs{background:#090d0b99;border:1px solid #d6c88c55;flex:none;gap:2px;margin:8px 0 7px;padding:2px;display:flex}
+.world-rank-modes{background:#090d0b99;border:1px solid #8d9b8a55;border-radius:6px;flex:none;align-self:flex-start;gap:2px;margin:-2px 0 7px;padding:2px;display:flex}
+.world-rank-filter{color:#d8d1bb;flex:none;align-items:center;gap:10px;margin-bottom:7px;display:flex}
+.world-rank-filter>label{flex:none}
+.world-rank-self{color:#f0cf69}
+.world-rank-filter select{color:#e8dfc6;min-width:100px;min-height:32px;font:inherit;background:#0b110e;border:1px solid #cbbb7966;border-radius:5px;flex:1;padding:4px 9px}
+.world-rank-table-wrap{overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#81907866 transparent;border:1px solid #8d88765c;flex:1;min-height:0;overflow:auto}
+.world-rank-table{border-collapse:collapse;table-layout:fixed;width:100%}
+.world-rank-table th,.world-rank-table td{text-align:left;overflow-wrap:anywhere;border:1px solid #77746652;height:31px;padding:5px 9px}
+.world-rank-table th{z-index:1;color:#e6d9b2;background:#171e19;font-weight:600;position:sticky;top:0}
+.world-rank-table th:first-child,.world-rank-table td:first-child{width:54px}
+.world-rank-table th:nth-child(2),.world-rank-table td:nth-child(2){width:34%}
+.world-rank-table th:nth-child(3),.world-rank-table td:nth-child(3){width:40%}
+.world-rank-table td{color:#e8dfc6}
+.world-rank-table tbody tr:hover{background:#e7d69a0b}
+.world-rank-name{color:#83db83;max-width:100%;font:inherit;text-align:left;overflow-wrap:anywhere;background:0 0;border:0;padding:0}
+.world-rank-name:hover,.world-rank-name:focus-visible{color:#b5f3a2;-webkit-text-decoration:underline #d8bc5b;text-decoration:underline #d8bc5b}
+.world-rank-message{text-align:center!important;color:#a4ad9f!important}
+.world-rank-foot{color:#9da69a;flex:none;padding:6px 2px 0;font-size:.84em}
+@media (max-width:700px){
+.world-rank-tabs{margin:6px 0;padding:1px}
+.world-rank-modes{margin:-2px 0 6px;padding:1px}
+.world-rank-filter{gap:6px;font-size:10px}
+.world-rank-filter select{min-width:76px;min-height:29px}
+.world-rank-table th,.world-rank-table td{height:28px;padding:4px 6px}
+.world-rank-table th:first-child,.world-rank-table td:first-child{width:36px}
+.world-rank-table th:nth-child(2),.world-rank-table td:nth-child(2){width:33%}
+.world-rank-table th:nth-child(3),.world-rank-table td:nth-child(3){width:37%}
+}

@@ -286,7 +286,7 @@ test('chat: presence heartbeat — day profile len server (profile chinh minh xe
     faction: S.fac,
     level: S.lvl,
     challenge_mode: '',
-    rank_id: null,
+    rank_id: S.rankId,
     tower_best: 0,
     bosses: 0,
     reborn: 0,

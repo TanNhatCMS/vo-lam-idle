@@ -41,6 +41,16 @@ export function setSlot(v) { SLOT = v; }
 export function setSaveLock(v) { SAVE_LOCK = v; }
 export function setS(v) { S = v; }
 const FEMALE_FAC = ['emei', 'cuiyan'];       // phai nu: trang phuc nu; con lai nam
+/* Ma dinh danh xep hang (rank_id) — gui len server chat qua presence,
+   de server biet "hang cua ban" trong bang xep hang. UUID v4; luu trong
+   save nen giu nguyen giua cac lan vao game (upstream lam nhu vay).
+   Khai bao bang `function` (hoist) vi newSave() duoc goi o module-eval
+   (dong `export let S = newSave()` o tren) — const arrow se bi TDZ. */
+function newRankId() {
+  return (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
+    ? crypto.randomUUID()
+    : 'rank-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+}
 export function newSave() {
   return { v: SAVE_V, name: 'Tân thủ', fac: null, sex: 0, lvl: 1, xp: 0, gold: 0, attrPts: 0, attr: { str: 0, dex: 0, vit: 0, eng: 0 }, attrBonusEarned: 0, attrBookBonus: 0, useN: {}, attrPotentialV: 1,
     skPts: 1, sk: {}, main: 0, eq: {}, inv: [], stage: 1, maxStage: 1, wave: 1, push: true, uid: 1, autoSell: 0,
@@ -48,7 +58,7 @@ export function newSave() {
     autoFind: true, autoBossPriority: true, autoRange: 'medium', autoSkillSlots: [true, true, true, true],
     autoHpPotion: true, hpPotionAt: 50, autoMpPotion: true, mpPotionAt: 30, autoTownHp: false, townHpAt: 20,
     invExpansions: 0, invOrder: [], invSort: 'new',
-    snd: { on: true, vol: 0.7, music: true, mvol: 0.4 }, lootF: { mode: 'custom', minRar: 2, minReqLvl: 1, groups: [], series: [], auto: true, equipment: true, materials: true, white: false, skipLowSets: false, always: false }, ground: [], mats: { ht: {}, ore: {}, shard: {}, misc: {} }, setSeen: {}, last: Date.now() };
+    snd: { on: true, vol: 0.7, music: true, mvol: 0.4 }, lootF: { mode: 'custom', minRar: 2, minReqLvl: 1, groups: [], series: [], auto: true, equipment: true, materials: true, white: false, skipLowSets: false, always: false }, ground: [], mats: { ht: {}, ore: {}, shard: {}, misc: {} }, setSeen: {}, rankId: newRankId(), last: Date.now() };
 }
 /* Chu ky file luu (cyrb53 + muoi): phat hien sua tay localStorage / ma xuat. Khong ngan duoc nguoi quyet tam (game chay hoan toan o may nguoi choi) nhung chan sua vo tinh va nhap ma da bi doi. */
 const SAVE_SALT = 'jx-idle-v1:';
@@ -265,6 +275,7 @@ function migrate(o) {
   let maxUid = 0; for (const it of s.inv.concat(Object.values(s.eq || {}), Object.values(petEq))) if (it && it.uid > maxUid) maxUid = it.uid; s.uid = Math.max(+s.uid || 1, maxUid + 1);
   { const seen = new Set(); const dedupe = it => { if (seen.has(it.uid)) { it.uid = s.uid++; } seen.add(it.uid); }; s.inv.forEach(dedupe); petEq.forEach(dedupe); }   // uid trung (nhap ma sua tay): cap lai
   backfillThanMa(s);   // Than Ma luu tu ban cu/editor: them thanma de ve ngua + Sổ Thần Mã
+  if (!s.rankId) s.rankId = newRankId();   // save cu chua co ma xep hang
   s.diff = [0, 1, 2].includes(+o.diff) ? +o.diff : 1; s.hints = o.hints && typeof o.hints === 'object' ? o.hints : {};
   if (s.fac && !s.sexSet) s.sex = FEMALE_FAC.includes(s.fac) ? 1 : 0;   // gioi tinh theo phai, tru khi nguoi choi da tu chon (startFaction / setAppearance dat sexSet)
   const wrongSex = k => s.eq[k] && !sexReqOkFor(s.eq[k], s.sex);
