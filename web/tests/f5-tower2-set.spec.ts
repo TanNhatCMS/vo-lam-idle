@@ -122,3 +122,67 @@ test('drop chance hook: quai Tháp II (towerId=2) roi bo qua rollSetDrop', async
   }
   assertNoErrors();
 });
+
+/* Mở Lò Huyền Tinh (nút nhanh thứ 6, thẻ Giang hồ) và chờ modal hiện. */
+async function openForge(page: Page) {
+  await page.locator('#qBar .qb[data-q="6"]').click();
+  const modal = page.locator('#modal:not(.hidden)');
+  await expect(modal, 'nút Lò rèn phải mở Lò Huyền Tinh').toBeVisible();
+  await expect(page.locator('#mBody')).toContainText('Lò Huyền Tinh');
+  return modal;
+}
+
+test('Thiên Cực: cap 200 (req 200, grp 10000+, affix x1.5625) + che Bạch Kim Thiên Cực', async ({ page }) => {
+  await createCharacter(page);
+  await expect(page.evaluate(() => !!(window as any).__T2)).toBeTruthy();
+  await page.evaluate(() => {
+    (window as any).__rand0 = Math.random; Math.random = () => 0;
+    (window as any).__RCP.setRand(() => 0);   // rcInt: Bạch Kim luon thanh cong
+  });
+  try {
+    // bo Thien Cuc cap 200: req 200, grp 10000+, ten Thiên Cực
+    const tc = await page.evaluate(() => (window as any).__T2.tower2SetReward(200, 'boss'));
+    expect(tc, 'tang 200 roll thap phai ra bo').toBeTruthy();
+    expect(tc.n.startsWith('Thiên Cực')).toBe(true);
+    expect(tc.req.find(([id]) => id === 36)[1]).toBe(200);
+    expect(tc.set.grp).toBeGreaterThanOrEqual(10000);
+    // cung gia dinh Dằng Long cap 180: cung id affix, gia tri x1.25 (nên TC = x1.5625)
+    const dl = await page.evaluate(() => (window as any).__T2.tower2SetReward(10, 'boss'));
+    expect(dl.n).toBe(tc.n.replace('Thiên Cực', 'Đằng Long'));
+    const aTc = tc.mag.find(m => m.a === dl.mag[0].a);
+    expect(aTc, 'cung bo phai co chung id affix').toBeTruthy();
+    expect(aTc.p[0]).toBe(Math.round(dl.mag[0].p[0] * 1.25));
+    // 2 mon Thiên Cực trong hành trang -> Lò Huyền Tinh "Chế Bạch Kim" cho phép chế
+    await page.evaluate(() => {
+      const g = (window as any).__G, S = g.S, T2 = (window as any).__T2;
+      const a = T2.tower2SetReward(200, 'boss');
+      const b = JSON.parse(JSON.stringify(a)); b.uid = S.uid++;
+      S.inv.push(a, b);
+      S.gold = 1000000;
+      S.mats.misc.wc = 5; S.mats.misc.mys = 5;
+    });
+    await openForge(page);
+    // pool Chế Bạch Kim co 2 nut Thiên Cực
+    const poolNames = await page.locator('#pkPool [data-p]').allTextContents();
+    expect(poolNames.filter(n => n.startsWith('Thiên Cực')).length).toBeGreaterThanOrEqual(2);
+    await page.locator('#pkPool [data-p]').first().click();
+    await page.locator('#pkPool [data-p]').nth(1).click();
+    await expect(page.locator('#pkMake')).toBeEnabled();
+    await page.locator('#pkMake').click();
+    // thanh cong (random = 0): hành trang có Bạch Kim Thiên Cực (platina, grp 10000+)
+    const plat = await page.evaluate(() => {
+      const S = (window as any).__G.S;
+      return S.inv.filter(i => i && i.set && i.set.kind === 'platina' && i.n.startsWith('Thiên Cực'))
+        .map(i => ({ n: i.n, grp: i.set.grp, r: i.r }));
+    });
+    expect(plat.length).toBeGreaterThanOrEqual(1);
+    expect(plat[0].grp).toBeGreaterThanOrEqual(10000);
+    expect(plat[0].r).toBe(5);   // bạch kim = r:5
+  } finally {
+    await page.evaluate(() => {
+      if ((window as any).__rand0) Math.random = (window as any).__rand0;
+      if ((window as any).__RCP) (window as any).__RCP.setRand(Math.random);
+    });
+  }
+  assertNoErrors();
+});

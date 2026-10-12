@@ -54,7 +54,7 @@ function newRankId() {
 export function newSave() {
   return { v: SAVE_V, name: 'Tân thủ', fac: null, sex: 0, lvl: 1, xp: 0, gold: 0, attrPts: 0, attr: { str: 0, dex: 0, vit: 0, eng: 0 }, attrBonusEarned: 0, attrBookBonus: 0, useN: {}, attrPotentialV: 1,
     skPts: 1, sk: {}, main: 0, eq: {}, inv: [], stage: 1, maxStage: 1, wave: 1, push: true, uid: 1, autoSell: 0,
-    kps: 0.2, totalKills: 0, autoEquip: true, autoPts: false, diff: 1, autoForge: false, autoBuy: true, tut: 0, hints: {}, bakAt: 0, potOff: false, potUsed: 0, potStock: { life: {}, mana: {} }, ctrl: 'auto', joy: 'fixed', slots: [0, 0, 0, 0], fieldMode: false, whiteOverlevel: false,
+    kps: 0.2, totalKills: 0, autoEquip: true, autoPts: false, diff: 1, autoForge: false, autoBuy: true, tut: 0, hints: {}, bakAt: 0, potOff: false, potUsed: 0, potStock: { life: {}, mana: {} }, ctrl: 'auto', joy: 'fixed', slots: [0, 0, 0, 0], fieldMode: false, whiteOverlevel: false, attrFocus: 'auto',
     autoFind: true, autoBossPriority: true, autoRange: 'medium', autoSkillSlots: [true, true, true, true],
     autoHpPotion: true, hpPotionAt: 50, autoMpPotion: true, mpPotionAt: 30, autoTownHp: false, townHpAt: 20,
     invExpansions: 0, invOrder: [], invSort: 'new',
@@ -215,6 +215,8 @@ function migrate(o) {
   s.invExpansions = clamp(Math.floor(+s.invExpansions) || 0, 0, 4);
   s.invOrder = Array.isArray(s.invOrder) ? s.invOrder : [];
   if (!['new', 'rar', 'lvl', 'slot', 'pow'].includes(s.invSort)) s.invSort = 'new';
+  // nhánh tiềm năng Cái Bang (Ngoại công Bổng / Nội công Chưởng): file cũ chưa có -> tự nhận diện
+  if (!['auto', 'physical', 'inner'].includes(s.attrFocus)) s.attrFocus = 'auto';
   // Dong hanh: o trang bi (save cu chua co) — chi giu mon hop le (co base/mag, khong phai ngua d 10)
   s.rw.pet = s.rw.pet && typeof s.rw.pet === 'object' ? s.rw.pet : null;
   /* Dong hanh: chuan hoa o trang bi cua MOI con trong roster — save cu co the dung key petW/petA/petJ

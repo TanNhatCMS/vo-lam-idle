@@ -12,23 +12,30 @@ import {
 } from './core';
 import { S } from './save';
 import { sexReqOk, slotOfEquipped } from './stats';
+import { TOWER2_PLATINA_ROWS, TOWER2_SET_ROWS } from './tower2sets';
 import { towerIs2 } from './tower2';
+
+export { TOWER2_SET_ROWS };
 
 /* ======================= DO HOANG KIM / BACH KIM (KItemGenerator::Gen_GoldEquipment, KItemList) ======================= */
 'use strict';
 const GOLD_EXT = 2; // MAX_ITEM_MAGICATTRIB (8) - MAX_ITEM_NORMAL_MAGICATTRIB (6): 2 dong mo rong theo bo
-/* gia tri = min + (max - min) * cap_sinh / MAX_ITEM_LUCK (10) */
-function geValue(idx, g) {
+/* gia tri = min + (max - min) * cap_sinh / MAX_ITEM_LUCK (10);
+   localPowerScale (bo Đằng Long/Thiên Cực): nhan gia tri roi duoc × scale. */
+function geValue(idx, g, ps) {
   const m = J.ge[idx]; if (!m) return null;
-  return { a: m.a, p: m.p.map(([lo, hi]) => (lo === -1 && hi === -1 ? -1 : Math.round(lo + (hi - lo) * g / 10))), pre: 1 };
+  const p = m.p.map(([lo, hi]) => (lo === -1 && hi === -1 ? -1 : Math.round(lo + (hi - lo) * g / 10)));
+  return { a: m.a, p: p.map(v => (v > 0 ? Math.max(1, Math.round(v * ps)) : v)), pre: 1 };
 }
 export function makeSetItem(kind, row, luck) {
   const g = () => clamp(irnd(Math.min(10, luck), 10), 0, 10);
+  const ps = row.localPowerScale || 1;
+  const sv = v => (v > 0 ? Math.max(1, Math.round(v * ps)) : v);
   const it = { uid: S.uid++, d: row.d, k: row.k, n: row.n, ic: row.ic || '', lvl: row.lvl, s: row.s, price: row.price,
-    base: row.base.map(x => x.slice()), req: row.req.map(x => x.slice()), r: kind === 'gold' ? 4 : 5,
+    base: row.base.map(x => [x[0], sv(x[1]), sv(x[2])]), req: row.req.map(x => x.slice()), r: kind === 'gold' ? 4 : 5,
     set: { kind, grp: row.grp, n1: row.n1 || 99, n2: row.n2 || 99, sid: row.sid } };
-  it.mag = row.mag.map(i => geValue(i, g())).filter(Boolean);
-  it.ext = row.ext.map(i => geValue(i, g())).filter(Boolean);
+  it.mag = row.mag.map(i => geValue(i, g(), ps)).filter(Boolean);
+  it.ext = row.ext.map(i => geValue(i, g(), ps)).filter(Boolean);
   return it;
 }
 /* Roi do bo: chu yeu tu trum; uu tien bo cua mon phai nhan vat (requiremenpai), yeu cau cap khong qua xa cap nhan vat */
@@ -66,10 +73,14 @@ export function goldEnhance(it, eq) {
   if (slot === 'horse' || enoughToActive(eq)) return GOLD_EXT;
   return Math.min(GOLD_EXT, Math.floor((setCounts(eq)[it.set.grp] || 0) / Math.max(1, it.set.n1)));
 }
-/* Thien Cuc: bo do rieng Thap II — dong mau "Dang Long" yeu cau cap 180, doi ten + grp 10000+ (row ao) */
-export const TOWER2_SET_ROWS = J.sets.gold.filter(r => r.n.startsWith("Đằng Long") && r.req.some(([id, v]) => id === 36 && v === 180))
-  .map(r => Object.assign({}, r, { n: r.n.replace(/^Đằng Long/, "Thiên Cực"), grp: 10000 + r.grp, tower2: true }));
-export function setMembers(it) { return it.set.grp >= 10000 ? TOWER2_SET_ROWS.filter(r => r.grp === it.set.grp) : J.sets[it.set.kind].filter(r => r.grp === it.set.grp); }
+/* Thanh vien bo: Thien Cuc (grp 10000+) tra dong sinh theo loai (vang/bach kim). */
+export function setMembers(it) {
+  if (it.set.grp >= 10000) {
+    const rows = it.set.kind === 'platina' ? TOWER2_PLATINA_ROWS : TOWER2_SET_ROWS;
+    return rows.filter(r => r.grp === it.set.grp);
+  }
+  return J.sets[it.set.kind].filter(r => r.grp === it.set.grp);
+}
 
 /* ======================= BO DO THAP II (tower2SetTier/Reward/DropChance, sets.js) ======================= */
 /* Chi sinh do moi cua phai choi duoc hoac do khong gioi han phai; van loc gioi tinh. */

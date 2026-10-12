@@ -16,6 +16,7 @@ import {
 import { dexSet } from './depth';
 import { RCP } from './rcp';
 import { BOOK_LV, S } from './save';
+import { TOWER2_PLATINA_ROWS } from './tower2sets';
 import { makeSetItem, tower2DropChance } from './sets';
 import { sexReqOk } from './stats';
 import { betterThanEquipped, equip } from './ui';
@@ -176,7 +177,7 @@ export function combineShards(name) {
 export const PLAT_MAKE = RCP_R['platina_make:0'], PLAT_UP = [...Array(10)].map((_, i) => RCP_R['platina_up:' + (i + 1)]);
 export const PLAT_COST_SCALE = 0.03, VAN = 10000, PLAT_MAX = 10;
 export const platCost = van => Math.round(van * VAN * PLAT_COST_SCALE);
-const platByBase = (() => { const m = new Map(); for (const r of J.sets.platina) { const b = r.n.replace(/^\[[^\]]*\]\s*/, ''); (m.get(b) || m.set(b, []).get(b)).push(r); } return m; })();
+const platByBase = (() => { const m = new Map(); for (const r of [...J.sets.platina, ...TOWER2_PLATINA_ROWS]) { const b = r.n.replace(/^\[[^\]]*\]\s*/, ''); (m.get(b) || m.set(b, []).get(b)).push(r); } return m; })();
 export const canPlatBase = it => ownedInv(it) && it.set && it.set.kind === 'gold' && platByBase.has(it.n) && !Object.values(S.eq).includes(it);
 export function makePlatina(a, b) {
   if (!canPlatBase(a) || !canPlatBase(b) || a === b || a.n !== b.n) return { ok: false, msg: 'Cần 2 món Hoàng Kim giống nhau, chưa mặc' };
@@ -213,3 +214,9 @@ function platDrop(e) {
   return out.length ? out.join(', ') : null;
 }
 export const allDrops = e => [oreDrop(e), shardDrop(e), platDrop(e)].filter(Boolean);
+
+/* Hook debug/test: thay rcRand (rcInt — khoam/thang cap Bạch Kim,
+   khảm, rèn...) để test định lượng được, goc Math.random khoi phuc. */
+if (typeof window !== 'undefined') (window as any).__RCP = {
+  setRand: f => { rcRand = f; },
+};

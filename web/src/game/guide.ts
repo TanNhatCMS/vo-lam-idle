@@ -22,7 +22,7 @@ import { htModal } from './forge';
 import { DROP, PLAT_MAKE, fuseCost, matHave, mats, reqOfRow } from './recipes';
 import { giftModal, giftPending, BOOK_ICONS, BOOK_NAMES, bookUseN, petCodexClaim } from './rewards';
 import { BOOK_USE_MAX, S, save } from './save';
-import { autoSpendSkills, calc, canLearn, power, sexReqOk } from './stats';
+import { autoSpendSkills, attrBranch, calc, canLearn, power, sexReqOk } from './stats';
 import {
   ATTR_VI,
   betterThanEquipped,
@@ -135,11 +135,19 @@ export function powerModal() {
 function snapPts() { return { sk: Object.assign({}, S.sk), skPts: S.skPts, attr: Object.assign({}, S.attr), attrPts: S.attrPts, main: S.main, mainLock: S.mainLock }; }
 function restorePts(s) { S.sk = Object.assign({}, s.sk); S.skPts = s.skPts; S.attr = Object.assign({}, s.attr); S.attrPts = s.attrPts; S.main = s.main; S.mainLock = s.mainLock; R.dirty = true; recalc(); }
 /* Cong diem tiem nang tham lam theo luc chien (khong dong den vu khi / trang bi) */
+/* Cong diem tiem nang tham lam theo luc chien (khong dong den vu khi / trang bi).
+   Cái Bang: chi xét nhanh da nhan dang (Ngoại công: str/dex/vit · Nội công:
+   eng/dex/vit); chua nhan dang thi giu diem lai. */
 function spendAttrsGreedy() {
   let n = 0;
   while (S.attrPts > 0) {
-    const base = power(calc()); let best = 'vit', bg = -Infinity;
-    for (const k of ['str', 'dex', 'vit', 'eng']) { S.attr[k]++; const g = power(calc()) - base; S.attr[k]--; if (g > bg) { bg = g; best = k; } }
+    const b = attrBranch();
+    const cands = b.branch === 'physical' ? ['str', 'dex', 'vit']
+      : b.branch === 'inner' ? ['eng', 'dex', 'vit']
+      : b.branch === 'ambiguous' ? [] : ['str', 'dex', 'vit', 'eng'];
+    if (!cands.length) break;
+    const base = power(calc()); let best = cands[0], bg = -Infinity;
+    for (const k of cands) { S.attr[k]++; const g = power(calc()) - base; S.attr[k]--; if (g > bg) { bg = g; best = k; } }
     S.attr[best]++; S.attrPts--; n++;
   }
   if (n) R.dirty = true; return n;
@@ -161,13 +169,31 @@ function suggestPlan() {
   } finally { restorePts(s0); }
   return plan;
 }
+/* Thẻ nhánh tiềm năng Cái Bang: chọn Ngoại công (Bổng) / Nội công (Chưởng)
+   hoặc để tự nhận diện. Chỉ hiện cho phái Cái Bang. */
+const BRANCH_SRC = { selected: '(bạn đã chọn)', locked: '(chiêu chính đã khóa)', staff: '(đang mặc Côn)', skills: '(theo điểm võ công đã cộng)' };
+function branchCard() {
+  if (S.fac !== 'gaibang') return '';
+  const b = attrBranch();
+  const label = { physical: 'Ngoại công · Bổng', inner: 'Nội công · Chưởng' };
+  const status = b.branch === 'ambiguous'
+    ? '<p class="dim">Chưa nhận diện được nhánh. Hãy chọn Ngoại công hoặc Nội công để xem gợi ý; tự cộng điểm sẽ giữ điểm lại đến khi có lựa chọn.</p>'
+    : `<p>Đang gợi ý theo <b>${label[b.branch]}</b> <small class="dim">${BRANCH_SRC[b.source] || ''}</small></p>`;
+  const btn = (v, t) => `<button type="button" class="btn${S.attrFocus === v ? ' on' : ''}" data-attr-focus="${v}">${t}</button>`;
+  return `<div class="card"><b>Nhánh tiềm năng Cái Bang</b>${status}
+    <div class="btnrow">${btn('auto', 'Tự nhận diện')}${btn('physical', 'Ngoại công · Bổng')}${btn('inner', 'Nội công · Chưởng')}</div>
+    <small class="dim">Ngoại công không xét Nội công chỉ vì chiêu Bổng có thêm sát thương Hỏa.</small></div>`;
+}
 export function suggestModal() {
   const p = suggestPlan(), pc = v => (v >= 0 ? '+' : '') + (v * 100).toFixed(1) + '%';
   const sk = p.skills.length ? `<div class="card"><b>Võ công</b> <small class="cp">lực chiến ${pc(p.gainSk)}</small>${p.skills.map(x => `<div>${esc(x.n)}: +${x.d} → ${x.to}/${x.max}</div>`).join('')}<div class="btnrow"><button class="btn" id="sgSk">Áp dụng</button></div></div>` : '';
   const at = p.attrs.length ? `<div class="card"><b>Tiềm năng</b> <small class="cp">lực chiến ${pc(p.gainAt)}</small>${p.attrs.map(x => `<div>${x.n}: +${x.d}</div>`).join('')}<div class="btnrow"><button class="btn" id="sgAt">Áp dụng</button></div></div>` : '';
-  modal(`<h3>Gợi ý cộng điểm</h3><p class="desc">Xem trước, chưa cộng gì. Gợi ý chọn cách tăng lực chiến nhiều nhất với trang bị hiện tại. Bạn vẫn rút điểm được bằng nút −.</p>${sk}${at}${!sk && !at ? '<p class="dim">Bạn không có điểm nào để cộng.</p>' : ''}`, () => {
+  modal(`<h3>Gợi ý cộng điểm</h3><p class="desc">Xem trước, chưa cộng gì. Gợi ý chọn cách tăng lực chiến nhiều nhất với trang bị hiện tại. Bạn vẫn rút điểm được bằng nút −.</p>${branchCard()}${sk}${at}${!sk && !at ? (S.attrPts > 0 || S.skPts > 0 ? '' : '<p class="dim">Bạn không có điểm nào để cộng.</p>') : ''}`, () => {
     const a = $('#sgSk'); if (a) a.onclick = () => { autoSpendSkills(); recalc(); save(); refresh(); suggestModal(); };
     const b = $('#sgAt'); if (b) b.onclick = () => { spendAttrsGreedy(); recalc(); save(); refresh(); suggestModal(); };
+    document.querySelectorAll('#mBody [data-attr-focus]').forEach(x => x.onclick = () => {
+      S.attrFocus = x.dataset.attrFocus; save(); recalc(); suggestModal();
+    });
   });
 }
 

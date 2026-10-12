@@ -7,6 +7,7 @@ import {
   ENH_STEP,
   J,
   PLAT_STEP,
+  SERIES,
   attrName,
   clamp,
   esc,
@@ -29,6 +30,7 @@ import {
   canPlatBase,
   combineShards,
   enchase,
+  enchaseCheck,
   fuse,
   fuseCost,
   htBuyCost,
@@ -77,7 +79,25 @@ function reroll(it) {
   toast('Tẩy luyện xong'); uiSfx('learn');
   R.dirty = true; setInvDirty(true); save(); forgeModal(it);
 }
-export const oreLabel = k => { const o = oreParse(k), r = oreRows(o.a)[0]; return `Dòng ${o.place + 1} (${o.place % 2 ? 'ẩn' : 'hiện'}) · ${r ? r.n : attrName(o.a)} · cấp ${o.lvl} ×${matHave('ore', k)}`; };
+/* Ten loai trang bị khảm duoc (upstream VT): whitelist w cua hang affixLevel.
+   9 loai vu khi deu co -> "Vũ khí", nguoc lai liet ke tung loai. */
+const ORE_KIND_NAME = { sword: 'Kiếm', blade: 'Đao', wand: 'Trượng', spear: 'Thương', hammer: 'Chùy', dualblades: 'Song đao', darts: 'Phi đao', knife: 'Đoản đao', crossbow: 'Nỏ', armor: 'Áo', boot: 'Giày', belt: 'Đai', helm: 'Mũ', cuff: 'Hộ uyển', ring: 'Nhẫn', necklace: 'Dây chuyền', pendant: 'Ngọc bội' };
+const ORE_WEAPON_KINDS = ['sword', 'blade', 'wand', 'spear', 'hammer', 'dualblades', 'darts', 'knife', 'crossbow'];
+const ORE_OTHER_KINDS = ['armor', 'boot', 'belt', 'helm', 'cuff', 'ring', 'necklace', 'pendant'];
+function oreTypeList(row) {
+  const w = Object.keys((row && row.w) || {}).filter(k => row.w[k] > 0);
+  const out = [];
+  if (ORE_WEAPON_KINDS.every(k => w.includes(k))) out.push('Vũ khí');
+  else out.push(...ORE_WEAPON_KINDS.filter(k => w.includes(k)).map(k => ORE_KIND_NAME[k]));
+  for (const k of ORE_OTHER_KINDS) if (w.includes(k)) out.push(ORE_KIND_NAME[k]);
+  return out.length ? out.join(', ') : 'không có loại trang bị khảm được';
+}
+export const oreLabel = (k, htLvl = 1) => {
+  const o = oreParse(k), rows = oreRows(o.a);
+  const r = rows[clamp(Math.floor((htLvl + o.lvl) / 2), 1, rows.length) - 1];
+  const he = r && r.s >= 0 ? `hệ ${SERIES[r.s]}` : 'mọi hệ';
+  return `Dòng ${o.place + 1} (${o.place % 2 ? 'ẩn' : 'hiện'}) · ${r ? r.n : attrName(o.a)} · cấp ${o.lvl} · ${he} · ${oreTypeList(r)} ×${matHave('ore', k)}`;
+};
 function afterRc(r, reopen) {
   toast(r.msg); uiSfx(r.ok ? 'learn' : 'use'); log(esc(r.msg));
   R.dirty = true; setInvDirty(true); save(); reopen();
@@ -86,10 +106,13 @@ function enchaseCard(it) {
   const n = (it.mag || []).length, can = !it.set && it.d >= 0 && it.d <= 9 && (n === 0 ? it.r === 0 : it.vio) && n < VIO_SLOTS;
   if (!can) return `<div class="card"><b>Khảm Tím</b> <small class="dim">${it.set ? 'Đồ bộ không khảm được' : n >= VIO_SLOTS ? 'Đã đủ 6 dòng' : 'Chỉ khảm đồ trắng hoặc đồ Tím chưa đủ dòng'}</small></div>`;
   const hts = Object.keys(mats().ht).map(Number).sort((a, b) => a - b);
-  const ores = Object.keys(mats().ore).filter(k => oreParse(k).place === n);
+  const allOres = Object.keys(mats().ore);
+  const u = hts[0] || 1;
+  const ores = allOres.filter(k => typeof enchaseCheck(it, u, k) !== 'string');
   return `<div class="card"><b>Khảm Tím</b> <small class="dim">dòng ${n + 1}/6 (${n % 2 ? 'ẩn' : 'hiện'}) · thất bại 5% mất đá</small><br>
     <div class="btnrow"><select id="cHt">${hts.map(l => `<option value="${l}">Huyền Tinh cấp ${l} ×${matHave('ht', l)}</option>`).join('') || '<option value="">Chưa có Huyền Tinh</option>'}</select></div>
-    <div class="btnrow"><select id="cOre">${ores.map(k => `<option value="${k}">${esc(oreLabel(k))}</option>`).join('') || `<option value="">Chưa có khoáng dòng ${n + 1}</option>`}</select></div>
+    <div class="btnrow"><select id="cOre">${ores.map(k => `<option value="${k}">${esc(oreLabel(k, u))}</option>`).join('') || `<option value="">${allOres.length ? `Không có khoáng phù hợp dòng ${n + 1}` : 'Chưa có khoáng thạch'}</option>`}</select></div>
+    <small class="dim">Danh sách chỉ hiện khoáng phù hợp; khoáng khác vẫn được giữ trong túi và có thể dùng cho món khác.</small>
     <div class="btnrow"><button class="btn" id="fKham" ${hts.length && ores.length ? '' : 'disabled'}>Khảm</button><button class="btn" id="fHtLo">Lò Huyền Tinh</button></div></div>`;
 }
 function platCard(it) {
@@ -170,6 +193,25 @@ export function forgeModal(it) {
     const k = $('#fKham'), lo = $('#fHtLo');
     if (k) k.onclick = () => afterRc(enchase(it, +$('#cHt').value, $('#cOre').value), () => forgeModal(it));
     if (lo) lo.onclick = () => htModal();
+    /* fKham: doi cHt -> loc lai khoang phu hop (upstream UT) */
+    const htSel = $('#cHt'), oreSel = $('#cOre');
+    if (k && htSel && oreSel) {
+      const rebuild = () => {
+        const u = +htSel.value || 1;
+        const keep = Object.keys(mats().ore).filter(key => typeof enchaseCheck(it, u, key) !== 'string');
+        const cur = oreSel.value;
+        oreSel.replaceChildren();
+        if (keep.length) {
+          for (const key of keep) { const o = document.createElement('option'); o.value = key; o.textContent = oreLabel(key, u); oreSel.append(o); }
+          if (keep.includes(cur)) oreSel.value = cur;
+        } else {
+          const o = document.createElement('option'); o.value = ''; o.textContent = `Không có khoáng phù hợp dòng ${(it.mag || []).length + 1}`; oreSel.append(o);
+        }
+        k.disabled = !htSel.value || !keep.length;
+      };
+      htSel.onchange = rebuild;
+      rebuild();
+    }
     const pu = $('#fPlat'); if (pu) pu.onclick = () => afterRc(upgradePlatina(it), () => forgeModal(it));
     const pf = $('#fPet'); if (pf) pf.onclick = () => { const made = petForgeItem(); if (made) { closeModal(); refresh(); } };
   });

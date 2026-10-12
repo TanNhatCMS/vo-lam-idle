@@ -531,6 +531,16 @@ function petChoices() {
   return [...new Set(zs.flatMap(z => z.m))].filter(t => MON[t] && MON[t].anim).slice(0, 20);
 }
 function petGrouped() { const g = [[], [], [], [], []]; for (const t of petChoices()) g[petElemOf(t)].push(t); return g; }
+/* Tong loài (moi vung) — de hien "Đã mở N/M"; nhom theo vùng cho thẻ Đồng hành */
+function petAllSpecies() { return [...new Set(ZONES.flatMap(z => z.m))].filter(t => MON[t] && MON[t].anim).slice(0, 20); }
+function petZoneGroups() {
+  const c = new Set(petChoices()), seen = new Set(), out = [];
+  for (const z of ZONES) {
+    const ps = z.m.filter(t => c.has(t) && !seen.has(t));
+    if (ps.length) { ps.forEach(t => seen.add(t)); out.push({ zone: z, pets: ps }); }
+  }
+  return out;
+}
 /* Moi loai la 1 con rieng trong roster; nhan loai = chuyen con do ra tran (giu nguyen cap/eq cua no) */
 function petAdopt(tid) {
   const r = RW();
@@ -1281,6 +1291,7 @@ export function dotGift() { const b = $('#giftBtn'); if (b) b.classList.toggle('
 
 /* ---------- giao dien: nut 🎁 ---------- */
 let giftTab = 'login';
+let petView = 0;   // loài Đồng hành đang xem ở thẻ Đồng hành (chọn để xem vai trò/kỹ năng)
 function refreshGift() { if (!$('#modal').classList.contains('hidden') && $('#giftTabs')) giftModal(); dotGift(); }
 export function giftText(g) {
   const p = [];
@@ -1355,6 +1366,27 @@ function txBody(r) {
     </div>
     ${r.txLog && r.txLog.length ? `<div class="card"><b>Ván gần đây</b>${r.txLog.slice(0, 6).map(s => `<div class="row"><small>${esc(s)}</small></div>`).join('')}</div>` : ''}`;
 }
+/* Thẻ Đồng hành trong menu Phần thưởng: xem trước 1 loài (vai trò, kỹ năng),
+   danh sách loài nhom theo vùng. Dẫn theo = chon loài ra trận. */
+function petTabBody(r) {
+  if (!unlocked(PET_LV)) return `<p class="desc">Đồng hành mở khóa ở cấp ${PET_LV}.</p>`;
+  const p = r.pet, all = petAllSpecies();
+  if (!all.length) return '<p class="desc">Chưa có loài Đồng hành nào.</p>';
+  const view = all.includes(petView) ? petView : (p && all.includes(p.tid) ? p.tid : all[0]);
+  petView = view;
+  const vp = MON[view], vLvl = p && p.tid === view ? (p.lvl || 1) : 1;
+  const lead = p && MON[p.tid] ? `<p>Đang dẫn: <b style="color:${SERIES_COL[petElemOf(p.tid)]}">${esc(MON[p.tid].n)}</b> · cấp ${p.lvl} · sát thương ${fmt(petDmg(p))}/đòn</p>` : '<p class="dim small">Chưa có đồng hành được chọn.</p>';
+  const skHint = t => petSkills(t).map((s, i) => `${i ? '· ' : ''}${esc(s.n)}${s.lv ? ` (Lv${s.lv})` : ''}`).join(' ');
+  return `<p class="desc">Đồng hành đi theo và cùng đánh quái, lên cấp theo số quái hạ. Mỗi loài có vai trò và kỹ năng riêng; chọn pet để xem nhãn vai trò, gợi ý cách dùng và chi tiết kỹ năng. Chiêu thứ hai mở ở cấp 30; loài mới mở dần theo vùng.</p>
+    <p class="dim small">Nhãn: Đánh lan · Kết liễu · Khống chế · Hồi phục · Chống chịu · Hỗ trợ.</p>
+    <p class="dim small">Đã mở ${petChoices().length}/${all.length} loài.</p>${lead}
+    <section class="pet-preview">
+      <div class="pet-preview-head">${vp.img ? `<img src="${esc(vp.img)}" alt="">` : ''}<span><small>ĐANG XEM ĐỒNG HÀNH</small><b>${esc(vp.n)} · cấp ${vLvl}</b></span><button class="btn sm" data-p-adopt="${view}" ${p && p.tid === view ? 'disabled' : ''}>${p && p.tid === view ? 'Đang dẫn' : 'Dẫn theo'}</button></div>
+      <div class="pet-role-block"><b>VAI TRÒ</b><div class="pet-role-tags">${petRoleTags(view)}</div><p>${esc(petRole(view).fit)}</p></div>
+      <div class="petskills">${petSkillRows(view, vLvl)}</div>
+    </section>
+    <div class="petpick">${petZoneGroups().map(({ zone: z, pets }) => `<section class="petgroup"><h4>${esc(z.n)}<small>Quái cấp ${z.lo}–${z.hi}</small></h4><div class="petgroup-grid">${pets.map(t => `<button data-p-preview="${t}" class="${view === t ? 'on' : ''}${p && p.tid === t ? ' active' : ''}">${MON[t].img ? `<img src="${esc(MON[t].img)}" alt="">` : ''}<b>${esc(MON[t].n)}</b><span class="pet-card-tags">${petRoleTags(t)}</span><small class="pet-active-hint">${p && p.tid === t ? 'Đang dẫn' : ''}</small><small class="pet-skill-hint">${skHint(t)}</small></button>`).join('')}</div></section>`).join('')}</div>`;
+}
 function giftBody(r) {
   if (giftTab === 'tm') return thanMaBody();
   if (giftTab === 'tyvo') return tyvoBody(r);
@@ -1418,13 +1450,7 @@ function giftBody(r) {
       <p class="desc">Mở ở chuyển sinh 5. Quái mạnh gấp nhiều lần theo tầng, gục lùi 10 tầng; mỗi 10 tầng lần đầu nhận 1 món bộ <b>Thiên Cực</b>. Điểm chuyển sinh TS6–TS10 chỉ tác dụng ở đây.</p>
       <p>Kỷ lục: <b>tầng ${r.stat.tower2Best || 0}</b>${R.tower && R.tower.id === 2 ? ` · đang ở tầng ${R.tower.floor}` : ''}</p>
       <div class="btnrow">${R.tower && R.tower.id === 2 ? '<button class="btn red" id="gTowerOut">Rời tháp</button>' : !tower2Unlocked() ? `<button class="btn" disabled>Cần chuyển sinh ${TOWER2.reborn}</button>` : `<button class="btn" id="gTower2">Vào Tháp II (tầng ${tower2Floor(r.tower2Floor == null ? (r.stat.tower2Best || 0) + 1 : r.tower2Floor)})</button>`}</div>`;
-  if (giftTab === 'pet') {
-    const p = r.pet;
-    if (!unlocked(PET_LV)) return `<p class="desc">Đồng hành mở khóa ở cấp ${PET_LV}.</p>`;
-    const st = p && MON[p.tid] ? petStats(p) : null;
-    return `<p class="desc">Đồng hành đi theo và cùng đánh quái, lên cấp theo số quái hạ. Chọn trong các loài ở vùng đã tới (đổi loài vẫn giữ cấp và trang bị). Gắn trang bị cho Đồng hành ở <b>thẻ Đồng hành</b> dưới thanh menu.</p>${p && st ? `<p>Đang dẫn: <b style="color:${SERIES_COL[st.elem]}">${esc(MON[p.tid].n)}</b> · hệ ${SERIES[st.elem]} · cấp ${p.lvl} · sát thương ${fmt(st.atk)}/đòn</p>` : ''}
-      <div class="petpick">${petChoices().map(t => `<button data-p="${t}" class="${p && p.tid === t ? 'on' : ''}">${MON[t].img ? `<img src="${esc(MON[t].img)}" alt="">` : ''}<b>${esc(MON[t].n)}</b></button>`).join('')}</div>`;
-  }
+  if (giftTab === 'pet') return petTabBody(r);
   const bo = rebornBonus(), full = r.stat.reborn >= REBORN_MAX, need = rebornLevelAt(r.stat.reborn);
   return `<p class="desc">Từ cấp 100, mỗi lần chuyển sinh cần thêm 25 cấp (lần 2: cấp 125, lần 3: 150…): về cấp 1, giữ trang bị và võ công, nhận 50 điểm tiềm năng × số lần chuyển sinh, thưởng vĩnh viễn +20% kinh nghiệm và +10% sát thương mỗi lần (tối đa ${REBORN_MAX} lần). Điểm từ Tẩy Tỵ Kinh được giữ qua chuyển sinh.</p>
       <p>Đã chuyển sinh: <b>${r.stat.reborn}</b> lần · hiện +${Math.round(bo.xp * 100)}% kinh nghiệm, +${Math.round(bo.dmg * 100)}% sát thương.</p>
@@ -1477,7 +1503,8 @@ export function giftModal() {
       if (res.xucXac) { const rr = RW(); rr.txLog = [res.msg, ...(rr.txLog || [])].slice(0, 20); }
       toast(res.msg); save(); refreshGift();
     });
-    document.querySelectorAll('#mBody .petpick [data-p]').forEach(x => x.onclick = () => petAdopt(+x.dataset.p));
+    document.querySelectorAll('#mBody [data-p-preview]').forEach(x => x.onclick = () => { petView = +x.dataset.pPreview; giftModal(); });
+    document.querySelectorAll('#mBody [data-p-adopt]').forEach(x => x.onclick = () => petAdopt(+x.dataset.pAdopt));
     /* cac tab phu gan CUOI + boc loi: mot module loi khong duoc lam chet bind loi cua cac tab chinh */
     try { thanMaBind(refreshGift); } catch (e) { console.error('thanMaBind', e); }
     try { actBind(refreshGift); } catch (e) { console.error('actBind', e); }

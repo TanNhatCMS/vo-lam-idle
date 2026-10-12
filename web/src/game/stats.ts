@@ -423,6 +423,33 @@ export function reqDeficit(it) {
   const d = {}; for (const [id, v] of it.req || []) { const k = ATTR_REQ[id]; if (k && heroAttr(k) < v) d[k] = v - heroAttr(k); }
   return d;
 }
+/* ---------- Nhanh tien nang Cai Bang (upstream v107) ----------
+   Ngoai cong (Bổng: str/dex/vit) hay Noi cong (Chưởng: eng/dex/vit).
+   Tu nhan dang, theo thu tu: attrFocus da chon > chiêu chính da khoa
+   (SK.phys) > dang mac Côn (vu khi k=2) > diem võ công da công
+   (Bổng vs Chưởng); hoa = chua nhan dang (tu cong diem giu diem lai,
+   goi y bao chon tay). Chi ap dung cho Cai Bang — phai khac luon 4 chi. */
+const GB_BONG = [115, 119, 124, 125, 359], GB_CHUONG = [116, 122, 274, 128, 357];
+export function attrBranch() {
+  if (S.fac !== 'gaibang') return { branch: 'auto', source: null };
+  if (S.attrFocus === 'physical' || S.attrFocus === 'inner') return { branch: S.attrFocus, source: 'selected' };
+  const m = S.mainLock ? SK[S.main] : null;
+  if (m) return { branch: m.phys ? 'physical' : 'inner', source: 'locked' };
+  const wk = S.eq.weapon;
+  if (wk && wk.k === 2) return { branch: 'physical', source: 'staff' };
+  const bong = GB_BONG.reduce((a, id) => a + (S.sk[id] || 0), 0);
+  const chuong = GB_CHUONG.reduce((a, id) => a + (S.sk[id] || 0), 0);
+  if (bong > chuong) return { branch: 'physical', source: 'skills' };
+  if (chuong > bong) return { branch: 'inner', source: 'skills' };
+  return { branch: 'ambiguous', source: null };
+}
+export function attrCandidates() {
+  const { branch } = attrBranch();
+  if (branch === 'physical') return ['str', 'dex', 'vit'];
+  if (branch === 'inner') return ['eng', 'dex', 'vit'];
+  if (branch === 'ambiguous') return [];
+  return ['str', 'dex', 'vit', 'eng'];
+}
 export function autoSpendAttrs() {
   let spent = 0;
   const wt = weaponTarget();
@@ -433,8 +460,10 @@ export function autoSpendAttrs() {
     if (wt !== S.eq.weapon && reqOk(wt) && typeof equip === 'function' && equipGain(wt) > 0) equip(wt, true);
   }
   while (S.attrPts > 0) {
-    const base = power(calc()); let best = 'vit', bg = -Infinity;
-    for (const k of ['str', 'dex', 'vit', 'eng']) { S.attr[k]++; const g = power(calc()) - base; S.attr[k]--; if (g > bg) { bg = g; best = k; } }
+    const cands = attrCandidates();
+    if (!cands.length) break;   // chua nhan dang nhanh: giu diem lai den khi chon
+    const base = power(calc()); let best = cands[0], bg = -Infinity;
+    for (const k of cands) { S.attr[k]++; const g = power(calc()) - base; S.attr[k]--; if (g > bg) { bg = g; best = k; } }
     S.attr[best]++; S.attrPts--; spent++;
   }
   if (spent) R.dirty = true;
@@ -512,3 +541,7 @@ function facNorm(key, L) {
   for (let i = 1; i < FN_LV.length; i++) if (L <= FN_LV[i]) { const k = (L - FN_LV[i - 1]) / (FN_LV[i] - FN_LV[i - 1]); return t[i - 1] + (t[i] - t[i - 1]) * k; }
   return t[t.length - 1];
 }
+
+/* Hook debug/test: nhánh tiềm năng Cái Bang (attrBranch/attrCandidates
+   la module-private tuong doi — can dia chi nay de test goi truc tiếp). */
+if (typeof window !== 'undefined') (window as any).__ATTR = { attrBranch, attrCandidates, autoSpendAttrs };

@@ -1213,7 +1213,7 @@ export function dexSetBodyHTML() {
     (groups.get(r.grp) || groups.set(r.grp, []).get(r.grp)).push(r);
   }
   const list = [...groups.values()].sort((a, b) => reqOfRow(a[0], 36) - reqOfRow(b[0], 36));
-  return `<p class="desc">Bộ Hoàng Kim của phái bạn (${list.length} bộ, đã sưu tầm đủ ${dexSetsDone()}). Mặc đủ số món của một bộ sẽ mở hết dòng ẩn của mọi trang bị. Thiên Cực cấp 200 chỉ nhận từ tầng 50 Tháp II trở lên; bộ này chưa có công thức Bạch Kim.</p>` +
+  return `<p class="desc">Bộ Hoàng Kim của phái bạn (${list.length} bộ, đã sưu tầm đủ ${dexSetsDone()}). Mặc đủ số món của một bộ sẽ mở hết dòng ẩn của mọi trang bị. Đồ Thiên Cực cấp 200 vẫn là Hoàng Kim, nhận từ tầng 50 Tháp II trở lên và có thể chế Bạch Kim tại Lò Huyền Tinh bằng 2 món giống nhau cùng nguyên liệu.</p>` +
     list.map(g => { const r0 = g[0], need = r0.n2 || 99; return `<div class="card"><b>${esc(r0.n.split(' ').slice(0, 2).join(' '))}…</b>${g.filter(r => !/^\[/.test(r.n)).every(r => (S.setSeen || {})[r.n]) ? ' <span class="cp">✔ đủ bộ</span>' : ''} <small class="dim">cấp ${reqOfRow(r0, 36)} · ${g.length} món · đủ ${need} món mở dòng ẩn</small><br><small class="dim">${g.map(r => esc(r.n)).join(' · ')}</small></div>`; }).join('') || '<p class="dim">Không có.</p>';
 }
 /* Tro ve cau hinh Auto mac dinh */
