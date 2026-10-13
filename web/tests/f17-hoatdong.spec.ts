@@ -94,3 +94,44 @@ test('hoạt động: Boss tuần — 3 lượt/tuần, rương nhận theo hạ
   await expect.poll(() => page.evaluate(() => (window as any).__G.RW().knb || 0)).toBeGreaterThanOrEqual(10);   // rương A: +10 KNB
   assertNoErrors();
 });
+
+test('hoạt động: đi thuyền hết đoạn cuối — kết thúc chuyến có thưởng riêng, không crash t.d', async ({ page }) => {
+  await createCharacter(page);
+  await page.evaluate(() => { const G = (window as any).__G; G.S.lvl = 30; G.R.dirty = true; });
+  await page.locator('#qBar .qb', { hasText: 'Đi thuyền' }).first().click();
+  await page.waitForTimeout(300);
+  await page.locator('#mBody [data-boat-go]').click();
+  await expect.poll(() => page.evaluate(() => (window as any).__G.R.dg && (window as any).__G.R.dg.kind)).toBe('boat');
+  // nhảy tới đoạn cuối: đủ kill đoạn 1..3 rồi bắt buộc waveCleared ở đoạn 4
+  const end = await page.evaluate(() => {
+    const G = (window as any).__G, R = G.R;
+    R.dg.room = R.dg.rooms;                 // đứng ngay đoạn cuối
+    R.spawnT = 0; G.recalc ? null : null;
+    // ép clear: hạ toàn bộ quái của đoạn cuối
+    for (const e of R.enemies) e.hp = 0;
+    return { rooms: R.dg.rooms, kind: R.dg.kind, hasD: R.dg.d === undefined };
+  });
+  expect(end.kind).toBe('boat');
+  expect(end.hasD).toBe(true);              // R.dg của thuyền KHÔNG có d (nguyên nhân crash cũ)
+  // chờ tick xử lý clear → chuyến kết thúc
+  await expect.poll(() => page.evaluate(() => ({ dg: (window as any).__G.R.dg && (window as any).__G.R.dg.kind || null, banner: (window as any).__G.R.banner && (window as any).__G.R.banner.text })), { timeout: 8000 })
+    .toEqual({ dg: null, banner: 'Qua sông thành công!' });
+  assertNoErrors();
+});
+
+test('hoạt động: Boss tuần — quái có cấp đúng (run.lv, không undefined)', async ({ page }) => {
+  await createCharacter(page);
+  await page.evaluate(() => { const G = (window as any).__G; G.S.lvl = 30; G.R.dirty = true; });
+  await page.locator('#qBar .qb', { hasText: 'Boss tuần' }).first().click();
+  await page.waitForTimeout(300);
+  const go = page.locator('#mBody [data-wb-go]');
+  if (await go.count()) await go.click();
+  await expect.poll(() => page.evaluate(() => (window as any).__G.R.dg && (window as any).__G.R.dg.kind), { timeout: 8000 }).toBe('wb');
+  const boss = await page.evaluate(() => {
+    const e = (window as any).__G.R.enemies.find(x => x.wbBoss);
+    return e ? { L: e.L, n: (e.n || '').slice(0, 30) } : null;
+  });
+  expect(boss).toBeTruthy();
+  expect(boss.L).toBeGreaterThan(0);
+  assertNoErrors();
+});

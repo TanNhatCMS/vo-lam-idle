@@ -125,7 +125,13 @@ export function expFor(L) { return J.exp[clamp(L, 1, MAX_LEVEL) - 1] / (10 + L *
 /* Vùng quái theo cấp (nguồn Ic) — trong tháp, quái thuộc vùng đúng cấp quái, không phải vùng theo ải */
 export const zoneByLevel = L => ZONES.find(z => L >= z.lo && L <= z.hi) || ZONES[ZONES.length - 1];
 export function makeEnemy(tid, L, cls, x, y) {
-  const m = MON[tid], z = R.tower ? zoneByLevel(L) : zoneOf(S.stage), st = enemyStats(L, cls), D = diffOf(); st.hp *= D.hp; st.dmg *= D.dmg;
+  const m = MON[tid] || MON[0] || { n: 'Quái lạ', img: '', sz: 1, rmax: [], run: 6, spd: 18 };
+  if (L == null || !Number.isFinite(L)) {
+    // tự vệ: chưa tái hiện được spawn nào thiếu cấp trên web — ghi stack vào nhật ký app để truy vết
+    L = enemyStageLevel();
+    try { console.error('[quái thiếu cấp] tid=' + tid + ' cls=' + cls + ' — dùng cấp ải thay thế', new Error().stack); } catch (e) { /* bo qua */ }
+  }
+  const z = R.tower ? zoneByLevel(L) : zoneOf(S.stage), st = enemyStats(L, cls), D = diffOf(); st.hp *= D.hp; st.dmg *= D.dmg;
   const series = wpick([0, 1, 2, 3, 4], i => z.sw[i] + 1);
   const res = {}; ELEM.forEach((e, i) => { res[e] = Math.min(m.rmax[i] || 75, L * 0.35 + (cls === 'boss' ? 10 : 0)); });
   const e = { id: Math.random(), tid, n: m.n, img: m.img ? img(m.img) : null, sz: m.sz, L, cls, series, res, zoneId: z.id,

@@ -57,9 +57,17 @@ window.addEventListener('error', e => {
   const st = (e.error && e.error.stack) ? String(e.error.stack).split(String.fromCharCode(10)).slice(0, 4).map(x => x.trim()).join(' ← ') : '';
   push('error', ['[uncaught] ' + (e.message || '?') + ' @ ' + String(e.filename || '').split('/').pop() + ':' + (e.lineno || 0) + (st ? ' — ' + st : '')]);
 }, true);
-/* fetch/response loi (404 JSON...) */
+/* fetch/response loi (404 JSON...) — /api/* không phải "file": 409 presence là cơ chế
+   server xin profile (chat.ts tự xử lý lại), ghi khác để khỏi gây hiểu nhầm. */
 const origFetch = window.fetch ? window.fetch.bind(window) : null;
-if (origFetch) window.fetch = (...a) => origFetch(...a).then(r => { if (!r.ok) push('warn', ['[tải lỗi ' + r.status + '] ' + String(a[0]).split('/').slice(-1)[0] + ' — file thiếu hoặc tên sai']); return r; }, e => { push('warn', ['[tải lỗi] ' + String(a[0]).split('/').slice(-1)[0] + ' — máy chủ không phản hồi (tắt/đứt mạng) hoặc file thiếu']); throw e; });
+if (origFetch) window.fetch = (...a) => origFetch(...a).then(r => {
+  if (!r.ok) {
+    const u = String(a[0]);
+    if (u.includes('/api/')) { if (r.status !== 409) push('warn', ['[api ' + r.status + '] ' + (u.split('/api/')[1] || u) + ' — máy chủ từ chối yêu cầu']); }
+    else push('warn', ['[tải lỗi ' + r.status + '] ' + u.split('/').slice(-1)[0] + ' — file thiếu hoặc tên sai']);
+  }
+  return r;
+}, e => { push('warn', ['[tải lỗi] ' + String(a[0]).split('/').slice(-1)[0] + ' — máy chủ không phản hồi (tắt/đứt mạng) hoặc file thiếu']); throw e; });
 window.addEventListener('unhandledrejection', e => { push('error', ['[promise] ' + fmtArg(e.reason)]); });
 window.addEventListener('pagehide', persist);
 

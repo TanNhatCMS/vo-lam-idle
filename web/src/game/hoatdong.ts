@@ -10,12 +10,13 @@ import { JMO } from './jdata';
 import { FAC, J, MAX_LEVEL, MON, W, WORLD, ZONES, clamp, esc, fmt, irnd, pick, rnd } from './core';
 import { S, save } from './save';
 import { RW, grant } from './rewards';
-import { closeModal, log, modal, toast } from './ui';
+import { closeModal, addItem, log, modal, toast } from './ui';
 import { img, snapCamera, addText } from './render';
 import { playMusic, uiSfx } from './audio';
 import { dropToGround, makeItem } from './loot';
 import { makeSetItem } from './sets';
 import { knbGain } from './ktc';
+import { matAdd } from './recipes';
 import { uiBump } from './store';
 
 /* ---------- hằng số gốc ---------- */
@@ -114,24 +115,24 @@ function spawnRoom() {
   R.enemies = [];
   if (run.kind === 'boat') {
     const bossSeg = run.room >= BOAT_ROOMS;
-    const tid = MON[674] ? 674 : pick(mobForLv(run.L));
+    const tid = MON[674] ? 674 : pick(mobForLv(run.lv));
     if (bossSeg) {
       const [bx, by] = spot(200, 250);
-      const b = makeEnemy(tid, run.L + 2, 'boss', bx, by);
+      const b = makeEnemy(tid, run.lv + 2, 'boss', bx, by);
       b.hp = b.max = b.max * 3; b.dmg *= 1.2; b.n = 'Thủy Tặc Đầu Lĩnh';
       R.enemies.push(b);
     }
     const n = bossSeg ? 3 : 5 + run.room;
     for (let i = 0; i < n; i++) {
       const [x, y] = spot(120, 280);
-      const e = makeEnemy(tid, run.L, bossSeg || i < run.room ? 'elite' : 'normal', x, y);
+      const e = makeEnemy(tid, run.lv, bossSeg || i < run.room ? 'elite' : 'normal', x, y);
       e.n = 'Thủy Tặc'; R.enemies.push(e);
     }
     return;
   }
   if (run.kind === 'wb') {
     const [bx, by] = spot(200, 240);
-    const b = makeEnemy(run.tid, run.L, 'boss', bx, by);
+    const b = makeEnemy(run.tid, run.lv, 'boss', bx, by);
     b.hp = b.max = b.max * WB_HP_X; b.dmg *= 1.1; b.wbBoss = true; b.n = 'Boss tuần · ' + b.n;
     run.boss = b; R.enemies.push(b);
     return;
@@ -205,9 +206,31 @@ export function weekBossTid() {                              // mw() của ngu�
   return bosses[(wk % bosses.length + bosses.length) % bosses.length];
 }
 /* Hạ trùm trong phó bản/thuyền: đất rơi thưởng — gọi từ waveCleared */
+/* nT của nguồn: kết thúc chuyến thuyền — thưởng riêng, KHÔNG đi nhánh phó bản
+   (bug cũ: run.d undefined với boat → crash "reading 'id'" mỗi lần hết đoạn cuối). */
+function boatVictory() {
+  const run = R.dg; if (!run) return;
+  const rec2 = RW().dgRec = RW().dgRec || {}; rec2.boatN = (rec2.boatN || 0) + 1;
+  const gold = Math.round(3000 * (1 + S.lvl / 10));
+  S.gold += gold;
+  grant({ fd: 10 }, 'Qua sông Phong Lăng Độ');
+  { const it = makeItem(irnd(0, 9), 0, clamp(Math.round(S.lvl / 12) + 1, 1, 10), 5); if (it) addItem(it, true, true, true); }   // 1 món 5 dòng
+  const htTier = clamp(Math.floor(run.L / 15) + 1, 1, 10);
+  matAdd('ht', htTier, 3);
+  const oreKeys = ['0:58:1', '0:88:1', '1:58:1', '0:108:1', '1:108:1', '2:68:1'];
+  for (let i = 0; i < 2; i++) matAdd('ore', oreKeys[irnd(0, oreKeys.length - 1)], 1);
+  log(`⛵ Thưởng qua sông: +${fmt(gold)} lượng, 3 Huyền Tinh cấp ${htTier}, 2 khoáng thạch`);
+  if (Math.random() < 0.03) { matAdd('misc', 'wc', 1); log('⛵ Nhận 1 Thủy Tinh Trắng'); }
+  dgExitArena(); save();
+  R.banner = { t: 3, text: 'Qua sông thành công!', sub: `${Math.round(run.t)} giây · còn ${Math.max(0, BOAT_TRIES - (dgSaveState().boat || 0))} chuyến hôm nay` };
+  uiSfx('levelup');
+}
+
 export function dgVictory() {
   const run = R.dg; if (!run) return;
   if (run.kind === 'wb') { wbEnd(true); return; }
+  if (run.kind === 'boat') { boatVictory(); return; }
+  if (!run.d) { dgExitArena(); save(); return; }   // tự vệ: run thiếu def thì thoát an toàn
   const d = new Date(), secs = Math.round(run.t);
   const rank = run.t <= run.limit * 0.5 ? 'S' : run.t <= run.limit * 0.75 ? 'A' : 'B';
   const mul = RANK_MUL[rank] || 1;
@@ -225,7 +248,6 @@ export function dgVictory() {
   log(`🏆 Qua <b>${esc(run.d.n)}</b> · hạng <b style="color:#ffd24a">${rank}</b> (${secs}s) · +${fmt(gold)} lượng, +${Math.round(run.d.knb * mul)} KNB`);
   R.banner = { t: 3, text: `Qua ${run.d.n} · hạng ${rank}`, sub: `${secs} giây · còn ${runsLeft(run.d)} lượt hôm nay` };
   uiSfx('levelup');
-  if (run.kind === 'boat') { const rec2 = RW().dgRec = RW().dgRec || {}; rec2.boatN = (rec2.boatN || 0) + 1; }
   dgExitArena(); save();
 }
 function dgSetDrop(run) {                                    // món bộ Hoàng Kim/Bạch Kim (khuôn wbSetDrop)
