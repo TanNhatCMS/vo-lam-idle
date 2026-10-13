@@ -93,6 +93,8 @@ const SKIP_PASSIVE = /^(skill_|missle_|addskilldamage)/;
 
 let IGNORE_REQ = null;                                   // equipCompare: CHI mon dang xem duoc tinh thu du chua du dieu kien (cac mon dang mac van xet dieu kien nhu that)
 const reqPass = it => it === IGNORE_REQ || reqOk(it);
+/* Rr cua nguon: skill bi dong co attr nay -> innerAdd[nguyen to] cong vao moi don danh */
+const INNER_ADD = { addpoisonmagic_v: 'poison', addcoldmagic_v: 'cold', addfiremagic_v: 'fire', addlightingmagic_v: 'light' };
 export function calc(eq) {
   eq = eq || S.eq;
   const A = {}, lv = S.lvl, ser = heroSeries(), add = J.levelAdd[ser], st = heroStart();
@@ -139,7 +141,7 @@ export function calc(eq) {
     if (tmN >= THAN_MA_TOTAL) addAttr(A, 'lucky_v', [10, 0, 0]); }
   // ky nang bi dong
   const wc = weaponCode(eq), plus = av(A, 'allskill_v');
-  const P = { A, plusSkill: plus, skAdd };
+  const P = { A, plusSkill: plus, skAdd, innerAdd: { poison: 0, cold: 0, fire: 0, light: 0 } };
   const lvOf = id => S.sk[id] + plus + (skAdd[id] || 0);
   for (const id in S.sk) {
     const s = SK[id]; if (!s || !S.sk[id] || isAttack(s) || !skApplies(s)) continue;
@@ -147,7 +149,11 @@ export function calc(eq) {
     for (const name in s.attr) {
       if (SKIP_PASSIVE.test(name)) continue;
       const p = skVal(s, name, L);
-      if (p && passiveApplies(s, name, p, wc)) addAttr(A, name, p);
+      if (p && passiveApplies(s, name, p, wc)) {
+        addAttr(A, name, p);
+        const el = INNER_ADD[name];                            // Rr cua nguon: skill bi dong cong nguyen to vao moi don danh
+        if (el && p[0]) P.innerAdd[el] += p[0];
+      }
     }
   }
   titleAttr(A);                                            // danh hieu dang deo (rewards.js)
@@ -195,6 +201,7 @@ export function calc(eq) {
   P.add = {}; for (const e of ELEM) if (e !== 'phys') P.add[e] = av(A, ELEM_ADD[e]);
   P.enh = {}; for (const e in ELEM_ENH) P.enh[e] = av(A, ELEM_ENH[e]);
   P.crit = clamp(av(A, 'deadlystrikeenhance_p') + av(A, 'deadlystrike_p') + av(A, 'enhancehit_rate'), 0, 75);
+  P.skillEnhance = av(A, 'skill_enhance');   // "Tang cong kích kỹ năng: %" (attr 243) — nhân vào mọi chiêu (Hr của nguồn)
   // v107: 2 duong toc do — vat ly (1 + attackspeed, Thien Vuong +15%) va phep (0.9 + castspeed)
   P.aspd = P.aspdPhys = clamp(1 + av(A, 'attackspeed_v') / 100 + (S.fac === 'tianwang' ? 0.15 : 0), 0.5, 3);
   P.aspdSpell = clamp(0.9 + av(A, 'castspeed_v') / 100, 0.5, 3);
@@ -250,7 +257,7 @@ export function activeInfo(P, s, L) {
   // khong nhan vao chi so nhan vat (vu khi, mon vu khi, Suc manh / Noi cong)
   const norm = s.norm || 1;
   const pe = skVal(s, 'physicsenhance_p', L);
-  const skillPct = (1 + ((P.skillBonus[s.id] || 0) + P.seriesSkill) / 100) * (P.dmgMul || 1);
+  const skillPct = (1 + ((P.skillBonus[s.id] || 0) + P.seriesSkill + (P.skillEnhance || 0)) / 100) * (P.dmgMul || 1);
   const parts = {};
   if (pe) {
     // physicsenhance_p = % cong them vao sat thuong vu khi (Dat Ma Do Giang cap 20: +615% -> x7.15)
@@ -262,7 +269,8 @@ export function activeInfo(P, s, L) {
     // doc: [sat thuong moi lan, thoi gian (khung), chu ky (khung)] -> tong = p1 * p2 / p3; con lai: [min, -, max]
     const avg = e === 'poison' ? v[0] * (v[1] || 1) / Math.max(1, v[2] || 1) : v[2] ? (v[0] + v[2]) / 2 : v[0];
     // Can bang game idle: Noi cong tang sat thuong nguyen to cua chieu (ban goc ENGERGY_SET_DAMAGE_VALUE = 0)
-    parts[e] = (parts[e] || 0) + avg * norm * (1 + (P.enh[e] || 0) / 100) * (1 + P.eng / ENG_PER_PCT / 100);
+    // innerAdd (Rr cua nguon): skill bi dong (Ngũ Độc Chưởng Pháp...) cong them sat thuong nguyen to vao moi don
+    parts[e] = (parts[e] || 0) + (avg * norm + (P.innerAdd && P.innerAdd[e] || 0)) * (1 + (P.enh[e] || 0) / 100) * (1 + P.eng / ENG_PER_PCT / 100);
   }
   // Can bang game idle: chieu noi cong (khong dung sat thuong vu khi) cong them Noi cong / 4 vao nguyen to chinh,
   // doi xung voi Suc manh / 5 cua don vat ly
