@@ -47,10 +47,13 @@ let UIP: any = null;
 export function uiPrefs() {
   if (!UIP) { try { UIP = JSON.parse(localStorage.getItem(UI_KEY) || '{}') || {}; } catch (e) { UIP = {}; } }
   UIP.fs = Number.isInteger(UIP.fs) && UIP.fs >= 0 && UIP.fs < UI_FS.length ? UIP.fs : 1; UIP.saver = !!UIP.saver; UIP.compact = !!UIP.compact;
-  UIP.invBorderGlow = !!UIP.invBorderGlow; UIP.invHoverPreview = UIP.invHoverPreview === true;
+  UIP.invBorderGlow = !!UIP.invBorderGlow; UIP.invHoverPreview = UIP.invHoverPreview === true; UIP.superFrames = !!UIP.superFrames; UIP.chatTransparency = !!UIP.chatTransparency;
   return UIP;
 }
-export function applyUiPrefs() { const p = uiPrefs(); document.documentElement.style.setProperty('--fs', String(UI_FS[p.fs])); document.body.classList.toggle('saver', p.saver); document.body.classList.toggle('compact', p.compact); document.body.classList.toggle('inv-border-glow', p.invBorderGlow); }
+/* FPS hiệu lực (nguồn): tiết kiệm pin 30fps được ưu tiên; điện thoại mặc định 30,
+   siêu khung hình cho phép chạy đầy; máy tính luôn đầy */
+export const fullFps = () => { const p = uiPrefs(); return p.saver ? false : (isMobileUI() ? p.superFrames : true); };
+export function applyUiPrefs() { const p = uiPrefs(); document.documentElement.style.setProperty('--fs', String(UI_FS[p.fs])); document.body.classList.toggle('saver', p.saver); document.body.classList.toggle('compact', p.compact); document.body.classList.toggle('inv-border-glow', p.invBorderGlow); document.body.classList.toggle('chat-transparency', p.chatTransparency); }
 export function setUiPref(o) { Object.assign(uiPrefs(), o); try { localStorage.setItem(UI_KEY, JSON.stringify(UIP)); } catch (e) { /* che do rieng tu */ } applyUiPrefs(); fitApp(); }
 export function onZoneChange(z) { obsLoad(z.id); [H.x, H.y] = inWorld(H.x, H.y); for (const e of R.enemies) [e.x, e.y] = inWorld(e.x, e.y); for (const d of R.ground) [d.x, d.y] = inWorld(d.x, d.y); snapCamera(); R.bgImg = z.bg ? img(z.bg) : null; playMusic(z.id); preloadZoneSounds(z); if (curTab === 'log') refresh(); }
 export function onStageChange() { if (curTab === 'log') refresh(); }
@@ -101,7 +104,7 @@ function frame(now) {
   guard('tay cam', gamepadPoll);
   if (S.fac && !document.hidden) {
     if (!R.town && !SV.on) jrAdd('sec', dt);              // so tay: giay choi that (khong tinh thanh / Luyen Cong)
-    const gdt = dt * gameSpeed(); guard('mo phong', () => simulateFrame(gdt)); if (!uiPrefs().saver || (drawTog = !drawTog)) guard('ve', () => drawLerp(gdt));
+    const gdt = dt * gameSpeed(); guard('mo phong', () => simulateFrame(gdt)); if (fullFps() || (drawTog = !drawTog)) guard('ve', () => drawLerp(gdt));
   }
   uiT += dt;
   if (uiT > 0.1 && S.fac) {

@@ -1262,3 +1262,6 @@ body.mobile-landscape.tyvo-active .tyvo-hud { top:calc(var(--mobile-top) + 106px
 .lk90-mid{display:grid;gap:2px;flex:1;min-width:0}
 .lk90-mid b{color:#e9e2d0;font-size:12px}
 .lk90-on{color:#9fe36a;font-size:10px}
+/* Tab Khác 2.6.17: giảm trong suốt khung chat (nguồn cChatTransparency) */
+body.chat-transparency #worldChat{opacity:.72}
+body.chat-transparency #worldChat:hover{opacity:1}

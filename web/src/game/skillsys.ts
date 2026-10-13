@@ -56,7 +56,7 @@ const skPay = a => {
 };
 export const skillBuffActive = id => ((R.skillBuffUntil && R.skillBuffUntil[id]) || 0) > skClock() && !!S.sk[id];
 const skillBuffEnabled = id => !(S.buffOff || {})[id];
-const skillAuraEnabled = id => !!S.sk[id] && !(S.auraOff || {})[id];
+export const skillAuraEnabled = id => !!S.sk[id] && !(S.auraOff || {})[id];
 const auraList = () => Object.keys(S.sk || {}).filter(id => S.sk[id] && SK[id] && skKind(SK[id]) === 'aura' && skillAuraEnabled(id)).map(Number);
 const auraActive = id => auraList().includes(+id);
 /* Ky nang do co hieu luc tinh vao chi so nhan vat khong (stats.calc gate):

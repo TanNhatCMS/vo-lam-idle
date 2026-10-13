@@ -19,6 +19,7 @@ import { lootMatch } from './loot';
 import { OBS } from './mapobs';
 import { drawPet, titleWorn } from './rewards';
 import { drawJxHero } from './look';
+import { drawAuras, drawCurseAuras } from './aurafx';
 import { TK_WAVES } from './activities';
 import { S } from './save';
 import { heroSeries } from './stats';
@@ -287,7 +288,7 @@ function nameTag(x, y, text, col, size = 11) {
   CX.font = `${size}px "IBM Plex Mono", monospace`; CX.textAlign = 'center'; CX.lineJoin = 'round'; CX.lineWidth = 3; CX.strokeStyle = '#000c';
   CX.strokeText(text, x, y); CX.fillStyle = col; CX.fillText(text, x, y);
 }
-export const enemyName = e => `${e.n} [${SERIES[e.series] || SERIES[0]}] Lv${e.L}`;
+export const enemyName = e => `${e.n} [${SERIES[e.series] || SERIES[0]}]${S.showEnemyLv === false ? '' : ' Lv' + e.L}`;   // tắt hiện Lv: cài đặt tab Khác (nguồn showEnemyLv)
 export function bar(x, y, w, h, f, col) { CX.fillStyle = '#000a'; CX.fillRect(x, y, w, h); CX.fillStyle = col; CX.fillRect(x, y, w * clamp(f, 0, 1), h); }
 export function draw(dt) {
   const c = CX; c.setTransform(DPR, 0, 0, DPR, 0, 0); c.clearRect(0, 0, AR.w, AR.h);
@@ -320,6 +321,7 @@ export function draw(dt) {
   for (const e of ents) {
     if (e.hero) {
       c.fillStyle = '#0007'; c.beginPath(); c.ellipse(H.x, H.y, 16, 6, 0, 0, 7); c.fill();
+      drawAuras(c, 'under', H.x, H.y, HERO_SCALE * 0.6);        // vong sang chan (La Han Tran...), nguon v107
       const hw = W.hero[S.fac];
       H.animKey = hw && hw.anim;
       const mvx = H.x - (H.px ?? H.x), mvy = H.y - (H.py ?? H.y); H.px = H.x; H.py = H.y;
@@ -335,6 +337,7 @@ export function draw(dt) {
       if (tw) label(H.x, ly - 13, `«${tw.n}»`, '#f3d88a', 11, -1, null);
       label(H.x, ly, `${S.name || (FAC[S.fac] && FAC[S.fac].n) || ''} · Lv${S.lvl}`, NAME_COL.hero, 12, R.life / Math.max(1, R.P.life), '#4fd04f');
       if (!drawn && !(hw && drawSprite(img(hw.img), hw.sz, H.x, H.y, 0.9, H.face < 0, R.deadT > 0 ? 0.35 : 1))) { c.fillStyle = SERIES_COL[heroSeries()]; c.beginPath(); c.arc(H.x, H.y - 20, 14, 0, 7); c.fill(); }
+      drawAuras(c, 'over', H.x, H.y, HERO_SCALE * 0.6);         // vong sang than/dau (Bat dong Minh Vuong...), nguon v107
       if (R.hurtT > 0) { c.fillStyle = '#f004'; c.beginPath(); c.arc(H.x, H.y - 24, 20, 0, 7); c.fill(); }
       continue;
     }
@@ -345,6 +348,7 @@ export function draw(dt) {
     const ey = flyY(e);
     const ah = e.animKey && drawAnim(e.animKey, e.act || 'st', e.dir || 0, e.actT || 0, e.x, ey, sc * MON_SCALE, e.hitT > 0 ? 0.75 : 1);
     if (!ah && !drawSprite(e.img, e.sz, e.x, ey, sc, e.face < 0, e.hitT > 0 ? 0.6 : 1)) { c.fillStyle = SERIES_COL[e.series]; c.beginPath(); c.arc(e.x, ey - e.r, e.r, 0, 7); c.fill(); }
+    drawCurseAuras(c, e, e.x, ey, sc * MON_SCALE);              // aura bua hai treo tren quai (nguon tm), v107
     if (e.hitT > 0) e.hitT -= dt;
     const top = ey - (ah ? Math.min(ah, 90) * 0.85 : e.img && e.img.naturalHeight ? e.img.naturalHeight * sc : e.r * 2) - 8;
     label(e.x, top, enemyName(e), e.goldBoss ? NAME_COL.gold : NAME_COL[e.cls] || NAME_COL.normal, e.cls === 'boss' ? 12 : 11, e.hp / e.max, e.cls === 'boss' ? '#ff5030' : '#e03a2a');

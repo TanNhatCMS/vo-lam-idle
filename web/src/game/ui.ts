@@ -15,7 +15,7 @@ import {
   zoneIdx,
   zoneOf,
 } from './combat';
-import { INPUT, TP_CD, assignSlot, fillSlots, joyFixed, manual, renderPad, setCtrl, toggleRot } from './control';
+import { INPUT, TP_CD, assignSlot, fillSlots, joyFixed, manual, mouseMode, renderPad, setCtrl, toggleRot } from './control';
 import {
   $,
   DETAIL_SLOT,
@@ -59,7 +59,7 @@ import { SK_KIND_VI, skKind, skillAuraHint, skillBuffHint, skillTypeLabel } from
 import { bindBuilds, buildsHTML, chargePointRefund, pointRefundCost, respecModal, respecQuote, sumObj } from './builds';
 import { bindTodo, codexModal, powerModal, suggestModal, todoHTML, tutorialModal } from './guide';
 import { adminModal } from './admin';
-import { UI_FS, UI_FS_NAME, guard, onZoneChange, setCompact, setUiPref, uiPrefs } from './loop';
+import { UI_FS, UI_FS_NAME, GAME_SPEEDS, gameSpeed, guard, onZoneChange, setCompact, setUiPref, uiPrefs } from './loop';
 import { uiBump, uiSetTab } from './store';
 import {
   GROUND_MAX,
@@ -1255,46 +1255,128 @@ function resetAutoSettings() {
   R.moveTo = null; R.dirty = true; recalc(); save(); renderPad(); renderAutoPanel(); toast('Đã khôi phục cài đặt Auto mặc định');
 }
 /* ---------- the: khac ---------- */
+/* --- tab Khác: cai dat giong nguon v107 --- */
+export const inputModeJoy = () => !mouseMode();
+export function setInputMode(mode) { S.inputMode = mode; save(); refresh(); }
+const chatShowTime = () => { try { return localStorage.getItem('jxidle_chat_show_time') !== 'false'; } catch (e) { return true; } };
+function setChatShowTime(v) {
+  try { localStorage.setItem('jxidle_chat_show_time', v ? 'true' : 'false'); } catch (e) { /* bo qua */ }
+  document.dispatchEvent(new CustomEvent('world-chat-time-visibility-change', { detail: { visible: v } }));
+}
+function setSnd(o) { Object.assign(sndCfg(), o); save(); audApply(); }
+function saveIdentity(name, sex) {
+  const nm = String(name || '').trim().replace(/\s+/g, ' ');
+  if (nm.length < 2) { toast('Tên ít nhất 2 ký tự'); return; }
+  S.name = nm; S.sex = sex ? 1 : 0;
+  // trang bị không hợp giới tính sẽ tự tháo (như nguồn sd())
+  for (const k in S.eq) { const it = S.eq[k]; if (it && !sexOk(it)) { delete S.eq[k]; log(`Đã tháo <b>${esc(it.n)}</b> (không hợp giới tính)`); } }
+  R.dirty = true; save(); recalc(); refresh();
+  toast(`Đã lưu: ${S.name} · ${S.sex ? 'Nữ' : 'Nam'}`);
+}
+function supportModal() {
+  modal(`<h3>Ủng hộ bạn</h3><p class="desc">Game miễn phí và chạy trên chính thiết bị của bạn. Nếu thấy vui, một ly cà phê nhỏ là động lực để tiếp tục giữ gìn và phát triển bản chơi offline này.</p>
+    <div class="card lootf" style="text-align:center"><img src="ui/support-qr.png" alt="Mã ủng hộ" style="max-width:220px;width:70%;margin:6px auto;display:block"><small class="dim">Quét mã để ủng hộ — hoàn toàn tự nguyện.</small></div>
+    <div class="btnrow"><button class="btn" id="bSupOk">Đóng</button></div>`, () => { $('#bSupOk').onclick = () => closeModal(); });
+}
+let settingTab = 'display', accountTab = 'save';
 function renderMore() {
-  $('#t-more').innerHTML = `<h3>Lưu game</h3><div class="card"><p class="dim small">Nhân vật lưu trong trình duyệt của từng thiết bị (3 slot). Để chơi trên thiết bị khác: bấm <b>Tải file lưu</b>, chuyển file <code>.jxsave</code> sang thiết bị kia (Zalo, Drive, cáp…), rồi mở game ở đó và bấm <b>Nạp từ file</b>. File có chữ ký, sửa tay sẽ bị từ chối. Nên tải file định kỳ để sao lưu.</p>
-    <div class="btnrow"><button class="btn" id="bDl">Tải file lưu (.jxsave)</button><button class="btn" id="bFile">Nạp từ file</button></div>
-    <p class="dim small">Hoặc dùng mã văn bản:</p><div class="btnrow"><button class="btn" id="bExp">Xuất mã</button><button class="btn" id="bImp">Nhập mã</button></div><textarea id="saveTxt" rows="4" placeholder="Mã lưu game"></textarea></div>
-    <h3>Âm thanh</h3><div class="card lootf">
-      <label><input type="checkbox" id="sOn" ${sndCfg().on ? 'checked' : ''}> Tiếng động (đòn đánh, chiêu, quái, rơi đồ)</label>
-      <div class="row">Âm lượng <input type="range" id="sVol" min="0" max="1" step="0.05" value="${sndCfg().vol}"></div>
-      <label><input type="checkbox" id="mOn" ${sndCfg().music ? 'checked' : ''}> Nhạc nền theo bản đồ</label>
-      <div class="row">Nhạc <input type="range" id="mVol" min="0" max="1" step="0.05" value="${sndCfg().mvol}"></div></div>
+  const p = uiPrefs();
+  const accPane = (k, html) => `<div class="account-pane${accountTab === k ? '' : ' hidden'}" role="tabpanel" data-account-pane="${k}">${html}</div>`;
+  const setPane = (k, html) => `<div class="setting-pane${settingTab === k ? '' : ' hidden'}" role="tabpanel" data-setting-pane="${k}">${html}</div>`;
+  const sw = (id, on, label, extra = '') => `<label class="ios-switch-row"><span>${label}</span><input type="checkbox" id="${id}" ${on ? 'checked' : ''}${extra}><span class="ios-switch" aria-hidden="true"></span></label>`;
+  $('#t-more').innerHTML = `
+    <h3>Độ khó</h3><div class="card setting-switches"><div class="difficulty-setting">
+      <div class="difficulty-segment" role="group" aria-label="Chọn độ khó">${DIFFS.map((d, i) => `<button type="button" class="difficulty-option${diffOf() === d ? ' on' : ''}" data-diff="${i}" aria-pressed="${diffOf() === d}" ${S.chal === 'hard' ? 'disabled' : ''}>${d.n}</button>`).join('')}</div>
+      <small class="dim difficulty-description">${esc(diffOf().d)}${S.chal === 'hard' ? ' · Thử thách Huyết chiến: khóa Khó' : ''}</small>
+    </div></div>
+    <h3>Tài Khoản</h3><div class="card lootf account-section">
+      <div class="account-nav-row">
+        <div class="account-segment" role="tablist" aria-label="Tài khoản">
+          <button type="button" role="tab" aria-selected="${accountTab === 'character'}" data-account-tab="character">Nhân vật</button>
+          <button type="button" class="${accountTab === 'save' ? 'on' : ''}" role="tab" aria-selected="${accountTab === 'save'}" data-account-tab="save">Lưu Game</button>
+          <button type="button" role="tab" aria-selected="${accountTab === 'test'}" data-account-tab="test">Test</button>
+        </div>
+        <button type="button" class="support-button" id="bSupport"><span aria-hidden="true">♥</span> ỦNG HỘ</button>
+      </div>
+      ${accPane('character', `<div class="row">Tên <input id="cName" maxlength="24" value="${esc(S.name || '')}" style="flex:1"></div>
+        <div class="row">Giới tính <select id="cSex"><option value="0" ${S.sex ? '' : 'selected'}>Nam</option><option value="1" ${S.sex ? 'selected' : ''}>Nữ</option></select></div>
+        <div class="btnrow"><button class="btn" id="bName">Lưu tên và giới tính</button></div>
+        <small class="dim">Trang bị không hợp giới tính sẽ tự tháo.</small>`)}
+      ${accPane('save', `<p class="dim small">Game tự lưu trên thiết bị này. Tải file để sao lưu hoặc chuyển nhân vật sang thiết bị khác.</p>
+        <p class="dim small save-method-label">Tập tin (.jxsave)</p>
+        <div class="save-action-row"><button class="btn" id="bDl">Xuất (.jxsave)</button><button class="btn" id="bFile">Nạp file (.jxsave)</button></div>
+        <p class="dim small save-method-label">Văn bản thuần túy</p><div class="save-action-row"><button class="btn" id="bExp">Xuất mã</button><button class="btn" id="bImp">Nhập mã</button></div><textarea id="saveTxt" rows="4" placeholder="Mã lưu game"></textarea><small class="dim">Nhân vật lưu trong trình duyệt của từng thiết bị (3 slot). File có chữ ký, sửa tay sẽ bị từ chối. Nên tải file định kỳ để sao lưu.</small>`)}
+      ${accPane('test', `<div class="row">Tốc độ <select id="cSpeed">${GAME_SPEEDS.map(v => `<option value="${v}" ${gameSpeed() === v ? 'selected' : ''}>x${v}</option>`).join('')}</select> <small class="dim">Tăng tốc trận đấu</small></div>
+        <div class="row"><span>Thử nghiệm</span><small class="dim" style="flex:1">Không giới hạn lượt dùng.</small><button class="btn sm" id="bAdmin">Mở bảng thử nghiệm</button></div>`)}
+    </div>
     <h3>Tự động</h3><div class="card"><p class="dim small">Tự đánh, tự mặc đồ, tự bán đồ thừa, tự rèn, tự dùng thuốc, xoay chiêu, bùa lợi / bùa hại… đã gom vào một chỗ.</p>
       <div class="btnrow"><button class="btn" id="bAutoSet">Cài đặt Auto</button><button class="btn" id="bLootF">Lọc đồ tự nhặt</button></div></div>
-    <h3>Độ khó và trợ giúp</h3><div class="card lootf">
-      <div class="row">Độ khó <select id="sDiff" ${S.chal === 'hard' ? 'disabled' : ''}>${DIFFS.map((d, i) => `<option value="${i}" ${diffOf() === d ? 'selected' : ''}>${d.n}</option>`).join('')}</select> <small class="dim">${esc(diffOf().d)}${S.chal === 'hard' ? ' · Thử thách Huyết chiến: khóa Khó' : ''}</small></div>
-      <div class="btnrow"><button class="btn" id="bStashM">Kho chung</button><button class="btn" id="bClan">Gia tộc</button><button class="btn" id="bJournal">Sổ tay</button><button class="btn" id="bLog">Nhật ký</button><button class="btn" id="bTut">Hướng dẫn</button><button class="btn" id="bCodex">Bách khoa</button><button class="btn" id="bSug">Gợi ý cộng điểm</button></div></div>
-    <h3>Trợ năng</h3><div class="card lootf">
-      <div class="row">Cỡ chữ <select id="uFs">${UI_FS.map((v, i) => `<option value="${i}" ${uiPrefs().fs === i ? 'selected' : ''}>${UI_FS_NAME[i]}</option>`).join('')}</select> <small class="dim">áp dụng cho bảng thông tin, thẻ và hộp thoại</small></div>
-      <label><input type="checkbox" id="uSaver" ${uiPrefs().saver ? 'checked' : ''}> Tiết kiệm pin (vẽ 30 khung/giây, ngừng vẽ khi ẩn tab)</label>
-      <label><input type="checkbox" id="uInvGlow" ${uiPrefs().invBorderGlow ? 'checked' : ''}> Viền sáng đồ bộ (bộ Vàng / Bạch Kim trong túi)</label>
-      <label><input type="checkbox" id="uInvHover" ${uiPrefs().invHoverPreview ? 'checked' : ''}> Xem trước đồ khi rê chuột (máy tính)</label>
-      <small class="dim">Tay cầm: cần analog / D-pad để đi, A B X Y dùng chiêu 1–4, LB / RB uống thuốc HP / MP, Start tạm dừng Luyện Công. Phím Esc đóng hộp thoại.</small></div>
-    <h3>Điều khiển & Hiển thị</h3><div class="card"><label><input type="checkbox" id="cJoy" ${joyFixed() ? 'checked' : ''}> Joystick cố định ở góc trái dưới (bỏ chọn: joystick nổi theo ngón tay)</label><br>
-      <label><input type="checkbox" id="cLowFx" ${S.lowFx ? 'checked' : ''}> Giảm hiệu ứng (mượt hơn trên máy yếu / đông quái)</label></div>
-    <h3>Thử nghiệm</h3><div class="card"><p class="dim small">Trải nghiệm nhanh một tính năng mà không phải cày cuốc: lên thẳng cấp trần, thêm ngân lượng, đủ nguyên liệu, mở toàn bộ vùng, cường hoá đồ, phát một bộ Hoàng Kim, gọi boss ngay. Thay đổi tính vào nhân vật và lưu lại.</p>
-      <div class="btnrow"><button class="btn" id="bAdmin">Bảng thử nghiệm</button></div></div>
-    <h3>Nguồn dữ liệu</h3><div class="card small dim">Kỹ năng, quái, trang bị, thuộc tính và tỉ lệ rơi đồ trích từ dữ liệu Võ Lâm Truyền Kỳ 1 (bản fan chơi offline, phi thương mại).</div>
-    <div class="btnrow"><button class="btn" id="bSwitch">Đổi nhân vật / slot</button><button class="btn red" id="bReset">Xóa nhân vật</button></div>`;
+    <h3>Điều khiển & Hiển thị</h3><div class="card setting-switches">
+      <div class="setting-segment" role="tablist" aria-label="Cài đặt">
+        <button type="button" class="${settingTab === 'display' ? 'on' : ''}" role="tab" aria-selected="${settingTab === 'display'}" data-setting-tab="display">Hiển thị</button>
+        <button type="button" role="tab" aria-selected="${settingTab === 'control'}" data-setting-tab="control">Điều khiển</button>
+        <button type="button" role="tab" aria-selected="${settingTab === 'accessibility'}" data-setting-tab="accessibility">Trợ năng</button>
+        <button type="button" role="tab" aria-selected="${settingTab === 'audio'}" data-setting-tab="audio">Âm thanh</button>
+      </div>
+      ${setPane('display', `
+        ${sw('uSuperFrames', p.superFrames, 'siêu khung hình (mượt hơn)')}
+        <small class="dim">Điện thoại mặc định 30 FPS để giảm nóng máy. Bật siêu khung hình cho phép tối đa 120 FPS, có thể nóng máy và hao pin hơn. Tiết kiệm pin được ưu tiên khi cùng bật.</small>
+        ${sw('cEnemyLv', S.showEnemyLv !== false, 'Hiện Lv của quái')}
+        ${sw('cChatTime', chatShowTime(), 'Hiện thời gian trong khung chat')}
+        ${sw('cChatTransparency', !!p.chatTransparency, 'Giảm trong suốt khung chat')}
+        ${sw('uInvHoverPreview', p.invHoverPreview, 'Xem trước trang bị ở hành trang (máy tính)')}`)}
+      ${setPane('control', `
+        ${sw('cInputJoy', inputModeJoy(), 'Dùng joystick (tắt để dùng chuột)')}
+        <small class="dim">Tự nhận diện khi chưa chọn: máy tính / desktop-site dùng chuột, điện thoại dùng joystick. Lựa chọn của bạn được lưu lại.</small>
+        ${sw('cJoy', joyFixed(), 'Joystick cố định (tắt để kéo theo ngón tay)', inputModeJoy() ? '' : ' disabled')}
+        <small class="dim">Phím tắt: Tab hoặc H mở Giang hồ · C mở Nhân vật · I mở Hành trang · K mở Võ công · O mở Khác. Khi nhập văn bản hoặc mở hộp thoại, Tab chuyển ô như bình thường.</small>`)}
+      ${setPane('accessibility', `
+        <div class="setting-font-row"><span>Cỡ chữ</span><select id="uFs">${UI_FS.map((v, i) => `<option value="${i}" ${p.fs === i ? 'selected' : ''}>${UI_FS_NAME[i]}</option>`).join('')}</select></div>
+        ${sw('uSaver', p.saver, 'Tiết kiệm pin')}
+        ${sw('cInvBorderGlow', p.invBorderGlow, 'Hiệu ứng viền sáng (hành trang)')}
+        ${sw('cLowFx', S.lowFx, 'Giảm hiệu ứng để game mượt hơn')}
+        <small class="dim">Tay cầm: cần/D-pad di chuyển · A/B/X/Y dùng chiêu · LB/RB uống thuốc · Start tạm dừng. Esc đóng hộp thoại.</small>`)}
+      ${setPane('audio', `
+        ${sw('sOn', sndCfg().on, 'Hiệu ứng âm thanh')}
+        <div class="row">Âm lượng <input type="range" id="sVol" min="0" max="1" step="0.05" value="${sndCfg().vol}"></div>
+        ${sw('mOn', sndCfg().music, 'Nhạc nền')}
+        <div class="row">Nhạc <input type="range" id="mVol" min="0" max="1" step="0.05" value="${sndCfg().mvol}"></div>`)}
+    </div>
+    <div class="character-actions"><button class="btn" id="bSwitch">Đổi nhân vật / slot</button><button class="btn red" id="bReset">Xóa nhân vật</button></div>
+    <h3>Trợ giúp & Tiện ích</h3><div class="card lootf">
+      <div class="btnrow"><button class="btn" id="bTut">Hướng dẫn</button><button class="btn" id="bCodex">Bách khoa</button><button class="btn" id="bStashM">Kho chung</button><button class="btn" id="bClan">Gia tộc</button><button class="btn" id="bJournal">Sổ tay</button><button class="btn" id="bLog">Nhật ký</button><button class="btn" id="bSug">Gợi ý cộng điểm</button></div></div>
+    <h3>Nguồn dữ liệu</h3><div class="card small dim">Kỹ năng, quái, trang bị, thuộc tính và tỉ lệ rơi đồ trích từ dữ liệu Võ Lâm Truyền Kỳ 1 (bản fan chơi offline, phi thương mại).</div>`;
+  document.querySelectorAll('#t-more [data-account-tab]').forEach(b => b.onclick = () => { accountTab = b.dataset.accountTab; renderMore(); });
+  document.querySelectorAll('#t-more [data-setting-tab]').forEach(b => b.onclick = () => { settingTab = b.dataset.settingTab; renderMore(); });
+  document.querySelectorAll('#t-more [data-diff]').forEach(b => b.onclick = () => { S.diff = +b.dataset.diff; R.enemies = []; R.spawnT = 0.3; save(); toast('Độ khó: ' + diffOf().n); renderMore(); });
+  const bindSw = (id, fn) => { const el = $('#' + id); if (el) el.onchange = e => fn(e.target.checked); };
+  bindSw('uSuperFrames', v => { setUiPref({ superFrames: v }); toast(v ? 'Siêu khung hình: tối đa 120 FPS (điện thoại)' : 'Điện thoại về 30 FPS'); });
+  bindSw('cEnemyLv', v => { S.showEnemyLv = v; save(); refresh(); });
+  bindSw('cChatTime', v => { setChatShowTime(v); });
+  bindSw('cChatTransparency', v => { setUiPref({ chatTransparency: v }); });
+  bindSw('uInvHoverPreview', v => setUiPref({ invHoverPreview: v }));
+  bindSw('cInputJoy', v => setInputMode(v ? 'joy' : 'mouse'));
+  bindSw('cJoy', v => { S.joy = v ? 'fixed' : 'float'; save(); });
+  bindSw('cLowFx', v => { S.lowFx = v; save(); });
+  bindSw('uSaver', v => setUiPref({ saver: v }));
+  bindSw('cInvBorderGlow', v => setUiPref({ invBorderGlow: v }));
+  bindSw('sOn', v => { setSnd({ on: v }); renderMore(); });
+  bindSw('mOn', v => { setSnd({ music: v }); });
+  $('#bName').onclick = () => saveIdentity($('#cName').value, +$('#cSex').value);
+  $('#cSpeed').onchange = e => { S.speed = +e.target.value === 2.5 ? 2.5 : +e.target.value === 1.5 ? 1.5 : 1; save(); toast('Tốc độ game x' + gameSpeed()); };
+  $('#bSupport').onclick = supportModal;
   $('#bDl').onclick = () => { if (downloadSaveFile()) toast('Đã tải file lưu: ' + saveFileName()); };
   $('#bFile').onclick = () => pickSaveFile(null);
   $('#bExp').onclick = () => { $('#saveTxt').value = exportSave(); toast('Đã xuất mã'); };
   $('#bImp').onclick = () => importFlow($('#saveTxt').value, null);
   $('#bAutoSet').onclick = () => openAutoSettings();
   $('#bLootF').onclick = () => { showTab('inv'); closeModal(); };
-  $('#cJoy').onchange = e => { S.joy = e.target.checked ? 'fixed' : 'float'; save(); };
-  $('#cLowFx').onchange = e => { S.lowFx = e.target.checked; save(); };
-  $('#sDiff').onchange = e => { S.diff = +e.target.value; R.enemies = []; R.spawnT = 0.3; save(); toast('Độ khó: ' + diffOf().n); renderMore(); };
   $('#bStashM').onclick = () => stashModal(); $('#bClan').onclick = () => clanModal(); $('#bJournal').onclick = () => jrModal(); $('#bLog').onclick = () => logModal(); $('#bTut').onclick = () => tutorialModal(0); $('#bCodex').onclick = () => codexModal(); $('#bSug').onclick = suggestModal;
   $('#bAdmin').onclick = () => adminModal();
-  $('#uFs').onchange = e => { setUiPref({ fs: +e.target.value }); }; $('#uSaver').onchange = e => setUiPref({ saver: e.target.checked });
-  $('#uInvGlow').onchange = e => setUiPref({ invBorderGlow: e.target.checked });
-  $('#uInvHover').onchange = e => setUiPref({ invHoverPreview: e.target.checked });
+  const fsSel = $('#uFs'); if (fsSel) fsSel.onchange = e => setUiPref({ fs: +e.target.value });
+  const sv = $('#sVol'), mv = $('#mVol');
+  if (sv) { sv.oninput = e => setSnd({ vol: +e.target.value }); sv.onchange = () => renderMore(); }
+  if (mv) { mv.oninput = e => setSnd({ mvol: +e.target.value }); mv.onchange = () => renderMore(); }
   $('#bSwitch').onclick = () => switchCharacter();
   $('#bReset').onclick = () => modal(`<h3>Xóa nhân vật?</h3><p class="desc">Xóa nhân vật ở slot ${SLOT + 1} (${esc(FAC[S.fac] ? FAC[S.fac].n : '')} cấp ${S.lvl}). Toàn bộ tiến trình của slot này sẽ mất; các slot khác không ảnh hưởng.</p><div class="btnrow"><button class="btn red" id="bYes">Xóa</button></div>`, () => $('#bYes').onclick = () => deleteSlot(SLOT));
 }

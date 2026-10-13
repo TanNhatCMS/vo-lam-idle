@@ -87,6 +87,7 @@ test('F9 sưu tập bộ đồ: mặc bộ Hoàng Kim (Bảng thử nghiệm) ->
   await createCharacter(page);
   // Bảng thử nghiệm -> "Một bộ Hoàng Kim đủ ô" (adminApply tự lưu)
   await page.locator('#tabs button[data-t="more"]').click();
+  await page.locator('#t-more [data-account-tab="test"]').click();   // Bảng thử nghiệm nằm trong pane Test (Tài Khoản)
   await page.locator('#bAdmin').click();
   await expect(page.locator('#modal:not(.hidden)')).toBeVisible();
   await page.locator('#mBody [data-ad="gear"]').click();
