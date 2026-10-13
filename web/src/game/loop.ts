@@ -138,7 +138,7 @@ export async function boot() {
   if (booted) return; booted = true;
   /* Hook gỡ lỗi: instance thật chạy boot mới gắn (bản port có thể có 2 bản module —
      island React + entry), getter đọc binding sống nên luôn thấy state đang chạy. */
-  try { (window as any).__G = { get R() { return R; }, get H() { return H; }, get S() { return S; }, recalc, RW, save, matAdd, matHave }; } catch (e) { /* bo qua */ }
+  try { (window as any).__G = { get R() { return R; }, get H() { return H; }, get S() { return S; }, get MON() { return W.mon; }, recalc, RW, save, matAdd, matHave }; } catch (e) { /* bo qua */ }
   /* Du lieu mo ta media (hieu ung fx, vat can ban do, am thanh) nam trong goi assets —
      cho nap xong moi dung chi muc / bat dau ve. Thieu file thi van chay (khong hieu ung/am thanh). */
   /* Nap save NGAY (dong bo — load() chi doc localStorage, khong can

@@ -20,8 +20,8 @@ android {
         applicationId = "vn.io.tannhatcms.volamidle"
         minSdk = 24
         targetSdk = 35
-        versionCode = 19
-        versionName = "2.6.11"
+        versionCode = 20
+        versionName = "2.6.12"
     }
 
     compileOptions {

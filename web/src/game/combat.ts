@@ -37,9 +37,9 @@ import { checkHints } from './guide';
 import { FIELD_MOBS, fieldActive, fieldIdle, fieldKilled, fieldTick, fieldWaveCleared, fieldMode, populateField, startFieldWave } from './field';
 import { curseMod, skillSysTick } from './skillsys';
 import { thanMaOnKill } from './horse';
-import { dexMark, tpStacks } from './depth';
+import { applyWeekMod, dexMark, tpStacks } from './depth';
 import { guildBuff, tkCleared, tkExit, tkSpawn, ytTick } from './activities';
-import { tower2Bonuses } from './tower2';
+import { TOWER2, TOWER_MOVE, applyTowerWeekMod, tower2Bonuses, towerStallTick } from './tower2';
 import { jxSync } from './look';
 import { jrAdd, jrDeath } from './journal';
 import { onLevelUp, onStageChange, onZoneChange } from './loop';
@@ -64,6 +64,7 @@ import {
   spawnGoldBoss,
   towerCleared,
   towerExit,
+  towerOnKill,
   towerSpawn,
 } from './rewards';
 import { backFromBossArena, wbTick, wbVictory } from './worldboss';
@@ -121,14 +122,21 @@ function enemyStats(L, cls) {
 const XP_SLOW_FROM = 30, XP_SLOW_K = 200, XP_SLOW_P = 1.4;
 const xpSlow = L => L <= XP_SLOW_FROM ? 1 : 1 + XP_SLOW_K * Math.pow((L - XP_SLOW_FROM) / 120, XP_SLOW_P);
 export function expFor(L) { return J.exp[clamp(L, 1, MAX_LEVEL) - 1] / (10 + L * 1.4); }
+/* Vùng quái theo cấp (nguồn Ic) — trong tháp, quái thuộc vùng đúng cấp quái, không phải vùng theo ải */
+export const zoneByLevel = L => ZONES.find(z => L >= z.lo && L <= z.hi) || ZONES[ZONES.length - 1];
 export function makeEnemy(tid, L, cls, x, y) {
-  const m = MON[tid], z = zoneOf(S.stage), st = enemyStats(L, cls), D = diffOf(); st.hp *= D.hp; st.dmg *= D.dmg;
+  const m = MON[tid], z = R.tower ? zoneByLevel(L) : zoneOf(S.stage), st = enemyStats(L, cls), D = diffOf(); st.hp *= D.hp; st.dmg *= D.dmg;
   const series = wpick([0, 1, 2, 3, 4], i => z.sw[i] + 1);
   const res = {}; ELEM.forEach((e, i) => { res[e] = Math.min(m.rmax[i] || 75, L * 0.35 + (cls === 'boss' ? 10 : 0)); });
-  return { id: Math.random(), tid, n: m.n, img: m.img ? img(m.img) : null, sz: m.sz, L, cls, series, res,
+  const e = { id: Math.random(), tid, n: m.n, img: m.img ? img(m.img) : null, sz: m.sz, L, cls, series, res, zoneId: z.id,
     hp: st.hp, max: st.hp, dmg: st.dmg, ar: st.ar, def: st.def, x, y, r: CLS[cls].r,
-    spd: (30 + (m.run || 6) * 4) * (cls === 'boss' ? 0.7 : 1), atkCd: rnd(0.5, 1.5), cd: 1.2 + 18 / Math.max(8, m.spd || 18) * 0.5,
+    towerId: R.tower ? R.tower.id || 1 : 0, towerFloor: R.tower ? R.tower.floor : 0,
+    spd: (30 + (m.run || 6) * 4) * (cls === 'boss' ? 0.7 : 1) * (R.tower ? (R.tower.id === 2 ? TOWER2.move : TOWER_MOVE) : 1),   // tháp: quái nhanh hơn 30% / 62,5%
+    atkCd: rnd(0.5, 1.5), cd: 1.2 + 18 / Math.max(8, m.spd || 18) * 0.5,
     ranged: Math.random() < 0.2 && cls !== 'boss', stun: 0, poison: 0, poisonDmg: 0, hitT: 0, face: 1 };
+  if (R.tower) applyTowerWeekMod(e);   // biến thể tuần Tháp (Giáp dày / Cuồng bạo / Hồi huyết)
+  else if (R.tk) applyWeekMod(e);      // Tống Kim: hệ 4 luật (có Hệ thịnh)
+  return e;
 }
 function spawnWave() {
   if (R.petRealm) { petRealmSpawn(); return; }             // Bi canh Ngu Hanh: quai ep he, khong sinh theo vung
@@ -401,7 +409,9 @@ export function tick(dt) {
   for (const e of alive()) enemyAI(e, dt);
   killCheck();
   // Bãi quái: thời gian chỉ tính lúc giao tranh (đi xa quái không bị coi là đánh quá lâu).
-  if (!R.tyvo && (R.tower || !fieldActive() || alive().some(e => e.aggro && Math.hypot(e.x - H.x, e.y - H.y) < FIELD_MOBS.leash))) {
+  // Tháp: stall theo tiến triển — 45 giây phải giảm >1% tổng máu quái, không thì tự rời tháp.
+  if (R.tower) towerStallTick(dt);
+  else if (!R.tyvo && (!fieldActive() || alive().some(e => e.aggro && Math.hypot(e.x - H.x, e.y - H.y) < FIELD_MOBS.leash))) {
     R.stall += dt; if (R.stall > 45) stallOut();
   }
   if (R.life <= 0) heroDeath();
@@ -411,7 +421,7 @@ export function tick(dt) {
 function stallOut() {
   R.stall = 0;
   if (R.wbArena) { log('<span class="dim">Đánh mãi không hạ Boss Thế Giới — nên rèn đồ, uống thuốc rồi thử lại.</span>'); return; }
-  if (R.tower) { towerExit(false); return; }
+  if (R.tower) { towerExit(false, false, 'timeout'); return; }   // tháp: stall do Jl xử lý (45s không tiến triển = thua)
   const boss = R.enemies.some(e => !e.dead && e.cls === 'boss');
   if (boss || S.wave === WAVES) {
     if (R.enemies.some(e => e.goldBoss && !e.dead)) RW().gbT = GB_RETRY;
@@ -439,11 +449,7 @@ function killCheck() {
 function onKill(e) {
   if (e.dummy) { R.kills++; return; }                     // dummy thử hiệu ứng: không thưởng, không rơi
   R.kills++; S.totalKills = (S.totalKills || 0) + 1;
-  const lvDiff = e.L - S.lvl, mult = lvDiff < -10 ? 0.2 : lvDiff < -5 ? 0.6 : 1;
-  const gx = expFor(e.L) * CLS[e.cls].xp * mult * diffOf().rew;
-  gainXp(gx * (1 + buffXp() / 100));   // Tiên Thảo Lộ: +50% kinh nghiệm chiến đấu
-  const g = Math.round(moneyDrop(e) * diffOf().rew); S.gold += g;
-  jrAdd('kills', 1); jrAdd('xp', gx); jrAdd('gold', g);      // so tay: thong ke theo gio choi that
+  jrAdd('kills', 1);
   thanMaOnKill(e);                                         // ngua dang cuoi nhan kinh nghiem
   dexMark(e.tid);                                          // bach khoa: quai da ha
   if (R.tk) R.tk.kills++;
@@ -451,11 +457,34 @@ function onKill(e) {
   if (e.cls === 'boss') ytTick('bosses', 1);
   if (e.cls === 'boss' && !e.wbBoss) ktcOnBossKill(!!e.goldBoss);   // Kỳ Trân Các: trùm rơi KNB (trùm vàng 50%, thường 10%)
   burst(e.x, e.y, SERIES_COL[e.series]);
+  if (R.tower) { towerOnKill(e); return; }             // THÁP: thưởng gom pend[], trao khi qua hết tầng (nguồn Zl)
+  const lvDiff = e.L - S.lvl, mult = lvDiff < -10 ? 0.2 : lvDiff < -5 ? 0.6 : 1;
+  const gx = expFor(e.L) * CLS[e.cls].xp * mult * diffOf().rew;
+  gainXp(gx * (1 + buffXp() / 100));   // Tiên Thảo Lộ: +50% kinh nghiệm chiến đấu
+  const g = Math.round(moneyDrop(e) * diffOf().rew); S.gold += g;
+  jrAdd('xp', gx); jrAdd('gold', g);      // so tay: thong ke theo gioi choi that
+  rwOnKill(e);
   for (const it of rollDrops(e)) dropToGround(it, e);
   for (const m of allDrops(e)) log(`Nhặt được <b style="color:${RAR_COL[3]}">${esc(m)}</b>`);
   const gold = rollSetDrop(e); if (gold) { dropToGround(gold, e); log(`<b style="color:${RAR_COL[gold.r]}">${esc(gold.n)}</b> rơi ra!`); }
   if (e.cls === 'boss') log(`Hạ <b class="boss">${esc(e.n)}</b> (+${fmt(g)} lượng)`);
-  rwOnKill(e);
+}
+/* Thưởng 1 quái đã hạ ở tầng VƯỢT KỶ LỤC Tháp (nguồn Ql), trao khi qua hết tầng:
+   EXP ×2 (Tháp II ×0.8, cấp quái tính tối đa +25 so với cấp hiện tại), lượng ×3 (Tháp II ×0.75),
+   đồ thường 100% (Tháp II còn 17,5%). */
+export function grantTowerKill(e) {
+  const is2 = e.towerId === 2 && !!R.tower && R.tower.id === 2;
+  const L = is2 ? Math.min(e.L, S.lvl + 25) : e.L;
+  const lvDiff = L - S.lvl, mult = lvDiff < -10 ? 0.4 : lvDiff < -5 ? 0.8 : 1.2;
+  const gx = expFor(L) * CLS[e.cls].xp * mult * diffOf().rew * 2 * (is2 ? 0.8 : 1);
+  gainXp(gx * (1 + buffXp() / 100));
+  const g = Math.round(moneyDrop(e) * diffOf().rew * 3 * (is2 ? 0.75 : 1));
+  S.gold += g;
+  jrAdd('xp', gx); jrAdd('gold', g);
+  if (!is2 || Math.random() < 0.175) for (const it of rollDrops(e)) dropToGround(it, e);
+  for (const m of allDrops(e)) log(`Nhặt được <b style="color:${RAR_COL[3]}">${esc(m)}</b>`);
+  const gold = rollSetDrop(e); if (gold) { dropToGround(gold, e); log(`<b style="color:${RAR_COL[gold.r]}">${esc(gold.n)}</b> rơi ra!`); }
+  if (e.cls === 'boss') log(`Hạ <b class="boss">${esc(e.n)}</b> (+${fmt(g)} lượng)`);
 }
 export function gainXp(x) {
   if (S.lvl >= MAX_LEVEL) return;

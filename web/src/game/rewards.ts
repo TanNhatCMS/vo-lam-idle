@@ -5,9 +5,12 @@ import {
   R,
   alive,
   expFor,
+  grantTowerKill,
   heal,
   makeEnemy,
+  recalc,
   stageLevel,
+  zoneByLevel,
   zoneIdx,
   zoneOf,
 } from './combat';
@@ -89,8 +92,15 @@ import { codexModal } from './guide';
 import { matAdd, matHave, HT_MAX } from './recipes';
 import { WB_EVERY, WB_FIRST, WB_MIN_LV } from './worldboss';
 import { thanMaBind, thanMaBody } from './horse';
-import { tamPhapModal, tpPending, applyWeekMod } from './depth';
-import { TOWER2, t2mul, tp2Pending, tower2Bonuses, tower2Floor, tower2Level, tower2OptionModal, tower2Unlocked } from './tower2';
+import { tamPhapModal, tpPending } from './depth';
+import {
+  TOWER2, TOWER2_OPTIONS, TOWER_MIN_LVL, TOWER_RESET_COST, TOWER_SET_TIER200, TOWER_TRIES,
+  TOWER_WHITE_BALANCE, t2mul, applyTowerBalance, towerBestKey, towerEnterLvlOk,
+  towerFloorClamp, towerInRecord, towerIs2, towerLevelCap, towerName, towerProgressReset,
+  towerRebornOk, towerResetModal, tower2Bonuses, tower2Conquered, tower2Continue,
+  tower2OptionModal, towerWeekModsText,
+  towerWeekState, tp2Pending, tp2Stacks,
+} from './tower2';
 import { localISODay } from './journal';
 import { actBind, actBody } from './activities';
 import { tyvoBody, tyvoBind } from './tyvo';
@@ -377,71 +387,124 @@ export function offlineChests(secs) {
   return n;
 }
 
-/* ---------- 6. thap thu thach (Phong Ky) ---------- */
-function towerStart() {
-  if (R.tyvo) { toast('Hãy kết thúc Tỷ Võ trước khi vào Tháp'); return; }
+/* ---------- 6. thap thu thach (Phong Ky) — port thap I/II theo nguồn v107 ---------- */
+/* Luot tuan (r.tw/r.tw2): moi thap co 1.000 luot/tuan, reset thu Hai. Tang vao = kỷ lục+1
+   (Tháp I) hoac con trỏ tiếp tục tower2Floor (Tháp II). Thưởng (EXP/lượng/đồ) chỉ nhận khi
+   VƯỢT QUA KỶ LỤC — gom vào pend[], trao hết khi qua được tầng (towerCleared). */
+const towerLevel = f => Math.min(MAX_LEVEL, 10 + f * 4);   // Xy — cấp quái Tháp I
+export function towerStart(id = 1) {   // mb
+  if (R.dg) { toast('Hãy rời phó bản, thuyền hoặc Boss tuần trước'); return; }
+  if (id !== 1 && id !== 2) return;
+  if (R.tk || R.tyvo) { toast('Hãy kết thúc trận hiện tại trước'); return; }
+  if (!S.fac || (id === 2 ? !towerRebornOk() : !towerEnterLvlOk(S.lvl)) || R.tower) return;
+  if (id === 2 && tower2Conquered()) { toast(`Đã chinh phục đủ ${TOWER2.maxFloor.toLocaleString('vi-VN')} tầng Tháp II`); return; }
+  if (id === 2 && R.deadT > 0) { toast('Hãy hồi phục trước khi vào Tháp II'); return; }
+  const r = RW(), st = towerWeekState(id), tries = id === 2 ? TOWER2.tries : TOWER_TRIES;
+  if (st.n >= tries) { toast(`Tuần này đã dùng hết ${tries.toLocaleString('vi-VN')} lượt vào ${towerName(id)}, tuần sau quay lại`); return; }
   if (R.town) backFromTown();
   petRealmAbort(true);                                   // vao thap: nghi bi canh
-  R.tower = { floor: Math.max(1, RW().stat.towerBest - 4) }; R.enemies = []; R.corpses = []; R.spawnT = 0.5;
-  R.banner = { t: 2, text: `Tháp thử thách · tầng ${R.tower.floor}`, sub: 'Gục ngã là rời tháp' }; closeModal(true);
+  const floor = id === 2 ? tower2Continue() : Math.max(1, r.stat[towerBestKey(1)] + 1);
+  st.n++; save();
+  R.tower = { id, floor, pend: [] };
+  recalc();
+  R.enemies = []; R.field = null; R.corpses = []; R.hitSeq = []; R.moveTo = null; R.spawnT = 0.5;
+  R.banner = { t: 2, text: `${towerName(id)} · tầng ${R.tower.floor}`, sub: `${id === 2 ? 'Thua lùi 10 tầng, tối thiểu tầng 1' : 'Gục ngã là mất lượt'} (còn ${tries - st.n} lượt tuần này)` };
+  closeModal(true); refresh();
 }
-const towerLevel = f => Math.min(MAX_LEVEL, 10 + f * 4);
-export function towerSpawn() {
-  const f = R.tower.floor, is2 = R.tower.id === 2, L = is2 ? tower2Level(f) : towerLevel(f), z = ZONES[Math.min(ZONES.length - 1, Math.floor(f / (is2 ? 12 : 3)))], boss = f % 5 === 0;
+export function towerSpawn() {   // hb — quái theo VÙNG cấp quái (Ic), trùm tầng %5
+  if (towerIs2()) R.tower.floor = towerFloorClamp(R.tower.floor);
+  const f = R.tower.floor, is2 = R.tower.id === 2, L = is2 ? towerLevelCap(f) : towerLevel(f), z = zoneByLevel(L), boss = f % 5 === 0;
   R.enemies = []; R.stall = 0;
   const n = boss ? 1 : 3 + (f % 3);
   for (let i = 0; i < n; i++) {
-    const [x, y] = inWorld(H.x + rnd(-260, 260), H.y + rnd(-220, 220)), e = makeEnemy(boss ? z.boss : pick(z.m), L, boss ? 'boss' : 'elite', x, y);
-    if (is2) { const m = t2mul(f, e.cls); e.hp = e.max = e.max * m.hp; e.dmg *= m.dmg; e.towerId = 2; e.towerFloor = f; applyWeekMod(e); }
+    const [x, y] = inWorld(H.x + rnd(-260, 260), H.y + rnd(-220, 220));
+    const e = makeEnemy(boss ? z.boss : pick(z.m), L, boss ? 'boss' : 'elite', x, y);
+    if (is2) { const m = t2mul(f, e.cls); e.hp = e.max = e.max * m.hp; e.dmg *= m.dmg; }
+    applyTowerBalance(e);
     R.enemies.push(e);
   }
+  towerProgressReset();
 }
-export function towerCleared() {
-  const r = RW(), f = R.tower.floor, is2 = R.tower.id === 2;
-  if (is2) {
-    if (f > (r.stat.tower2Best || 0)) {
-      r.stat.tower2Best = f;
-      if (f % 5 === 0) {
-        const it = tower2SetReward(f, 'milestone');   // mốc 5 tầng: chance bộ Tháp II (tầng 200→Thiên Cực, 180→bộ vàng)
-        grant({ fd: 50, gold: 2000 * f }, `Tháp II tầng ${f}`);
-        if (it) { addItem(it, true, true, true); log(`🎁 Tháp II tầng ${f}: <b style="color:${RAR_COL[it.r]}">${esc(it.n)}</b>`); }
-      } else grant({ fd: 5, gold: 2000 * f }, `Tháp II tầng ${f}`);
-    }
-    questTick('tower'); achCheck();
-    const b = tower2Bonuses();
-    heal(R.P.life * (0.3 + b.heal), true); R.mana = Math.min(R.P.mana, R.mana + R.P.mana * 0.3);
-    R.tower.floor++; R.spawnT = 1.5;
-    return;
-  }
-  if (f > r.stat.towerBest) { r.stat.towerBest = f; grant(f % 5 === 0 ? { set: 1, fd: 10 } : { gold: 200 * f, fd: 2 }, `Tháp tầng ${f}`); }
-  questTick('tower'); achCheck();
-  heal(R.P.life * 0.3, true); R.mana = Math.min(R.P.mana, R.mana + R.P.mana * 0.3);
-  R.tower.floor++; R.spawnT = 1.5; R.banner = { t: 1.5, text: `Tầng ${R.tower.floor}`, sub: `Quái cấp ${towerLevel(R.tower.floor)}` };
-}
-export function towerExit(dead) {
+export function towerCleared() {   // gb
   if (!R.tower) return;
-  if (R.tower.id === 2) {
-    const f = R.tower.floor, r = RW();
-    if (dead) r.tower2Floor = tower2Floor(Math.max(1, f - TOWER2.lossFloors));   // guc: lui 10 tang
-    else r.tower2Floor = tower2Floor(Math.max(1, f - 1));                          // roi chieu: lam lai tang nay
-    r.stat.tower2Best = Math.max(r.stat.tower2Best || 0, f - 1);
-    log(`${dead ? 'Gục ở' : 'Rời'} Tháp II tầng ${f}. Sẽ vào lại từ tầng ${r.tower2Floor}. Kỷ lục: tầng ${r.stat.tower2Best}`);
-    R.tower = null; R.enemies = []; S.wave = 1; R.spawnT = 0.5; R.zoneShown = null; save(); refresh();
+  const r = RW(), f = R.tower.floor, is2 = R.tower.id === 2, key = towerBestKey(is2 ? 2 : 1);
+  if (towerInRecord()) {   // pb(): vượt kỷ lục — mới nhận thưởng
+    const pend = R.tower.pend || [];
+    R.tower.pend = [];
+    r.stat[key] = f;
+    for (const e of pend) grantTowerKill(e);   // Ql: trao EXP/lượng/đồ từng quái đã hạ
+    if (is2 && f % 5 === 0) {
+      const it = tower2SetReward(f, 'milestone');   // mốc 5 tầng: chance bộ Tháp II (tầng 50+ có thể Thiên Cực)
+      if (it) { addItem(it, true, true, true); log(`🎁 Tháp II tầng ${f}: <b style="color:${RAR_COL[it.r]}">${esc(it.n)}</b>`); }
+    }
+    grant(f % 5 === 0 ? (is2 ? { fd: 10 } : { set: 1, fd: 10 }) : { gold: 200 * f, fd: 2 }, `${towerName(is2 ? 2 : 1)} tầng ${f}`);
+  }
+  R.tower.pend = [];
+  questTick('tower'); achCheck();
+  heal(R.P.life * (0.3 + (is2 ? tower2Bonuses().heal : 0)), true);   // Tháp II: +Hồi Khí
+  R.mana = Math.min(R.P.mana, R.mana + R.P.mana * 0.3);
+  if (is2 && f >= TOWER2.maxFloor) {   // chinh phục Tháp II
+    r.tower2Floor = TOWER2.maxFloor;
+    log(`🏆 Đã chinh phục đủ ${TOWER2.maxFloor.toLocaleString('vi-VN')} tầng Tháp II!`);
+    R.banner = { t: 3, text: 'Chinh phục Tháp II', sub: `Hoàn thành ${TOWER2.maxFloor.toLocaleString('vi-VN')} tầng` };
+    towerExit(false, true);
     return;
   }
-  log(`${dead ? 'Gục ở' : 'Rời'} tháp thử thách tầng ${R.tower.floor}. Kỷ lục: ${RW().stat.towerBest}`);
-  R.tower = null; R.enemies = []; S.wave = 1; R.spawnT = 0.5; R.zoneShown = null;
+  R.tower.floor++;
+  if (is2) { r.tower2Floor = R.tower.floor; save(); }   // lưu con trỏ tiếp tục
+  R.spawnT = 1.5;
+  R.banner = { t: 1.5, text: `${towerName(is2 ? 2 : 1)} · tầng ${R.tower.floor}`, sub: `Quái cấp ${is2 ? towerLevelCap(R.tower.floor) : towerLevel(R.tower.floor)}` };
 }
-/* Vao Thap II: can chuyen sinh 5, vao tu con tro tower2Floor (mac dinh ky luc + 1) */
-export function tower2Start() {
-  if (R.tyvo) { toast('Hãy kết thúc Tỷ Võ trước khi vào Tháp II'); return; }
-  if (R.town) backFromTown();
-  petRealmAbort(true);
-  if (!tower2Unlocked()) { toast(`Tháp II mở ở chuyển sinh ${TOWER2.reborn}`); return; }
-  const r = RW(), f = tower2Floor(r.tower2Floor == null ? (r.stat.tower2Best || 0) + 1 : r.tower2Floor);
-  r.tower2Floor = f;
-  R.tower = { id: 2, floor: f }; R.enemies = []; R.corpses = []; R.spawnT = 0.5;
-  closeModal(true); refresh();
+export function towerExit(dead = false, silent = false, reason = '') {   // _b
+  if (!R.tower) return;
+  const is2 = towerIs2(), floor = R.tower.floor, r = RW();
+  const loss = dead || reason === 'timeout';   // gục hoặc hết 45s không tiến triển = thua
+  if (is2 && !silent) r.tower2Floor = towerFloorClamp(loss ? floor - TOWER2.lossFloors : floor);
+  if (!silent) log(`${dead ? 'Gục ở' : reason === 'timeout' ? 'Không tiến triển ở' : 'Rời'} ${towerName(is2 ? 2 : 1)} tầng ${floor}. Kỷ lục: tầng ${r.stat[towerBestKey(is2 ? 2 : 1)] || 0}${is2 ? ` · tiếp tục tầng ${r.tower2Floor}` : ''}`);
+  R.tower = null; R.enemies = []; R.corpses = []; R.hitSeq = []; R.moveTo = null; R.field = null;
+  S.wave = 1; R.spawnT = 0.5; R.zoneShown = null;
+  if (is2 && !silent) save();
+  refresh();
+}
+/* Hạ quái trong tháp mà tầng > kỷ lục: gom vào pend — thưởng trao khi qua hết tầng (nguồn Zl→Ql) */
+export function towerOnKill(e) {
+  if (R.tower && towerInRecord()) (R.tower.pend = R.tower.pend || []).push(e);
+}
+/* Thẻ Tháp trong Phần thưởng (port Sx nguồn v107 — một phần cho mỗi tháp) */
+function towerSectionBody(r, id) {
+  const n = id === 2;
+  const best = r.stat[towerBestKey(id)] || 0;
+  const inTower = R.tower && (R.tower.id || 1) === id;
+  const entry = n ? tower2Continue() : Math.max(1, best + 1);
+  const conquered = n && tower2Conquered();
+  const st = towerWeekState(id);
+  const tries = n ? TOWER2.tries : TOWER_TRIES;
+  const ok = n ? towerRebornOk() : towerEnterLvlOk(S.lvl);
+  const wb = TOWER_WHITE_BALANCE[id];
+  const d = S.chal === 'white' ? ` Bù giới hạn trang bị Bố Y: máu quái giảm ${Math.round((1 - wb.hp) * 100)}%, sát thương giảm ${Math.round((1 - wb.dmg) * 100)}%.` : '';
+  const f = n
+    ? `Mở sau TS${TOWER2.reborn}, tối đa ${TOWER2.maxFloor.toLocaleString('vi-VN')} tầng; quái cấp ${TOWER2.baseLevel}–${TOWER2.endLevel}. Kỷ lục và tầng tiếp tục được giữ qua trùng sinh. Thua do gục hoặc không tiến triển lùi ${TOWER2.lossFloors} tầng, tối thiểu tầng 1; chủ động rời không bị phạt. Quái di chuyển nhanh hơn 62,5%; tầng chia hết cho 5 là trùm. Mỗi mốc 5 tầng mới có 49% cơ hội nhận bộ cấp 180; từ tầng ${TOWER_SET_TIER200} có thêm 1% cơ hội nhận bộ cấp 200. Các xác suất rơi đồ, mật tịch và nguyên liệu trong Tháp II hiện còn 50% mức thiết kế ban đầu. Reset tốn ${TOWER_RESET_COST} Phúc Duyên, làm mới lượt tuần, xóa kỷ lục và tầng đã vượt, rồi đưa tiến độ về tầng 1.`
+    : 'Quái cấp 10 + 4 × tầng, di chuyển nhanh hơn 30%. Mỗi tầng có tinh anh; tầng chia hết cho 5 là trùm và có quà Hoàng Kim.';
+  const p = inTower ? `<button class="btn red" id="gTowerOut">Rời tháp</button>`
+    : R.tower ? `<button class="btn" disabled>Đang ở ${towerName(R.tower.id || 1)}</button>`
+    : !ok ? `<button class="btn" disabled>${n ? 'Cần hoàn tất TS5' : `Cần cấp ${TOWER_MIN_LVL}`}</button>`
+    : conquered ? `<button class="btn" disabled>Đã chinh phục Tháp II</button>`
+    : st.n >= tries ? `<button class="btn" disabled>Hết lượt tuần này</button>`
+    : `<button class="btn" id="${n ? 'gTower2' : 'gTower'}">Vào ${towerName(id)} (tầng ${entry})</button>`;
+  const m = !R.tower && !R.tk && !R.tyvo && r.fd >= TOWER_RESET_COST;
+  const h = n ? `<button class="btn" id="gTower2Reset" ${m ? '' : 'disabled'}>Reset tuần + tầng · ${TOWER_RESET_COST} Phúc Duyên</button>` : '';
+  const g = tp2Stacks();
+  return `<h3>${towerName(id)}</h3>
+    <p class="desc">${f}${d} ${n ? '' : 'Không giới hạn số tầng; '}có riêng ${tries.toLocaleString('vi-VN')} lượt vào mỗi tuần. EXP, loot và quà tầng chỉ nhận khi vượt hết tầng mới; ${n ? 'leo lại tầng đã vượt không nhận lại thưởng; ' : ''}gục hoặc rời giữa tầng mất thưởng tầng đó.</p>
+    <p class="dim small">Mỗi 45 giây, tổng máu quái cần giảm hơn 1% tổng máu tối đa để tiếp tục; nếu không, nhân vật tự rời tháp. Quái hồi lại máu cũng được tính vào tiến triển.</p>
+    ${n ? `<p class="dim small">EXP dựa trên quái tối đa 25 cấp cao hơn cấp hiện tại, giúp tiến trình sau trùng sinh tăng đều. Quái vẫn giữ sức mạnh theo tầng.</p>` : ''}
+    <p class="dim small">Luật tuần này: ${towerWeekModsText()}</p>
+    <p>Kỷ lục: <b>tầng ${best}</b>${n ? ` · ${conquered ? 'Đã chinh phục' : `Tiếp tục tầng ${entry}`} / ${TOWER2.maxFloor.toLocaleString('vi-VN')}` : ''}${inTower ? ` · đang ở tầng ${R.tower.floor}` : ''} · lượt tuần này: ${st.n}/${tries.toLocaleString('vi-VN')}</p>
+    <div class="btnrow">${p}${h}</div>
+    ${n ? `<h3>Điểm nâng cao</h3><p class="dim small">Chỉ nhận ở TS6–TS10; chỉ có tác dụng trong Tháp II. ${TOWER2_OPTIONS.map(t => `${t.n} ${g[t.k]}/5`).join(' · ')}</p>${tp2Pending() ? `<button class="btn" id="gTp2">Phân bổ ${tp2Pending()} điểm nâng cao</button>` : ''}` : ''}`;
+}
+export function towerTabBody(r) {
+  return towerSectionBody(r, 1) + towerSectionBody(r, 2);
 }
 
 /* ---------- 7. chuyen sinh (level_exp.txt co 5 cot chuyen sinh -> toi da 5 lan) ---------- */
@@ -883,8 +946,9 @@ export function drawPet(c, dt) {
   const p = S.rw && S.rw.pet, pp = R.petPos; if (!p || !pp || !MON[p.tid]) return;
   pp.animKey = MON[p.tid].anim; stepAct(pp, dt, pp.moving ? 'run' : 'st'); if (pp.act !== 'at') setAct(pp, pp.moving ? 'run' : 'st');
   c.fillStyle = '#0007'; c.beginPath(); c.ellipse(pp.x, pp.y, 10, 4, 0, 0, 7); c.fill();
-  drawAnim(pp.animKey, pp.act || 'st', pp.dir || 0, pp.actT || 0, pp.x, pp.y, 0.75 * MON_SCALE);
-  label(pp.x, pp.y - 42, `${MON[p.tid].n} · Lv${p.lvl}`, SERIES_COL[petElemOf(p.tid)] || NAME_COL.pet, 10, -1);
+  const py = pp.y - (MON[p.tid].height || 0);   // loài bay lơ lửng trên mặt đất
+  drawAnim(pp.animKey, pp.act || 'st', pp.dir || 0, pp.actT || 0, pp.x, py, 0.75 * MON_SCALE);
+  label(pp.x, py - 42, `${MON[p.tid].n} · Lv${p.lvl}`, SERIES_COL[petElemOf(p.tid)] || NAME_COL.pet, 10, -1);
 }
 /* ---------- 8b. trang bi cho Dong hanh (gan do khong dung vao pet -> buff thuoc tinh nhan vat) ---------- */
 /* Giu lai mon DANG THAT SU can cho pet — khac thi ban nhu thuong (neu khong, tu ban do thua bi phong toa).
@@ -1474,13 +1538,7 @@ function giftBody(r) {
     const ev = eventNow();
     return `<p class="desc">Sự kiện: <b style="color:${ev.col}">${ev.n}</b>. Quái rơi ${ev.token} (5%). Đang có: <b>${r.stat.tokens}</b>.</p>${EVENT_SHOP.map(([c, g], i) => `<div class="qrow"><span>${giftText(g)}</span><small>${c} ${ev.token}</small><button class="btn sm" data-e="${i}" ${r.stat.tokens >= c ? '' : 'disabled'}>Đổi</button></div>`).join('')}`;
   }
-  if (giftTab === 'tower') return `<p class="desc">Mỗi tầng một đợt tinh anh; tầng chia hết cho 5 là trùm (lần đầu qua được đồ Hoàng Kim). Quái cấp 10 + 4 × tầng. Gục ngã là rời tháp.</p>
-      <p>Kỷ lục: <b>tầng ${r.stat.towerBest}</b>${R.tower ? ` · đang ở tầng ${R.tower.floor}` : ''}</p>
-      <div class="btnrow">${R.tower ? '<button class="btn red" id="gTowerOut">Rời tháp</button>' : !unlocked(TOWER_LV) ? `<button class="btn" disabled>Cần cấp ${TOWER_LV}</button>` : `<button class="btn" id="gTower">Vào tháp (từ tầng ${Math.max(1, r.stat.towerBest - 4)})</button>`}</div>
-      <h3>Tháp II <small>siêu khó · 2.000 tầng</small></h3>
-      <p class="desc">Mở ở chuyển sinh 5. Quái mạnh gấp nhiều lần theo tầng, gục lùi 10 tầng; mỗi 10 tầng lần đầu nhận 1 món bộ <b>Thiên Cực</b>. Điểm chuyển sinh TS6–TS10 chỉ tác dụng ở đây.</p>
-      <p>Kỷ lục: <b>tầng ${r.stat.tower2Best || 0}</b>${R.tower && R.tower.id === 2 ? ` · đang ở tầng ${R.tower.floor}` : ''}</p>
-      <div class="btnrow">${R.tower && R.tower.id === 2 ? '<button class="btn red" id="gTowerOut">Rời tháp</button>' : !tower2Unlocked() ? `<button class="btn" disabled>Cần chuyển sinh ${TOWER2.reborn}</button>` : `<button class="btn" id="gTower2">Vào Tháp II (tầng ${tower2Floor(r.tower2Floor == null ? (r.stat.tower2Best || 0) + 1 : r.tower2Floor)})</button>`}</div>`;
+  if (giftTab === 'tower') return towerTabBody(r);
   const bo = rebornBonus(), full = r.stat.reborn >= REBORN_MAX, need = rebornLevelAt(r.stat.reborn);
   return `<p class="desc">Từ cấp 100, mỗi lần chuyển sinh cần thêm 25 cấp (lần 2: cấp 125, lần 3: 150…): về cấp 1, giữ trang bị và võ công, nhận 50 điểm tiềm năng × số lần chuyển sinh, thưởng vĩnh viễn +20% kinh nghiệm và +10% sát thương mỗi lần (tối đa ${REBORN_MAX} lần). Điểm từ Tẩy Tỵ Kinh được giữ qua chuyển sinh.</p>
       <p>Đã chuyển sinh: <b>${r.stat.reborn}</b> lần · hiện +${Math.round(bo.xp * 100)}% kinh nghiệm, +${Math.round(bo.dmg * 100)}% sát thương.</p>
@@ -1520,12 +1578,13 @@ export function giftModal() {
   modal(`<h3>Phần thưởng <small>Phúc Duyên ${r.fd}</small></h3><div class="dtabs" id="giftTabs">${tabs.map(([k, n]) => `<button data-g="${k}" class="${k === giftTab ? 'on' : ''}">${n}</button>`).join('')}</div>${giftBody(r)}`, () => {
     document.querySelectorAll('#mBody #giftTabs button').forEach(x => x.onclick = () => { giftTab = x.dataset.g; giftModal(); });
     const on = (id, fn) => { const el = $(id); if (el) el.onclick = fn; };
-    on('#gLogin', () => { claimLogin(); refreshGift(); }); on('#gChest', openChest); on('#gTower', towerStart);
+    on('#gLogin', () => { claimLogin(); refreshGift(); }); on('#gChest', openChest); on('#gTower', () => towerStart(1));
     on('#gSo1', () => spinSo(1)); on('#gSo10', () => spinSo(10));
     on('#gWelcome', claimWelcome);
     on('#gCode', () => claimCode($('#codeInp') ? $('#codeInp').value : ''));
     { const ci = $('#codeInp'); if (ci) ci.onkeydown = e => { if (e.key === 'Enter') claimCode(ci.value); }; }
-    on('#gTowerOut', () => { towerExit(false); refreshGift(); }); on('#gTower2', () => { tower2Start(); refreshGift(); }); on('#gReborn', doReborn);
+    on('#gTowerOut', () => { towerExit(false); refreshGift(); }); on('#gTower2', () => towerStart(2)); on('#gReborn', doReborn);
+    on('#gTower2Reset', towerResetModal); on('#gTp2', tower2OptionModal);
     document.querySelectorAll('#mBody [data-lv]').forEach(x => x.onclick = () => claimLvMs(+x.dataset.lv));
     document.querySelectorAll('#mBody [data-q]').forEach(x => x.onclick = () => { claimQuest(+x.dataset.q); refreshGift(); });
     document.querySelectorAll('#mBody [data-w]').forEach(x => x.onclick = () => { claimWeekQuest(+x.dataset.w); refreshGift(); });
