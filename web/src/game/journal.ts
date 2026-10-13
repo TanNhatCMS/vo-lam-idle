@@ -1,12 +1,16 @@
 // @ts-nocheck — chuyen tu vanilla JS: bat lai check tung file dan dan (xem README muc TypeScript)
 import { $, esc, fmt } from './core';
 import { S } from './save';
+import { RW } from './rewards';
 import { modal } from './ui';
 import { openGiftTab, txLuotCon, unlocked } from './rewards';
 import { clanModal } from './depth';
 import { codexModal } from './guide';
 import { stashModal } from './stash';
 import { svIntro } from './survival';
+import { openEventHub } from './eventhub';
+import { DUNGEONS, DG_TRIES, BOAT_TRIES, weekBossBadge, boatReady, dgSaveState } from './hoatdong';
+import { ktcBadge } from './ktc';
 import { htModal } from './forge';
 import { forgeReadyCounts } from './auto';
 import { uiSfx } from './audio';
@@ -65,10 +69,22 @@ export function jrModal() {
 const forgeBadge = () => { try { return Object.values(forgeReadyCounts()).some(Boolean) ? '!' : ''; } catch (e) { return ''; } };
 const txBadge = () => { try { const n = txLuotCon(); return n > 0 ? String(n) : ''; } catch (e) { return ''; } };
 function quickBarItems() {
+  /* Badge Phó bản/Đi thuyền/Boss tuần theo nguồn: tổng lượt còn, số chuyến còn, '!' khi có rương tuần */
+  let dgLeft = 0, boatLeft = 0, wbBadge = '';
+  try {
+    const dgs = dgSaveState();
+    const reborn = (RW().stat && RW().stat.reborn) || 0;
+    dgLeft = DUNGEONS.filter(d => S.lvl >= d.lv || reborn > 0).reduce((t, d) => t + Math.max(0, DG_TRIES - (dgs.runs[d.id] || 0)), 0);
+    boatLeft = Math.max(0, BOAT_TRIES - (dgs.boat || 0));
+    wbBadge = weekBossBadge();
+  } catch (e) { /* module hoạt động chưa sẵn sàng */ }
   return [
     ['ui/quick/tower.png', 'Tháp I', () => openGiftTab('tower'), ''],
     ['ui/quick/tower.png', 'Tháp II', () => openGiftTab('tower'), ''],
     ['ui/quick/tong-kim.png', 'Tống Kim', () => openGiftTab('tk'), tkBadge()],
+    ['ui/quick/tower.png', 'Phó bản', () => openEventHub('dg'), dgLeft ? String(dgLeft) : ''],
+    ['ui/quick/quest.png', 'Đi thuyền', () => openEventHub('boat'), boatReady() && boatLeft ? String(boatLeft) : ''],
+    ['ui/quick/spare.png', 'Boss tuần', () => openEventHub('wb'), wbBadge],
     ['ui/quick/quest.png', 'Dã Tẩu', () => openGiftTab('yt'), ytBadge()],
     ['ui/quick/guild.png', 'Bang hội', () => openGiftTab('guild'), ''],
     ['ui/quick/journal.png', 'Sổ tay', () => jrModal(), ''],
@@ -80,6 +96,7 @@ function quickBarItems() {
     ['ui/quick/training.png', 'Luyện Công', () => svIntro(), ''],
     ['ui/quick/spare.png', 'Đồng hành', () => openGiftTab('pet'), ''],
     ['ui/quick/tyvo.png', 'Tỷ Võ', () => openGiftTab('tyvo'), tvVh() > 0 ? fmt(tvVh()) : ''],
+    ['img/ep/knb.png', 'Kỳ Trân Các', () => openEventHub('ktc'), ktcBadge()],
   ];
 }
 export function quickBarHTML() {

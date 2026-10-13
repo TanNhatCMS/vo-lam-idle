@@ -328,7 +328,24 @@ export const ACH = [
   ['reborn1', 'Chuyển sinh', () => RW().stat.reborn >= 1, { fd: 50 }, ['lifemax_p', 8]],
   ['gold5', 'Săn trùm Hoàng Kim', () => RW().stat.goldBoss >= 5, { fd: 20 }, ['lucky_v', 10]],
   ['login30', 'Giang hồ lão luyện', () => RW().login.total >= 30, { set: 1 }, ['manamax_p', 6]],
+  /* thành tựu mới theo nguồn v107 (dex8/dex16/dexs3/dexs10/reborn/tower2/yt) */
+  ['reborn3', 'Tam Trùng Sinh', () => RW().stat.reborn >= 3, { fd: 30 }, ['lifemax_p', 10]],
+  ['reborn5', 'Ngũ độ trùng sinh', () => RW().stat.reborn >= 5, { fd: 50 }, ['lifemax_p', 12]],
+  ['yt100', 'Hành hiệp trượng nghĩa', () => (RW().stat.ytQuests || 0) >= 100, { fd: 20 }, ['lucky_v', 5]],
+  ['yt1000', 'Danh chấn giang hồ', () => (RW().stat.ytQuests || 0) >= 1000, { set: 1 }, ['lucky_v', 10]],
+  ['tower2champ', 'Chinh phục Tháp II', () => (RW().stat.tower2Best || 0) >= 100, { fd: 50 }, ['attackspeed_v', 8]],
+  ['dex8', 'Bách khoa: Vùng', () => ZONES.filter(z => z.m.filter(id => MON[id]).length && z.m.filter(id => MON[id]).every(id => S.seen && S.seen[id])).length >= 8, { fd: 20 }, ['lucky_v', 1]],
+  ['dex16', 'Bách khoa: Toàn cảnh', () => ZONES.every(z => z.m.filter(id => MON[id]).every(id => S.seen && S.seen[id])), { fd: 50 }, ['lucky_v', 2]],
+  ['dexs3', 'Bách khoa: Bộ', () => dexGoldSets() >= 3, { fd: 20 }, ['lucky_v', 1]],
+  ['dexs10', 'Bách khoa: Đại sưu tầm', () => dexGoldSets() >= 10, { fd: 50 }, ['lucky_v', 2]],
 ];
+/* đếm bộ Hoàng Kim của phái đã sưu tầm đủ món (GC() của nguồn) */
+export function dexGoldSets() {
+  const fid = FAC[S.fac] ? FAC[S.fac].id : -1, grp = {};
+  for (const r of J.sets.gold) { const f = (r.req.find(q => q[0] === 39) || [0, -1])[1]; if (f >= 0 && f !== fid) continue; (grp[r.grp] = grp[r.grp] || []).push(r.n); }
+  let n = 0; for (const g in grp) if (grp[g].every(nm => S.setSeen[nm])) n++;
+  return n;
+}
 export function achCheck() {
   if (!S || !S.fac) return;
   const r = RW();

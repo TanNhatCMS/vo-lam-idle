@@ -6,10 +6,13 @@
    game chay hoan toan tren may nguoi choi nen ai quyet tam van sua duoc — no chi de trai nghiem co kiem soat. */
 'use strict';
 import {
-  ENH_MAX, FAC, INV_MAX, J, MAX_LEVEL, PTS_PER_LEVEL, SKILL_PTS_PER_LEVEL, STAGES, esc,
+  ENH_MAX, FAC, INV_MAX, J, MAX_LEVEL, PTS_PER_LEVEL, SKILL_PTS_PER_LEVEL, STAGES,
+  esc,
+  pick,
+  MON,
 } from './core';
 import { HT_MAX, SHARDS, matAdd } from './recipes';
-import { R, recalc } from './combat';
+import { H, R, makeEnemy, recalc } from './combat';
 import { S, save } from './save';
 import { makeRoom, slotFor } from './loot';
 import { makeSetItem } from './sets';
@@ -32,6 +35,11 @@ const ADMIN_OPTS = [
       matAdd('misc', 'wc', 50); matAdd('misc', 'mys', 50);
       return `đã thêm Huyền Tinh, ${sh} loại mảnh, Thủy Tinh Trắng, Thần Bí Khoáng Thạch`;
     } },
+  { k: 'dummy', n: 'Gọi dummy',
+    d: 'Gọi một quái thử hiệu ứng gần nhân vật: cấp 1, không tấn công, 1.000.000.000.000 HP. Không rơi thưởng khi bị hạ.',
+    fn: () => {
+      try { const e = makeEnemy(pick(Object.keys(MON).filter(id => MON[id].anim).map(Number)), 1, 'normal', H.x + 80, H.y);
+        e.hp = e.max = 1e12; e.dmg = 0; e.dummy = true; e.n = 'Dummy'; R.enemies.push(e); return 'đã gọi dummy'; } catch (err) { return 'lỗi: ' + err.message; } } },
   { k: 'zones', n: 'Mở toàn bộ vùng',
     d: 'Mở hết ải để xem mọi bản đồ và mọi loại quái',
     fn: () => { S.maxStage = Math.max(S.maxStage, STAGES); S.stage = S.maxStage; return `mở tới ải ${STAGES}`; } },

@@ -201,11 +201,26 @@ export function suggestModal() {
 let codexTab = 'zone';
 export function codexModal(tab) {
   if (tab) codexTab = tab;
-  const tabs = [['zone', 'Vùng và quái'], ['set', 'Bộ Hoàng Kim'], ['mat', 'Nguyên liệu rèn'], ['pet', 'Đồng hành']];
+  const dexZones = () => ZONES.filter(z => z.m.filter(id => MON[id]).length && z.m.filter(id => MON[id]).every(id => S.seen && S.seen[id])).length;
+  const dexSets = () => { const fid = FAC[S.fac] ? FAC[S.fac].id : -1; const grp = {}; for (const r of J.sets.gold) { const f = (r.req.find(q => q[0] === 39) || [0, -1])[1]; if (f >= 0 && f !== fid) continue; (grp[r.grp] = grp[r.grp] || []).push(r.n); } let n = 0; for (const g in grp) if (grp[g].every(nm => S.setSeen[nm])) n++; return n; };
+  const tabs = [['overview', 'Toàn cảnh'], ['zone', 'Vùng và quái'], ['set', 'Bộ Hoàng Kim'], ['mat', 'Nguyên liệu rèn'], ['pet', 'Đồng hành']];
   let body = '';
-  if (codexTab === 'zone') {
+  if (codexTab === 'overview') {
+    const dexed = ZONES.reduce((t, z) => t + z.m.filter(id => MON[id] && S.seen && S.seen[id]).length, 0), dexTotal = ZONES.reduce((t, z) => t + z.m.filter(id => MON[id]).length, 0);
+    const rows = [
+      ['Nhân vật', `Cấp ${S.lvl}${S.reborn ? ` · chuyển sinh ${S.reborn}` : ''} · lực chiến ${fmt(R.power)}`],
+      ['Vùng', `Đã mở ${Math.min(S.maxStage, STAGES)}/${STAGES} ải · hạ quái ${dexed}/${dexTotal} loại`],
+      ['Trùm', `Thường ${RW().stat.bosses} · Hoàng Kim ${RW().stat.goldBoss} · Tháp I tầng ${RW().stat.towerBest} · Tháp II tầng ${RW().stat.tower2Best || 0}`],
+      ['Hành trình', `${fmt(RW().stat.kills)} quái đã hạ · ${RW().stat.reborn} lần chuyển sinh · ${RW().login ? RW().login.total : 0} ngày điểm danh`],
+      ['Kỳ Trân Các', `${fmt((S.rw && S.rw.knb) || 0)} Kim Nguyên Bảo`],
+      ['Đồng hành', `Đã gặp ${Object.keys((S.rw && S.rw.petSeen) || {}).length} loài`],
+      ['Lĩnh ngộ 90', `${(S.rw && S.rw.lk90 ? Object.keys(S.rw.lk90.lv).length : 0)} chiêu đã lĩnh ngộ`],
+    ];
+    body = rows.map(([k, v]) => `<div class="card"><b>${k}</b><br><small>${v}</small></div>`).join('');
+  } else if (codexTab === 'zone') {
     body = ZONES.map((z, i) => { const open = S.maxStage >= i * ZONE_STAGES + 1, nm = z.m.filter(t => MON[t]).map(t => esc(MON[t].n)).join(', ');
-      return `<div class="card${open ? '' : ' lock'}"><b>${esc(z.n)}</b> <small class="dim">cấp ${z.lo}–${z.hi}${open ? '' : ' · chưa tới'}</small><br><small>Trùm: <b class="boss">${esc((MON[z.boss] || {}).n || '?')}</b></small><br><small class="dim">Quái: ${nm}</small><br><small>Ngũ hành: ${z.sw.map((w, k) => w ? `<span style="color:${SERIES_COL[k]}">${SERIES[k]}</span>` : '').filter(Boolean).join(' ') || '—'}</small></div>`; }).join('');
+      const dexN = z.m.filter(id => MON[id] && S.seen && S.seen[id]).length, dexAll = z.m.filter(id => MON[id]).length;
+      return `<div class="card${open ? '' : ' lock'}"><b>${esc(z.n)}</b> <small class="dim">đã hạ ${dexN}/${dexAll} loại</small> <small class="dim">cấp ${z.lo}–${z.hi}${open ? '' : ' · chưa tới'}</small><br><small>Trùm: <b class="boss">${esc((MON[z.boss] || {}).n || '?')}</b></small><br><small class="dim">Quái: ${nm}</small><br><small>Ngũ hành: ${z.sw.map((w, k) => w ? `<span style="color:${SERIES_COL[k]}">${SERIES[k]}</span>` : '').filter(Boolean).join(' ') || '—'}</small></div>`; }).join('');
   } else if (codexTab === 'set') {
     body = dexSetBodyHTML();
   } else if (codexTab === 'pet') {

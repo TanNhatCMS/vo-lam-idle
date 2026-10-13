@@ -39,7 +39,7 @@ export function ytTick(k, n = 1) {
   if (!S || !S.fac) return;
   const y = ytState(), st = ytStep();
   if (y.done || st.t !== k) return;
-  y.have = Math.min(st.n, y.have + n); if (y.have >= st.n) { y.done = true; }
+  y.have = Math.min(st.n, y.have + n); if (y.have >= st.n) { y.done = true; const r = RW(); r.stat.ytQuests = (r.stat.ytQuests || 0) + 1; }
 }
 const ytItems = () => S.inv.filter(it => !it.locked && !sellProtected(it) && it.r >= 1).sort((a, b) => itemPower(a) - itemPower(b));
 function ytDeliverable() {

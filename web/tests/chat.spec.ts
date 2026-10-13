@@ -25,7 +25,7 @@ async function createCharacter(page: Page, name = 'ChatHiệp') {
   await page.locator('#bNotice').click();
   const skip = page.locator('#tSkip');
   if (await skip.isVisible({ timeout: 3000 }).catch(() => false)) await skip.click();
-  await expect(page.locator('#qBar .qb')).toHaveCount(14);
+  await expect(page.locator('#qBar .qb')).toHaveCount(18);
 }
 
 /* Dung luong chat chung cho cac test: tin goc + tin da gui (server "luu"
@@ -274,7 +274,7 @@ test('chat: presence heartbeat — day profile len server (profile chinh minh xe
   // upstream (Ce() tra null ki chua login). Reload: save da co -> boot nap save
   // -> initWorldChat (sau nap save) -> presence thu 2 co profile day du.
   await page.reload();
-  await expect(page.locator('#qBar .qb')).toHaveCount(14);
+  await expect(page.locator('#qBar .qb')).toHaveCount(18);
   await expect.poll(() => mock.presences.length).toBe(2);
   const first = mock.presences.find(p => p.profile);
   expect(first).toBeTruthy();
@@ -335,7 +335,7 @@ test('chat: presence cat 16 dong magic tren moi item', async ({ page }) => {
   await page.addInitScript(p => localStorage.setItem('jxidle', p), signed);
 
   await page.reload();
-  await expect(page.locator('#qBar .qb')).toHaveCount(14);
+  await expect(page.locator('#qBar .qb')).toHaveCount(18);
   await expect.poll(() => mock.presences.some(x => x.profile && x.profile.equipment && x.profile.equipment.weapon)).toBe(true);
   const wp = mock.presences.find(x => x.profile && x.profile.equipment && x.profile.equipment.weapon);
   expect(wp.profile.equipment.weapon.magic).toHaveLength(16);

@@ -22,7 +22,7 @@ async function createCharacter(page: Page) {
   await page.locator('#bNotice').click();
   const skip = page.locator('#tSkip');
   if (await skip.isVisible({ timeout: 3000 }).catch(() => false)) await skip.click();
-  await expect(page.locator('#qBar .qb')).toHaveCount(14);
+  await expect(page.locator('#qBar .qb')).toHaveCount(18);
 }
 
 test('than ma: backfill thanma tu ten (save cu khong co horse_id)', async ({ page }) => {
@@ -57,7 +57,7 @@ test('than ma: backfill thanma tu ten (save cu khong co horse_id)', async ({ pag
   });
 
   await page.reload();
-  await expect(page.locator('#qBar .qb')).toHaveCount(14);
+  await expect(page.locator('#qBar .qb')).toHaveCount(18);
 
   // thanma duoc backfill -> tooltip/Sổ Thần Mã nhan dien + renderer ve duoc ngua
   const info = await page.evaluate(() => {

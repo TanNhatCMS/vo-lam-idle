@@ -36,7 +36,7 @@ async function createCharacter(page: Page, name = 'TestChiêu') {
   await page.locator('#bNotice').click();
   const skip = page.locator('#tSkip');
   if (await skip.isVisible({ timeout: 3000 }).catch(() => false)) await skip.click();
-  await expect(page.locator('#qBar .qb')).toHaveCount(14);
+  await expect(page.locator('#qBar .qb')).toHaveCount(18);
 }
 
 /* Lấy 1 id quái hợp lệ + data quái từ bảng jdata (tránh MON[tid] undefined khi engine kêu sfx). */

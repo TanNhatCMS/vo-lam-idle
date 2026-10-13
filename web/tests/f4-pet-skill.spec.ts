@@ -39,7 +39,7 @@ async function createCharacter(page: Page, name = 'TestPet') {
   await page.locator('#bNotice').click();
   const skip = page.locator('#tSkip');
   if (await skip.isVisible({ timeout: 3000 }).catch(() => false)) await skip.click();
-  await expect(page.locator('#qBar .qb')).toHaveCount(14);
+  await expect(page.locator('#qBar .qb')).toHaveCount(18);
 }
 
 /* Cho nhân vật một Đồng hành loài tid (save có checksum nên mutate state trực tiếp

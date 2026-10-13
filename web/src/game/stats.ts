@@ -1,5 +1,7 @@
 // @ts-nocheck — chuyen tu vanilla JS: bat lai check tung file dan dan (xem README muc TypeScript)
 import { POT_TIER_LV, R, hitPercent, hitChance } from './combat';
+import { buffLuck } from './ktc';
+import { lk90Learned } from './lk90';
 import {
   $,
   CRIT_MULT,
@@ -204,7 +206,7 @@ export function calc(eq) {
   P.manaShield = clamp(av(A, 'manashield_p'), 0, 90);   // Tọa Vọng Vô Ngã: % chuyen sat thuong nhan vao thanh hao noi luc (lá chắn nội lực)
   P.series5 = av(A, 'five_elements_enhance_v'); P.res5 = av(A, 'five_elements_resist_v');
   P.seriesSkill = av(A, ['metalskill_v', 'woodskill_v', 'waterskill_v', 'fireskill_v', 'earthskill_v'][ser]);
-  P.lucky = av(A, 'lucky_v') + tpStacks().bao * 3 + guildBuff().lucky + blessLucky();   // Tham Bao +3/cap, bang hoi +0.25/cap, loi chuc +10
+  P.lucky = av(A, 'lucky_v') + tpStacks().bao * 3 + guildBuff().lucky + blessLucky() + buffLuck();   // + Quế Hoa Tửu (Kỳ Trân Các)   // Tham Bao +3/cap, bang hoi +0.25/cap, loi chuc +10
   P.dropMul = 1 + tpStacks().bao * 0.05;             // Tham Bao: +5% ti le roi do moi cap
   P.speed = 1 + av(A, 'fastwalkrun_p') / 100;
   P.ranged = ranged;
@@ -473,7 +475,8 @@ export function autoSpendAttrs() {
   if (spent) R.dirty = true;
   return spent;
 }
-export function canLearn(s) { return S.skPts > 0 && S.lvl >= s.req && (S.sk[s.id] || 0) < s.max; }
+export function canLearn(s) { if (String(s.learn) === '90' && !lk90Learned(s.id)) return false;   // chiêu 90: chỉ mở qua Lĩnh ngộ
+  return S.skPts > 0 && S.lvl >= s.req && (S.sk[s.id] || 0) < s.max; }
 
 /* ---------- Can bang ky nang theo bac (rieng game idle) ----------
    Du lieu goc: chieu cung cap yeu cau chenh nhau 5-8 lan (Phieu Tuyet Xuyen Van bang ~345 o cap 20, No Loi Chi loi ~40,

@@ -36,12 +36,12 @@ async function createCharacter(page: Page, name = 'TestTyVo') {
   await page.locator('#bNotice').click();
   const skip = page.locator('#tSkip');
   if (await skip.isVisible({ timeout: 3000 }).catch(() => false)) await skip.click();
-  await expect(page.locator('#qBar .qb')).toHaveCount(14);
+  await expect(page.locator('#qBar .qb')).toHaveCount(18);
 }
 
 /* Mở thẻ Tỷ Võ (nút nhanh cuối cùng, data-q=13) và chờ bảng điều khiển hiện. */
 async function openTyvoTab(page: Page) {
-  await page.locator('#qBar .qb[data-q="13"]').click();
+  await page.locator('#qBar .qb[data-q="16"]').click();
   const modal = page.locator('#modal:not(.hidden)');
   await expect(modal, 'nút Tỷ Võ phải mở quà → bảng Tỷ Võ').toBeVisible();
   await expect(page.locator('.tyvo-panel')).toBeVisible();

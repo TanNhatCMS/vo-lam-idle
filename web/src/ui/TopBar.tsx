@@ -26,6 +26,8 @@ export default function TopBar() {
   const skillUnlocked = !!(pet && (pet.star | 0) >= 1);
   const cd = R.petSkillCd || 0;
   const P = R.P;
+  /* KNB (Kim Nguyen Bao) — tien te Ky Tran Cac, hien khi da co */
+  const knb = fac && S.rw ? ((S.rw as unknown as { knb?: number }).knb || 0) : 0;
   return (
     <header id="top">
       <div className="hero-mark">
@@ -46,6 +48,9 @@ export default function TopBar() {
         </div>
       </div>
       <div className="gold"><img className="coin" src="ui/yuanbao.png" alt="" aria-hidden="true" /><span id="gold">{fac ? fmt(S.gold) : 0}</span></div>
+      {knb > 0 && (
+        <div className="gold knb" title="Kim Nguyên Bảo"><img className="coin" src="img/ep/knb.png" alt="" aria-hidden="true" /><span id="knb">{fmt(knb)}</span></div>
+      )}
       {petN > 0 && (
         <button id="petChip" title="Đồng hành — bấm để mở thẻ"
           onClick={() => { uiSfx('click'); showTab('pet'); }}>🐾{petN}{skillUnlocked
