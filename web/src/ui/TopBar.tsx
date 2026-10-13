@@ -9,9 +9,11 @@ import { giftModal } from '../game/rewards';
 import { adminModal } from '../game/admin';
 import { uiSfx } from '../game/audio';
 import { setCompact } from '../game/loop';
+import { drawHeaderAvatar } from '../game/look';
 
-/* Thanh tren: khung giong 1:1 index.html ban vinarpg (hero-mark + status-frame 3 thanh
-   EXP/HP/MP + Luc Chien) de style.css moi thao tac dung phan tu. Ve theo tick thay cho updateTop(). */
+/* Thanh tren: khung giong 1:1 index.html ban vinarpg (hero-mark + heroAvatar canvas +
+   status-frame 3 thanh EXP/HP/MP + Luc Chien + gold-stack 2 money-line KNB/Ngan luong)
+   de style.css moi thao tac dung phan tu. Ve theo tick thay cho updateTop(). */
 export default function TopBar() {
   useGameTick();
   const fac = (S && S.fac) ? FAC[S.fac] : null;
@@ -20,24 +22,45 @@ export default function TopBar() {
   const heroImg = fac ? ((W.hero || {})[S.fac] || {}).img : null;
   const facName = fac ? fac.n : 'Võ Lâm Idle';
   const displayName = fac && S.name && S.name !== fac.n ? S.name : facName;
+  /* Avatar canvas (nguon: canvas #heroAvatar trong .lvbox, sprite nhan vat) */
+  const avatarRef = React.useRef<HTMLCanvasElement>(null);
+  const [avatarLive, setAvatarLive] = React.useState(false);
+  const facKey = fac ? S.fac : '';
+  React.useEffect(() => {
+    if (!facKey) return;
+    let stop = false, tm = 0, tick = 0;
+    const draw = () => {
+      if (stop) return;
+      tick++;
+      let ok = false;
+      try { ok = !!drawHeaderAvatar(avatarRef.current, tick * 0.12); } catch (e) { /* chua du sprite */ }
+      setAvatarLive(ok);
+      tm = window.setTimeout(draw, 120);
+    };
+    draw();
+    return () => { stop = true; clearTimeout(tm); };
+  }, [facKey]);
   /* HUD Dong hanh: so loai so huu + hoi chieu ky nang (docs/PET-MO-RONG.md) */
   const petN = fac && S.rw && S.rw.pets ? Object.keys(S.rw.pets).length : 0;
   const pet = fac && S.rw && S.rw.pet;
   const skillUnlocked = !!(pet && (pet.star | 0) >= 1);
   const cd = R.petSkillCd || 0;
   const P = R.P;
-  /* KNB (Kim Nguyen Bao) — tien te Ky Tran Cac, hien khi da co */
+  /* KNB (Kim Nguyen Bao) — tien te Ky Tran Cac, luon hien nhu nguon (gold-stack) */
   const knb = fac && S.rw ? ((S.rw as unknown as { knb?: number }).knb || 0) : 0;
   return (
     <header id="top">
       <div className="hero-mark">
-        <div className="lvbox" style={(heroImg ? { '--pl': `url('${heroImg}')` } : undefined) as React.CSSProperties}
-          onClick={() => { if (fac) nameModal(false); }} />
+        <div className={'lvbox' + (avatarLive ? ' avatar-live' : '')}
+          style={(heroImg && !avatarLive ? { '--pl': `url('${heroImg}')` } : undefined) as React.CSSProperties}
+          onClick={() => { if (fac) nameModal(false); }}>
+          <canvas ref={avatarRef} width={92} height={92} aria-hidden="true" />
+        </div>
         <span className="hero-level" aria-label="Cấp nhân vật"><span>Cấp</span><b>{fac ? S.lvl : 1}</b></span>
       </div>
       <div className="topmid">
         <div className="row">
-          <span className="hero-identity"><b id="heroName">{fac && S.name && S.name !== fac.n ? <><small>{facName}</small>{displayName}</> : displayName}</b></span>
+          <span className="hero-identity"><b id="heroName">{displayName}</b></span>
           <span id="stageLbl">{fac ? `Ải ${S.stage} · đợt ${S.wave}/${WAVES}` : ''}</span>
           <span className="top-power" aria-label="Lực Chiến"><span>Lực Chiến</span><b id="topPowerValue">{fac && P ? fmt(R.power) : 0}</b></span>
         </div>
@@ -47,10 +70,10 @@ export default function TopBar() {
           <div className="bar mp"><i id="mpBar" style={{ width: (fac && P ? clamp01(R.mana / P.mana) * 100 : 0) + '%' }} /><span className="bar-label">MP</span><span id="mpTxt">{fac && P ? `${fmt(R.mana)} / ${fmt(P.mana)}` : ''}</span></div>
         </div>
       </div>
-      <div className="gold"><img className="coin" src="ui/yuanbao.png" alt="" aria-hidden="true" /><span id="gold">{fac ? fmt(S.gold) : 0}</span></div>
-      {knb > 0 && (
-        <div className="gold knb" title="Kim Nguyên Bảo"><img className="coin" src="img/ep/knb.png" alt="" aria-hidden="true" /><span id="knb">{fmt(knb)}</span></div>
-      )}
+      <div className="gold gold-stack">
+        <span className="money-line" title="Ngân lượng"><img className="coin" src="ui/yuanbao.png" alt="" aria-hidden="true" /><span id="gold">{fac ? fmt(S.gold) : 0}</span></span>
+        <span className="money-line knb-amount" title="Kim Nguyên Bảo"><img className="coin" src="img/ep/knb.png" alt="" aria-hidden="true" /><span id="knbTop">{fac ? fmt(knb) : 0}</span><small>KNB</small></span>
+      </div>
       {petN > 0 && (
         <button id="petChip" title="Đồng hành — bấm để mở thẻ"
           onClick={() => { uiSfx('click'); showTab('pet'); }}>🐾{petN}{skillUnlocked

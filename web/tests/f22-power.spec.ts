@@ -34,7 +34,7 @@ async function createCharacter(page: Page, name = 'TestPw') {
   await page.locator('#bNotice').click();
   const skip = page.locator('#tSkip');
   if (await skip.isVisible({ timeout: 3000 }).catch(() => false)) await skip.click();
-  await expect(page.locator('#qBar .qb')).toHaveCount(18);
+  await expect(page.locator('#qBar .qb')).toHaveCount(19);
 }
 
 /* Vũ khí cận chiến (nhóm 0) gắn thêm addfiredamage_v (attr 122) +10 */

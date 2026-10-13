@@ -35,7 +35,7 @@ async function createCharacter(page: Page, name = 'TestThap') {
   await page.locator('#bNotice').click();
   const skip = page.locator('#tSkip');
   if (await skip.isVisible({ timeout: 3000 }).catch(() => false)) await skip.click();
-  await expect(page.locator('#qBar .qb')).toHaveCount(18);
+  await expect(page.locator('#qBar .qb')).toHaveCount(19);
 }
 
 /* Lên cấp (và/hoặc chuyển sinh) rồi reload — đủ điều kiện vào tháp */
@@ -47,7 +47,7 @@ async function setLevel(page: Page, lvl = 30, reborn = 0) {
     g.save();
   }, [lvl, reborn]);
   await page.reload();
-  await expect(page.locator('#qBar .qb')).toHaveCount(18);
+  await expect(page.locator('#qBar .qb')).toHaveCount(19);
 }
 
 /* Mở thẻ Tháp bằng nút nhanh Tháp I trên thanh Giang hồ */

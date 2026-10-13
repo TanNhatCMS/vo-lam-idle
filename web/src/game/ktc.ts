@@ -36,14 +36,14 @@ export const buffXp = () => { const b = buf().xp; return b && b.until > Date.now
 /* ---------- bảng Kỳ Trân Các (giá gốc từ nguồn) ---------- */
 const SHOP = [
   { k: 'knb', n: 'Kim Nguyên Bảo', icon: 'img/ep/knb.png', gold: KTC_GOLD, d: `Đổi ${fmt(KTC_GOLD * KTC_PACK)} ngân lượng lấy ${KTC_PACK} KNB. KNB nhận từ phó bản, Boss tuần và trùm.` },
-  { k: 'tt', knb: 20, n: 'Tiên Thảo Lộ', icon: 'img/ep/knb.png', d: '+50% kinh nghiệm chiến đấu trong 60 phút. Dùng thêm cộng dồn thời gian; thời gian tiếp tục trôi khi đóng game.' },
-  { k: 'qht', knb: 20, n: 'Quế Hoa Tửu', icon: 'img/ep/knb.png', d: '+20 may mắn trong 60 phút, tăng chất lượng dòng trang bị và thêm 10% tỉ lệ rơi trang bị. Dùng thêm cộng dồn thời gian.' },
-  { k: 'rngua', knb: 20, n: 'Rương Ngựa', icon: 'img/ep/knb.png', d: 'Mở một con ngựa: Thường 56% · Tốt 31,5% · Quý 6% · Thần 3% · Danh mã 2% · Bảo mã 1% · Chí tôn 0,5%. Ngựa Quý trở lên tự khóa; cần đủ điều kiện mới trang bị được.' },
-  { k: 'vlmt', knb: 100, n: 'Dịch Căn Kinh', icon: 'img/ep/knb.png', d: 'Từ cấp 80 hoặc đã trùng sinh: +1 điểm kỹ năng. Mỗi nhân vật dùng tối đa 15 cuốn.' },
-  { k: 'ttk', knb: 100, n: 'Tẩy Tủy Kinh', icon: 'img/ep/knb.png', d: 'Từ cấp 80: +1 điểm tiềm năng, mỗi 2 cấp thêm 1, tối đa +5 ở cấp 88; đã trùng sinh nhận +5. Tối đa 15 cuốn mỗi nhân vật; điểm từ sách được giữ qua chuyển sinh.' },
+  { k: 'tt', knb: 20, n: 'Tiên Thảo Lộ', icon: 'img/ep/tt.png', d: '+50% kinh nghiệm chiến đấu trong 60 phút. Dùng thêm cộng dồn thời gian; thời gian tiếp tục trôi khi đóng game.' },
+  { k: 'qht', knb: 20, n: 'Quế Hoa Tửu', icon: 'img/ep/qht.png', d: '+20 may mắn trong 60 phút, tăng chất lượng dòng trang bị và thêm 10% tỉ lệ rơi trang bị. Dùng thêm cộng dồn thời gian.' },
+  { k: 'rngua', knb: 20, n: 'Rương Ngựa', icon: 'img/ep/box2.png', d: 'Mở một con ngựa: Thường 56% · Tốt 31,5% · Quý 6% · Thần 3% · Danh mã 2% · Bảo mã 1% · Chí tôn 0,5%. Ngựa Quý trở lên tự khóa; cần đủ điều kiện mới trang bị được.' },
+  { k: 'vlmt', knb: 100, n: 'Dịch Căn Kinh', icon: 'img/ep/mt90.webp', d: 'Từ cấp 80 hoặc đã trùng sinh: +1 điểm kỹ năng. Mỗi nhân vật dùng tối đa 15 cuốn.' },
+  { k: 'ttk', knb: 100, n: 'Tẩy Tủy Kinh', icon: 'img/ep/dtbk.png', d: 'Từ cấp 80: +1 điểm tiềm năng, mỗi 2 cấp thêm 1, tối đa +5 ở cấp 88; đã trùng sinh nhận +5. Tối đa 15 cuốn mỗi nhân vật; điểm từ sách được giữ qua chuyển sinh.' },
   { k: 'bk90', knb: 50, n: 'Võ Lâm Mật Tịch', icon: 'img/ep/mt90.webp', d: 'Lĩnh ngộ một võ công cấp 90 lần đầu, hoặc dùng sách để bù tiến độ luyện cho chiêu đã học.' },
-  { k: 'rht', gold: 3e4, n: 'Rương Huyền Tinh', icon: 'img/ep/knb.png', d: 'Mở 2–3 Huyền Tinh Khoáng Thạch, cấp nguyên liệu theo cấp nhân vật.' },
-  { k: 'rda', gold: 5e4, n: 'Rương Đá Thuộc Tính', icon: 'img/ep/knb.png', d: 'Mở một đá thuộc tính; 30% nhận thêm một đá. Ưu tiên dòng hợp trang bị đang mặc.' },
+  { k: 'rht', gold: 3e4, n: 'Rương Huyền Tinh', icon: 'img/ep/box2.png', d: 'Mở 2–3 Huyền Tinh Khoáng Thạch, cấp nguyên liệu theo cấp nhân vật.' },
+  { k: 'rda', gold: 5e4, n: 'Rương Đá Thuộc Tính', icon: 'img/ep/box3.png', d: 'Mở một đá thuộc tính; 30% nhận thêm một đá. Ưu tiên dòng hợp trang bị đang mặc.' },
 ];
 const price = it => (it.knb || it.gold);                                  // dc() của nguồn
 const priceShow = it => (S.chal === 'white' && it.k !== 'knb' ? Math.max(1, Math.round(price(it) * BOOY_OFF)) : price(it));
@@ -138,25 +138,29 @@ export const ktcBadge = () => (knbHave() > 0 ? String(knbHave()) : '');
 export function ktcBody(r) {
   const booy = S.chal === 'white';
   const rows = SHOP.filter(it => it.k !== 'knb').map(it => {   // gói KNB đã có ô đổi ở đầu, khỏi lặp nút
-    const have = it.k === 'knb' ? '' : stackHave(it.k);
+    const have = stackHave(it.k);
     const cost = priceShow(it);
-    const wallet = it.knb ? 'KNB' : 'lượng';
-    return `<div class="ktc-item"><img src="${it.icon}" alt="" onerror="this.style.display='none'">
-      <div class="ktc-item-mid"><b>${esc(it.n)}</b><small>${esc(it.d)}</small>${have ? `<small class="ktc-have">Đang có: ${have}</small>` : ''}</div>
-      <div class="ktc-item-act"><button class="btn sm" data-ktc-buy="${it.k}" ${tyvoLock() || (it.knb ? (r.knb || 0) : S.gold) < cost ? 'disabled' : ''}>Mua · ${fmt(cost)} ${wallet}</button>
-      ${['tt', 'qht', 'rngua', 'rht', 'rda', 'bk90'].includes(it.k) ? `<button class="btn sm" data-ktc-use="${it.k}" ${have ? '' : 'disabled'}>Dùng</button>` : ''}</div></div>`;
+    const usedN = (it.k === 'vlmt' || it.k === 'ttk') ? ` · đã dùng ${((S.useN || {})[it.k]) || 0}/15` : '';
+    return `<article class="event-shop-row">
+      <div class="event-shop-item-head"><img src="${it.icon}" alt="" loading="lazy"><div><b>${esc(it.n)}</b><small>Đang có ${have}${usedN}</small></div></div>
+      <p>${esc(it.d)}</p>
+      <div class="btnrow"><button class="btn event-primary" data-ktc="${it.k}" ${tyvoLock() || (it.knb ? (r.knb || 0) : S.gold) < cost ? 'disabled' : ''}>Mua · ${it.knb ? fmt(cost) + ' KNB' : fmt(cost) + ' lượng'}</button>
+      <button class="btn event-secondary" data-event-use="${it.k}" ${have && !tyvoLock() ? '' : 'disabled'}>Dùng</button></div></article>`;
   }).join('');
-  return `<div class="ktc-shell">
-    <div class="ktc-knb"><img src="img/ep/knb.png" alt=""><span><b>Kim Nguyên Bảo: ${fmt(knbHave())}</b><small>${booy ? 'Ưu đãi Bố Y · giảm 50% giá vật phẩm' : 'Đổi ngân lượng để mua kỳ trân'}</small></span>
-      <div class="btnrow"><button class="btn" data-ktc-buy="knb" ${tyvoLock() || S.gold < KTC_GOLD * KTC_PACK ? 'disabled' : ''}>${fmt(KTC_GOLD * KTC_PACK)} lượng → ${KTC_PACK} KNB</button>
-      <button class="btn" data-ktc-sell ${tyvoLock() || knbHave() < KTC_PACK ? 'disabled' : ''}>${KTC_PACK} KNB → ${fmt(KTC_SELL * KTC_PACK)} lượng</button></div></div>
-    ${rows}
-    <small class="dim ktc-note">KNB nhận từ phó bản, Boss tuần và trùm. Vật phẩm cộng dồn trong Hành trang và có thể gửi Kho chung.</small></div>`;
+  return `<div class="event-exchange">
+    <div><img src="img/ep/knb.png" alt=""><span><b>Kim Nguyên Bảo</b><small>${booy ? 'Ưu đãi Bố Y · giảm 50% giá vật phẩm' : 'Đổi ngân lượng để mua kỳ trân'}</small></span></div>
+    <div class="btnrow"><button class="btn event-primary" data-ktc="knb" ${tyvoLock() || S.gold < KTC_GOLD * KTC_PACK ? 'disabled' : ''}>${fmt(KTC_GOLD * KTC_PACK)} lượng → ${KTC_PACK} KNB</button>
+    <button class="btn event-secondary" data-ktc-sell ${!tyvoLock() && knbHave() >= KTC_PACK ? '' : 'disabled'}>${KTC_PACK} KNB → ${fmt(KTC_SELL * KTC_PACK)} lượng</button></div></div>
+    <div class="event-section-head"><div><span class="event-eyebrow">VẬT PHẨM HỖ TRỢ</span><h4>Chuẩn bị cho hành trình</h4></div><span class="event-tag">Cất trong Hành trang</span></div>
+    <div class="event-shop">${rows}</div>
+    <p class="event-note">Vật phẩm cộng dồn trong Hành trang và có thể gửi Kho chung. KNB nhận từ phó bản, Boss tuần và trùm.</p>`;
 }
 
-export function ktcBind(reload) {
-  document.querySelectorAll('#mBody [data-ktc-buy]').forEach(b => b.onclick = () => { const res = ktcBuy(b.dataset.ktcBuy); toast(res.msg); if (res.ok) reload(); });
+export const ktcScroll = () => { const c = document.querySelector('#mBody .event-content'); return c ? c.scrollTop : 0; };
+
+export function ktcBind(reload) {                                        // reload(scrollY) — mở lại giữ vị trí cuộn (như nguồn hc(n))
+  document.querySelectorAll('#mBody [data-ktc]').forEach(b => b.onclick = () => { const res = ktcBuy(b.dataset.ktc); toast(res.msg); if (res.ok) reload(ktcScroll()); });
   const sell = document.querySelector('#mBody [data-ktc-sell]');
-  if (sell) sell.onclick = () => { const res = ktcSell(); toast(res.msg); if (res.ok) reload(); };
-  document.querySelectorAll('#mBody [data-ktc-use]').forEach(b => b.onclick = () => { const res = ktcUse(b.dataset.ktcUse); if (res.msg) toast(res.msg); if (res.ok) reload(); });
+  if (sell) sell.onclick = () => { const res = ktcSell(); toast(res.msg); if (res.ok) reload(ktcScroll()); };
+  document.querySelectorAll('#mBody [data-event-use]').forEach(b => b.onclick = () => { const res = ktcUse(b.dataset.eventUse); if (res.msg) toast(res.msg); if (res.ok) reload(ktcScroll()); });
 }

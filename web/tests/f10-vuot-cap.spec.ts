@@ -37,7 +37,7 @@ async function createCharacter(page: Page, name = 'OverLv') {
   await page.locator('#bNotice').click();
   const skip = page.locator('#tSkip');
   if (await skip.isVisible({ timeout: 3000 }).catch(() => false)) await skip.click();
-  await expect(page.locator('#qBar .qb')).toHaveCount(18);
+  await expect(page.locator('#qBar .qb')).toHaveCount(19);
 }
 
 test('vượt cấp quái: Bố Y giới hạn cap+50, công tắc bật -> theo ải', async ({ page }) => {

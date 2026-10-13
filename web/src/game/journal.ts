@@ -8,7 +8,7 @@ import { clanModal } from './depth';
 import { codexModal } from './guide';
 import { stashModal } from './stash';
 import { svIntro } from './survival';
-import { openEventHub } from './eventhub';
+import { openEventHub, openKtcModal } from './eventhub';
 import { DUNGEONS, DG_TRIES, BOAT_TRIES, weekBossBadge, boatReady, dgSaveState } from './hoatdong';
 import { ktcBadge } from './ktc';
 import { htModal } from './forge';
@@ -82,21 +82,22 @@ function quickBarItems() {
     ['ui/quick/tower.png', 'Tháp I', () => openGiftTab('tower'), ''],
     ['ui/quick/tower.png', 'Tháp II', () => openGiftTab('tower'), ''],
     ['ui/quick/tong-kim.png', 'Tống Kim', () => openGiftTab('tk'), tkBadge()],
-    ['ui/quick/tower.png', 'Phó bản', () => openEventHub('dg'), dgLeft ? String(dgLeft) : ''],
-    ['ui/quick/quest.png', 'Đi thuyền', () => openEventHub('boat'), boatReady() && boatLeft ? String(boatLeft) : ''],
-    ['ui/quick/spare.png', 'Boss tuần', () => openEventHub('wb'), wbBadge],
+    ['ui/quick/dungeon.png', 'Phó bản', () => openEventHub('dg'), dgLeft ? String(dgLeft) : ''],
+    ['ui/quick/boat.png', 'Đi thuyền', () => openEventHub('boat'), boatReady() && boatLeft ? String(boatLeft) : ''],
+    ['ui/quick/weekly-boss.png', 'Boss tuần', () => openEventHub('wb'), wbBadge],
+    ['ui/quick/clan.png', 'Gia tộc', () => clanModal(), ''],
     ['ui/quick/quest.png', 'Dã Tẩu', () => openGiftTab('yt'), ytBadge()],
     ['ui/quick/guild.png', 'Bang hội', () => openGiftTab('guild'), ''],
     ['ui/quick/journal.png', 'Sổ tay', () => jrModal(), ''],
     ['ui/quick/forge.png', 'Lò rèn', () => htModal(), forgeBadge()],
     ['ui/quick/storage.png', 'Kho', () => stashModal(), ''],
     ['ui/quick/encyclopedia.png', 'Bách khoa', () => codexModal(), ''],
-    ['ui/quick/clan.png', 'Gia tộc', () => clanModal(), ''],
     ['ui/quick/tai-xiu.png', 'Tài Xỉu', () => openGiftTab('tx'), txBadge()],
     ['ui/quick/training.png', 'Luyện Công', () => svIntro(), ''],
-    ['ui/quick/spare.png', 'Đồng hành', () => openGiftTab('pet'), ''],
+    ['ui/quick/companion.png', 'Đồng hành', () => openGiftTab('pet'), ''],
     ['ui/quick/tyvo.png', 'Tỷ Võ', () => openGiftTab('tyvo'), tvVh() > 0 ? fmt(tvVh()) : ''],
-    ['img/ep/knb.png', 'Kỳ Trân Các', () => openEventHub('ktc'), ktcBadge()],
+    ['ui/quick/than-ma.png', 'Thần Mã', () => openGiftTab('tm'), ''],
+    ['img/ep/knb.png', 'Kỳ Trân Các', () => openKtcModal(), ktcBadge()],
   ];
 }
 export function quickBarHTML() {

@@ -33,7 +33,7 @@ async function createCharacter(page: Page, name = 'TestKham') {
   await page.locator('#bNotice').click();
   const skip = page.locator('#tSkip');
   if (await skip.isVisible({ timeout: 3000 }).catch(() => false)) await skip.click();
-  await expect(page.locator('#qBar .qb')).toHaveCount(18);
+  await expect(page.locator('#qBar .qb')).toHaveCount(19);
 }
 
 /* Món kiếm trắng (d:0 weapon, k:0 sword, r:0, chưa dòng ma thuật) trong hành trang. */

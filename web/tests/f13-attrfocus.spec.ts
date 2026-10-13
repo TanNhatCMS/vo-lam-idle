@@ -35,7 +35,7 @@ async function createCharacter(page: Page, name: string, facMatch: RegExp) {
   await page.locator('#bNotice').click();
   const skip = page.locator('#tSkip');
   if (await skip.isVisible({ timeout: 5000 }).catch(() => false)) await skip.click();
-  await expect(page.locator('#qBar .qb')).toHaveCount(18);
+  await expect(page.locator('#qBar .qb')).toHaveCount(19);
 }
 
 test('attr-focus: Cái Bang tự nhận diện (Mặc Côn -> Ngoại công), chọn tay, chưa nhận diện giữ điểm', async ({ page }) => {

@@ -6,6 +6,7 @@
 'use strict';
 import { H, R, makeEnemy, stageLevel } from './combat';
 import { obsLoad } from './mapobs';
+import { JMO } from './jdata';
 import { FAC, J, MAX_LEVEL, MON, W, WORLD, ZONES, clamp, esc, fmt, irnd, pick, rnd } from './core';
 import { S, save } from './save';
 import { RW, grant } from './rewards';
@@ -72,12 +73,18 @@ export const weekBossReady = () => !!S.fac;
 
 /* ---------- bí cảnh (khuôn goBossArena của worldboss) ---------- */
 function busy() { return !!(R.dg || R.tower || R.tk || R.tyvo || R.wbArena || R.deadT > 0); }
-function dgZoneOf(map) { return W.zones.find(z => z.id === map) || W.zones.find(z => z.id === ARENA_MAP) || W.zones[0]; }
 function dgEnter(mapId) {
   R.town = false; R.dgArena = true; R.enemies = []; R.corpses = []; R.pickTarget = null; R.moveTo = null;
-  obsLoad(dgZoneOf(mapId).id);
-  H.x = WORLD.w / 2; H.y = WORLD.h / 2; snapCamera();
-  R.bgImg = img(dgZoneOf(mapId).bg); playMusic(dgZoneOf(mapId).id);
+  /* nguồn gw(): chỉ nạp map khi JMO có geometry — không có thì GIỮ map đang đứng
+     (trước đây fallback Sa mạc 224 làm mọi phó bản chung một nền = "thiếu map").
+     Đi thuyền (337): JMO không có → giữ vật cản, nền img/z/336.jpg (Qw của nguồn). */
+  if (JMO && JMO[String(mapId)]) {
+    obsLoad(mapId);
+    H.x = WORLD.w / 2; H.y = WORLD.h / 2; snapCamera();
+    R.bgImg = img('img/z/' + mapId + '.jpg'); playMusic(mapId);
+  } else if (mapId === 337 || mapId === 336) {
+    R.bgImg = img('img/z/336.jpg');                      // Phong Lăng Độ
+  }
 }
 function dgExitArena() {
   if (!R.dgArena) return;

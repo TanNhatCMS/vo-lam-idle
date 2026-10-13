@@ -39,7 +39,7 @@ async function createCharacter(page: Page, name = 'TestHiệp') {
   await page.locator('#bNotice').click();
   const skip = page.locator('#tSkip');
   if (await skip.isVisible({ timeout: 3000 }).catch(() => false)) await skip.click();
-  await expect(page.locator('#qBar .qb')).toHaveCount(18);
+  await expect(page.locator('#qBar .qb')).toHaveCount(19);
 }
 
 /* Đóng modal đang mở (test chỉ verify đường MỞ — nơi thiếu import giết nút). */
@@ -61,7 +61,7 @@ test('tao nhan vat: chon phai -> ten -> vao game, luu save, danh nhau tu dong', 
 
   // lưu save → reload vẫn giữ nhân vật (không về màn chọn phái)
   await page.reload();
-  await expect(page.locator('#qBar .qb')).toHaveCount(18);
+  await expect(page.locator('#qBar .qb')).toHaveCount(19);
   const S2 = await page.evaluate(() => (window as any).__G.S);
   expect(S2.fac).toBe(S.fac);
   expect(S2.name).toBe('TestHiệp');
@@ -80,17 +80,17 @@ const QUICK: { i: number; ten: string; tab?: string; text?: string }[] = [
   { i: 1, ten: 'Tháp II', tab: 'tower' },
   { i: 2, ten: 'Tống Kim', tab: 'tk' },
   { i: 3, ten: 'Phó bản', text: 'Phó bản' },       // hub Hoạt động giang hồ
-  { i: 6, ten: 'Dã Tẩu', tab: 'yt' },
-  { i: 7, ten: 'Bang hội', tab: 'guild' },
-  { i: 8, ten: 'Sổ tay', text: 'kn/giờ' },        // jrModal
-  { i: 9, ten: 'Lò rèn', text: 'Lò Huyền Tinh' }, // htModal (KHÔNG phải forgeModal)
-  { i: 10, ten: 'Kho', text: 'Ngân lượng' },       // stashModal
-  { i: 11, ten: 'Bách khoa', text: 'Bách khoa' },
-  { i: 12, ten: 'Gia tộc', text: 'Gia tộc' },
+  { i: 7, ten: 'Dã Tẩu', tab: 'yt' },
+  { i: 8, ten: 'Bang hội', tab: 'guild' },
+  { i: 9, ten: 'Sổ tay', text: 'kn/giờ' },        // jrModal
+  { i: 10, ten: 'Lò rèn', text: 'Lò Huyền Tinh' }, // htModal (KHÔNG phải forgeModal)
+  { i: 11, ten: 'Kho', text: 'Ngân lượng' },       // stashModal
+  { i: 12, ten: 'Bách khoa', text: 'Bách khoa' },
+  { i: 6, ten: 'Gia tộc', text: 'Gia tộc' },
   { i: 13, ten: 'Tài Xỉu', tab: 'tx' },
   { i: 14, ten: 'Luyện Công', text: 'Luyện Công' },
   { i: 15, ten: 'Đồng hành', text: 'Đồng hành' },  // modal riêng (pet-card-modal)
-  { i: 17, ten: 'Kỳ Trân Các', text: 'Kỳ Trân Các' }, // hub tab KTC
+  { i: 18, ten: 'Kỳ Trân Các', text: 'Kỳ Trân Các' }, // hub tab KTC
 ];
 
 test('gia ng ho: cac nut nhanh chinh mo dung tinh nang', async ({ page }) => {
@@ -123,7 +123,7 @@ test('nhung tinh nang cu: tab nav + Bách khoa chuyển tab', async ({ page }) =
   await page.locator('#tabs button[data-t="log"]').click();
   await expect(page.locator('#qBar')).toBeVisible();
   // Mở Bách khoa rồi chuyển tab — bắt lỗi bind nút tab (thiếu import giết bind)
-  await page.locator('#qBar .qb[data-q="11"]').click();
+  await page.locator('#qBar .qb[data-q="12"]').click();
   await expect(page.locator('#modal:not(.hidden)')).toBeVisible();
   const codexTabs = page.locator('#mBody .dtabs button');
   const nTabs = await codexTabs.count();

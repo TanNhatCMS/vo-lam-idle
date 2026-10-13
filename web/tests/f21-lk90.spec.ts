@@ -19,14 +19,13 @@ async function createCharacter(page: Page, name = 'LK90 Hiệp') {
   await page.locator('#bNotice').click();
   const skip = page.locator('#tSkip');
   if (await skip.isVisible({ timeout: 3000 }).catch(() => false)) await skip.click();
-  await expect(page.locator('#qBar .qb')).toHaveCount(18);
+  await expect(page.locator('#qBar .qb')).toHaveCount(19);
 }
 
 test('lĩnh ngộ: học cần Mật Tịch, miễn phí đã chuyển sinh, luyện +1 cấp, chặn học thường', async ({ page }) => {
   await createCharacter(page);
   await page.evaluate(() => { const G = (window as any).__G; G.S.lvl = 80; G.R.dirty = true; });
-  await page.locator('#qBar .qb[data-q="3"]').click();
-  await page.locator('#mBody [data-event-tab="lk90"]').click();
+  await page.evaluate(() => { (window as any).lk90Modal(); });
   await expect(page.locator('#mBody')).toContainText('Lĩnh ngộ');
   // chưa chuyển sinh + chưa có sách: nút học disabled
   const learnBtn = page.locator('#mBody [data-lk-learn]').first();
@@ -34,20 +33,20 @@ test('lĩnh ngộ: học cần Mật Tịch, miễn phí đã chuyển sinh, luy
   await expect(page.locator('#mBody')).toContainText('Chưa lĩnh ngộ · dùng Mật Tịch để học');
   // có 1 Mật Tịch → học được, trừ sách
   await page.evaluate(() => { const G = (window as any).__G; G.matAdd('misc', 'bk90', 1); });
-  await page.locator('#mBody [data-event-tab="lk90"]').click();
+  await page.evaluate(() => { (window as any).lk90Modal(); });
   await learnBtn.click();
   await expect.poll(() => page.evaluate(() => { const G = (window as any).__G; const r = G.RW(); return Object.keys((r.lk90 || {}).lv || {}).length; })).toBe(1);
   await expect.poll(() => page.evaluate(() => (window as any).__G.matHave('misc', 'bk90'))).toBe(0);
   // luyện chiêu cần thêm sách
-  await page.locator('#mBody [data-event-tab="lk90"]').click();
+  await page.evaluate(() => { (window as any).lk90Modal(); });
   await expect(page.locator('#mBody [data-lk-practice]').first()).toBeDisabled();
   await page.evaluate(() => { (window as any).__G.matAdd('misc', 'bk90', 1); });
-  await page.locator('#mBody [data-event-tab="lk90"]').click();
+  await page.evaluate(() => { (window as any).lk90Modal(); });
   await page.locator('#mBody [data-lk-practice]').first().click();
   await expect.poll(() => page.evaluate(() => { const G = (window as any).__G, r = G.RW(); return Object.values(r.lk90.lv)[0]; })).toBe(2);
   // đã chuyển sinh: học miễn phí
   await page.evaluate(() => { const G = (window as any).__G; G.S.reborn = 1; });
-  await page.locator('#mBody [data-event-tab="lk90"]').click();
+  await page.evaluate(() => { (window as any).lk90Modal(); });
   await expect(page.locator('#mBody')).toContainText('Lĩnh ngộ (miễn phí)');
   const btn2 = page.locator('#mBody [data-lk-learn]:not([disabled])').first();
   await btn2.click();

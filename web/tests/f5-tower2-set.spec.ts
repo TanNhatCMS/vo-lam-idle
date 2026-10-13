@@ -42,7 +42,7 @@ async function createCharacter(page: Page, name = 'TestThap2') {
   await page.locator('#bNotice').click();
   const skip = page.locator('#tSkip');
   if (await skip.isVisible({ timeout: 3000 }).catch(() => false)) await skip.click();
-  await expect(page.locator('#qBar .qb')).toHaveCount(18);
+  await expect(page.locator('#qBar .qb')).toHaveCount(19);
 }
 
 /* Stub Math.random (luu goc de khoi phuc) — dinh xac cac roll trong tower2SetTier. */
@@ -125,7 +125,7 @@ test('drop chance hook: quai Tháp II (towerId=2) roi bo qua rollSetDrop', async
 
 /* Mở Lò Huyền Tinh (nút nhanh thứ 6, thẻ Giang hồ) và chờ modal hiện. */
 async function openForge(page: Page) {
-  await page.locator('#qBar .qb[data-q="9"]').click();
+  await page.locator('#qBar .qb[data-q="10"]').click();
   const modal = page.locator('#modal:not(.hidden)');
   await expect(modal, 'nút Lò rèn phải mở Lò Huyền Tinh').toBeVisible();
   await expect(page.locator('#mBody')).toContainText('Lò Huyền Tinh');

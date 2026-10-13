@@ -1,6 +1,6 @@
 // @ts-nocheck — chuyen tu vanilla JS: bat lai check tung file dan dan (xem README muc TypeScript)
 import { clamp } from './core';
-import { CX, HERO_SCALE, animLen, img } from './render';
+import { CX, CV, HERO_SCALE, animLen, img, setCanvas } from './render';
 import { baseRow } from './loot';
 import { R, recalc } from './combat';
 import { S } from './save';
@@ -66,6 +66,21 @@ function jxOrder(sx, act, dir16, frame) {
   const v = sec['Dir' + (dir16 + 1)] || D['Dir' + (dir16 + 1)] || D.Dir1; return v.slice(1);
 }
 const JX_MS = { st: 120, run: 85 };
+/* Avatar header (nguon Xp): canvas #heroAvatar trong .lvbox — hoan doi CX tam thoi
+   de drawJxHero ve nhan vat dang stan vao canvas nho, xong tra lai. return false = chua
+   du du lieu (TopBar giu anh phai --pl lam fallback). */
+export function drawHeaderAvatar(cv, t) {
+  if (!cv || !R.jx || !JXL) return false;
+  const n = cv.getContext('2d'); if (!n) return false;
+  const saved = CV;
+  setCanvas(cv);
+  try {
+    n.setTransform(cv.width / 46, 0, 0, cv.height / 46, 0, 0);   // khong gian 46 don vi nhu nguon (anchor 23,45)
+    n.clearRect(0, 0, cv.width, cv.height);
+    return drawJxHero('st', 0, t, 23, 45, 0.52, 1, null);
+  } catch (e) { return false; }
+  finally { if (saved) setCanvas(saved); }
+}
 /* Ve nhan vat; tra ve chieu cao (nhu drawAnim) hoac false neu chua du hinh */
 export function drawJxHero(act, dir, t, x, y, sc, alpha, oldKey, horseT = t, horseDir = dir) {
   const J = R.jx; if (!J || !JXL) return false;

@@ -1,4 +1,4 @@
-/* F17 — Hoạt động giang hồ: hub 4 tab (Phó bản / Đi thuyền / Boss tuần / Kỳ Trân Các),
+/* F17 — Hoạt động giang hồ: hub 3 tab (Phó bản / Đi thuyền / Boss tuần) + footer Kỳ Trân Các,
    máy trạng thái phó bản (lượt/ngày, vào trận, phòng), Boss tuần (lượt/tuần, rương).
    Số liệu gốc: XC=2, Vw=3, ZC=3, QC=75s. MOCK /api/chat/* như mọi test. */
 import { test, expect, Page } from '@playwright/test';
@@ -24,7 +24,7 @@ async function createCharacter(page: Page, name = 'HĐGiangHồ') {
   await page.locator('#bNotice').click();
   const skip = page.locator('#tSkip');
   if (await skip.isVisible({ timeout: 3000 }).catch(() => false)) await skip.click();
-  await expect(page.locator('#qBar .qb')).toHaveCount(18);
+  await expect(page.locator('#qBar .qb')).toHaveCount(19);
 }
 
 test('hoạt động: hub mở từ nút Phó bản, đủ tab, danh sách 7 phó bản + lượt/ngày', async ({ page }) => {
@@ -33,10 +33,11 @@ test('hoạt động: hub mở từ nút Phó bản, đủ tab, danh sách 7 ph�
   await page.locator('#qBar .qb[data-q="3"]').click();
   await expect(page.locator('#modal')).toHaveClass(/giang-ho-event-modal/);
   await expect(page.locator('#mBody h3')).toContainText('Hoạt động giang hồ');
-  // 4 tab
-  for (const t of ['Phó bản', 'Đi thuyền', 'Boss tuần', 'Kỳ Trân Các', 'Lĩnh ngộ']) {
+  // 3 tab (nguồn Bw) + footer nút Kỳ Trân Các
+  for (const t of ['Phó bản', 'Đi thuyền', 'Boss tuần']) {
     await expect(page.locator('#mBody .event-tabs')).toContainText(t);
   }
+  await expect(page.locator('#mBody #eventShop')).toContainText('Kỳ Trân Các');
   // 7 phó bản (bảng KC nguồn) + lượt 2/ngày
   await expect(page.locator('#mBody .dg-card')).toHaveCount(7);
   await expect(page.locator('#mBody')).toContainText('Dược Vương Cốc');
@@ -44,7 +45,7 @@ test('hoạt động: hub mở từ nút Phó bản, đủ tab, danh sách 7 ph�
   await expect(page.locator('#mBody')).toContainText('/2');
   // badge KNB trên header khi có KNB
   await page.evaluate(() => { const G = (window as any).__G; G.RW().knb = 12; G.save(); });
-  await expect(page.locator('#knb')).toHaveText('12');
+  await expect(page.locator('#knbTop')).toHaveText('12');
   assertNoErrors();
 });
 

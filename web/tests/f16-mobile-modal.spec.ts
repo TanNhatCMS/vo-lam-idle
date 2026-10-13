@@ -30,7 +30,7 @@ test('mobile: modal vua chieu ngang, dung giua, UI khong bi xep', async ({ brows
   await page.locator('#bNotice').click();
   const skip = page.locator('#tSkip');
   if (await skip.isVisible({ timeout: 3000 }).catch(() => false)) await skip.click();
-  await expect(page.locator('#qBar .qb')).toHaveCount(18);
+  await expect(page.locator('#qBar .qb')).toHaveCount(19);
 
   // trang thai mobile: #app = viewport, khong bi cuon
   const pre = await page.evaluate(() => ({

@@ -24,7 +24,7 @@ async function createCharacter(page: Page) {
   await page.locator('#bNotice').click();
   const skip = page.locator('#tSkip');
   if (await skip.isVisible({ timeout: 3000 }).catch(() => false)) await skip.click();
-  await expect(page.locator('#qBar .qb')).toHaveCount(18);
+  await expect(page.locator('#qBar .qb')).toHaveCount(19);
 }
 
 test('sach diem: the Nhan vat hien card, dung Tẩy Tỵ/Dịch Căn, diem giu qua chuyen sinh', async ({ page }) => {
@@ -96,7 +96,7 @@ test('sach diem: the Nhan vat hien card, dung Tẩy Tỵ/Dịch Căn, diem giu q
 
   await test.step('bach khoa co card Sách điểm', async () => {
     await page.locator('#tabs [data-t="log"]').click();
-    await page.locator('#qBar .qb[data-q="11"]').click();
+    await page.locator('#qBar .qb[data-q="12"]').click();   // Bách khoa
     await expect(page.locator('#mBody')).toBeVisible({ timeout: 8000 });
     await page.locator('#mBody [data-c="mat"]').click();
     await expect(page.locator('#mBody')).toContainText('Sách điểm');
