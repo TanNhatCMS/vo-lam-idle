@@ -194,8 +194,10 @@ export function calc(eq) {
   P.physStat = 1 + (ranged ? P.dex * DEX_PCT_RANGED : P.str) / STR_PER_PCT / 100;
   P.add = {}; for (const e of ELEM) if (e !== 'phys') P.add[e] = av(A, ELEM_ADD[e]);
   P.enh = {}; for (const e in ELEM_ENH) P.enh[e] = av(A, ELEM_ENH[e]);
-  P.crit = clamp(av(A, 'deadlystrikeenhance_p') + av(A, 'deadlystrike_p'), 0, 75);
-  P.aspd = clamp(1 + (av(A, 'attackspeed_v') + av(A, 'castspeed_v')) / 100, 0.5, 3);
+  P.crit = clamp(av(A, 'deadlystrikeenhance_p') + av(A, 'deadlystrike_p') + av(A, 'enhancehit_rate'), 0, 75);
+  // v107: 2 duong toc do — vat ly (1 + attackspeed, Thien Vuong +15%) va phep (0.9 + castspeed)
+  P.aspd = P.aspdPhys = clamp(1 + av(A, 'attackspeed_v') / 100 + (S.fac === 'tianwang' ? 0.15 : 0), 0.5, 3);
+  P.aspdSpell = clamp(0.9 + av(A, 'castspeed_v') / 100, 0.5, 3);
   P.leech = av(A, 'steallife_p') + av(A, 'steallifeenhance_p');
   P.manaLeech = av(A, 'stealmana_p') + av(A, 'stealmanaenhance_p');
   P.ignoreDef = av(A, 'ignoredefense_p');
@@ -267,18 +269,19 @@ export function activeInfo(P, s, L) {
   if (!pe) { let main = null, mv = -1; for (const e in parts) if (parts[e] > mv) { mv = parts[e]; main = e; } if (main) parts[main] += P.eng / ENG_PER_DMG;
     for (const e in parts) parts[e] *= P.spellW || 1; }
   let tot = 0; for (const e in parts) { parts[e] *= skillPct; tot += parts[e]; }
-  const rad = (skVal(s, 'skill_attackradius', L) || [s.radius || 60])[0] || 60;
+  const md = SKILL_MISSILE[s.id];   // chiêu có cấu hình đạn riêng (nguồn lt[t.id])
+  const rad = md ? md.radius : (skVal(s, 'skill_attackradius', L) || [s.radius || 60])[0] || 60;
   const targets = skillTargets(s);
   const cost = (skVal(s, 'skill_cost_v', L) || [0])[0];
   const crit = P.crit + ((skVal(s, 'deadlystrike_p', L) || [0])[0]);
   const series5 = (skVal(s, 'seriesdamage_p', L) || [0])[0];
   const ignore = P.ignoreDef + ((skVal(s, 'ignoredefense_p', L) || [0])[0]);
   const stun = (skVal(s, 'stun_p', L) || [0])[0];
-  const rate = s.phys ? P.aspd : P.aspd * 0.9;
-  const info = { id: s.id, n: s.n, L, parts, tot, rad, melee: rad <= 120, targets, around: s.form === 7, cost, crit, series5, ignore, stun,
+  const rate = s.phys ? P.aspdPhys || P.aspd : P.aspdSpell || P.aspd * 0.9;
+  const info = { id: s.id, n: s.n, L, parts, tot, rad, melee: !md && (rad <= 120 || (s.form || 0) >= 8), targets, around: !md && s.form === 7, radial: md ? md.radial : 0, cost, crit, series5, ignore, stun,
     series: s.series >= 0 ? s.series : P.series, rate, dps: 0, useAR: s.phys,
-    // vat ly thuan = chieu co suc dac cong KHONG pha nguyen to (doc, bang, hoa, loi) — hitChance tran 3% that bai
-    purePhysical: !!s.phys && !(parts.poison || parts.cold || parts.fire || parts.light) };
+    // vat ly thuan = chieu co suc dac cong KHONG co thanh phan nguyen to TRONG BANG ATTR cua chieu (nguồn check t.attr, không phải parts da cong vu khi/phép noi cong)
+    purePhysical: !!s.phys && !(s.attr && (s.attr.poisondamage_v || s.attr.colddamage_v || s.attr.firedamage_v || s.attr.lightingdamage_v)) };
   // DPS du kien: so muc tieu trung thuc te + thoi gian danh cua chieu can chien (khong dung so muc tieu danh nghia)
   // doc: ~25% sat thuong mat khi quai chet truoc khi het doc (POISON_EFF) -> tinh vao DPS du kien (chon chieu, luc chien)
   info.dps = (tot - (parts.poison || 0) * (1 - POISON_EFF) + (parts.phys || 0) * crit / 100 * (CRIT_MULT - 1)) * expectedHits(info) * rate * (info.melee ? MELEE_UPTIME : 1);   // chi mang chi nhan doi phan vat ly (giong heroHit)
@@ -487,7 +490,9 @@ export function canLearn(s) { if (String(s.learn) === '90' && !lk90Learned(s.id)
 const NORM_TIERS = [[1, 19], [20, 39], [40, 59], [60, 79], [80, 999]];
 /* Do tu mo phong (tools: 20 phut x 10 phai): so muc tieu trung thuc te moi lan danh va thoi gian danh cua chieu can chien */
 const MELEE_UPTIME = 0.82;
-function expectedHits(a) { const n = Math.min(3, a.targets); return a.around ? 1 + (n - 1) * 0.12 : 1 + (n - 1) * 0.55; }
+/* Chieu co cau hinh dan rieng (nguon lt[t.id]) — radius/radial override, khong tinh melee */
+const SKILL_MISSILE = { 111: { radial: 4, radius: 384, width: 36, missileScale: 0.45 } };
+function expectedHits(a) { const n = Math.min(3, a.targets); return a.around || a.radial ? 1 + (n - 1) * 0.12 : 1 + (n - 1) * 0.55; }
 function masteryPct(f) { // mon vu khi dung loai vu khi cua phai, cap 20
   let best = 0;
   for (const id of f.skills) { const s = SK[id]; const a = s && !s.enemy && s.attr.addphysicsdamage_p; if (!a) continue;
