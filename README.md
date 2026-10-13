@@ -175,11 +175,17 @@ git push
 ./gradlew.bat assembleRelease
 
 # 6) Tạo release + đính kèm file cần thiết
+#    Đính kèm ĐỦ 4 ZIP (data, assets + data-patch + assets-patch nếu có) —
+#    thiếu patch zip nào mà manifest trỏ tới = user ở bản trước bị lỗi OTA
+#    (app giờ tự chữa bằng full, nhưng vẫn nên upload đủ).
+#    Kiểm tra: `gh release view v2.6.4 --json assets --jq '.assets[].name'`
+#    phải thấy đầy đủ các file mà assets-manifest.json trỏ tới.
 gh release create v2.6.4 \
   app/build/outputs/apk/release/volam-idle-v2.6.4-release.apk \
   ota-data-2.6.4.zip \
-  ota-assets-2.6.4.zip
-  # thêm ota-*-patch-*.zip nếu sinh ra
+  ota-assets-2.6.4.zip \
+  ota-data-patch-2.6.4.zip \
+  ota-assets-patch-2.6.4.zip
 ```
 
 > **Quan trọng:** Tên file ZIP phải khớp đúng với URL trong `assets-manifest.json`. Patch chỉ áp dụng cho người đang ở **phiên bản phát hành liền trước** — nếu bỏ qua ≥1 phiên, app sẽ tải **full** gói tương ứng.

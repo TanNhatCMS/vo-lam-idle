@@ -277,10 +277,16 @@ object OtaManager {
         for ((part, full, patch) in parts) {
             if (full.files.all { hashOnDisk(dir, it) == it.sha256 }) continue
             val cur = if (part == "data") idx.dataVersion else idx.assetsVersion
-            val ok = if (patch != null && cur == patch.from) {
-                installPatch(ctx, patch, "$part-patch", dir, onPhase, onZipProgress)
+            val usedPatch = patch != null && cur == patch.from
+            var ok = if (usedPatch) {
+                installPatch(ctx, patch!!, "$part-patch", dir, onPhase, onZipProgress)
             } else {
                 installZip(ctx, full, part, dir, onPhase, onZipProgress)
+            }
+            if (!ok && usedPatch && !canceled) {
+                // Vá thất bai (ZIP chua up load/URL 404/sha lech) → tu chua bang goi full
+                Log.w(TAG, "patch fail goi $part — tu chua bang full")
+                ok = installZip(ctx, full, part, dir, onPhase, onZipProgress)
             }
             if (!ok) return false
             if (!verifyFiles(ctx, full.files, onPhase)) {
