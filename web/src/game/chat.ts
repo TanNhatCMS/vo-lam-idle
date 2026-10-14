@@ -3,6 +3,7 @@ import { FAC, RAR_COL, SERIES_COL, clamp, esc } from './core';
 import { itemSharePayload, modal, setWorldLeaderboardReturn, setWorldProfilePreviewReturn, toast } from './ui';
 import { R } from './combat';
 import { S } from './save';
+import { REBORN_BASE, REBORN_STEP } from './rewards';
 
 /* ======================= CHAT THE GIOI (port tu volam.vinarpg.com/js/chat.js) =======================
    Ket noi server chat qua Cloudflare Worker proxy: /api/chat/* tuyet doi ve
@@ -193,13 +194,22 @@ function clientId() {
 /* Identity bat buoc: ten + mon phai. Doc S (live binding cua save.ts) ben trong
    ham — goi khi gui tin, luc nay save da nap xong. Chua co nhan vat -> ten rong
    -> send() bao "Hay tao nhan vat truoc". */
+/* Tong so cấp bi mat vi chuyen sinh: lan thu i (tinh tu 0) yeu cau
+   cap REBORN_BASE + REBORN_STEP*i roi reset ve cap 1 (reborn() rewards.ts).
+   Cong vao cap hien tai de server/BXH thay cap "thuc" cua nhan vat. */
+const rebornedLevels = st => {
+  const k = Math.max(0, Math.floor(Number(st && st.rw && st.rw.stat && st.rw.stat.reborn) || 0));
+  return REBORN_BASE * k + REBORN_STEP * k * (k - 1) / 2;
+};
+
 function identity() {
   const st = S;
   const playerFaction = st && st.fac && FAC[st.fac] ? FAC[st.fac] : null;
   return {
     name: playerFaction ? String(st.name || playerFaction.n).trim().slice(0, 24) : '',
     faction: playerFaction ? st.fac : '',
-    level: st && st.fac ? Math.max(1, Number(st.lvl) || 1) : 1,
+    // Cap gui server = cap hien tai + cap cac lan chuyen sinh da tru.
+    level: st && st.fac ? Math.max(1, Number(st.lvl) || 1) + rebornedLevels(st) : 1,
     challenge_mode: st && ['white', 'hard', 'nopot'].includes(st.chal) ? st.chal : '',
     rank_id: st && typeof st.rankId === 'string' && st.rankId ? st.rankId : ''
   };
