@@ -528,14 +528,20 @@ input[type="range"]::-moz-range-thumb{width:15px;height:15px;border:2px solid #f
 .it.magicitem::after,.idet .pic.magicitem::after{content:"";position:absolute;inset:1px;padding:1.5px;border-radius:inherit;background:conic-gradient(from var(--magic-ray-angle,0deg),transparent 0deg 288deg,rgba(67,145,255,.1) 303deg,rgba(82,174,255,.78) 321deg,#d9f6ff 331deg,#459bff 340deg,transparent 352deg 360deg),conic-gradient(from calc(var(--magic-ray-angle-reverse,0deg) + 180deg),transparent 0deg 288deg,rgba(67,145,255,.1) 303deg,rgba(82,174,255,.78) 321deg,#d9f6ff 331deg,#459bff 340deg,transparent 352deg 360deg);-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);mask-composite:exclude;filter:drop-shadow(0 0 2px #419dff99);opacity:.92;pointer-events:none;z-index:3;animation:magicitem-sweep 7s linear infinite}
 @keyframes magicitem-sweep{to{--magic-ray-angle:1turn;--magic-ray-angle-reverse:1turn}}
 @media(prefers-reduced-motion:reduce){.it.magicitem::after,.idet .pic.magicitem::after{animation:none}}
+.it.purpleitem,.idet .pic.purpleitem{isolation:isolate}
+.it.purpleitem::after,.idet .pic.purpleitem::after{content:"";position:absolute;inset:1px;padding:1.5px;border-radius:inherit;background:conic-gradient(from var(--purple-ray-angle,0deg),transparent 0deg 288deg,rgba(178,75,255,.12) 303deg,rgba(196,115,255,.82) 321deg,#ffe5ff 331deg,#a64dff 340deg,transparent 352deg 360deg),conic-gradient(from calc(var(--purple-ray-angle-reverse,0deg) + 180deg),transparent 0deg 288deg,rgba(178,75,255,.12) 303deg,rgba(196,115,255,.82) 321deg,#ffe5ff 331deg,#a64dff 340deg,transparent 352deg 360deg);-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);mask-composite:exclude;filter:drop-shadow(0 0 2px #ba65ffbb);opacity:.94;pointer-events:none;z-index:3;animation:purpleitem-sweep 3.2s linear infinite}
+@keyframes purpleitem-sweep{to{--purple-ray-angle:1turn;--purple-ray-angle-reverse:1turn}}
+@media(prefers-reduced-motion:reduce){.it.purpleitem::after,.idet .pic.purpleitem::after{animation:none}}
 .it.bad{filter:grayscale(.8)} .it.bad i{color:#f66}
 
 /* Vien chay trong hanh trang mac dinh tat; co the bat cho Hoang Kim / Bach Kim trong tuy chon giao dien. */
-.it.goldset::after,.it.platinaset::after,.it.magicitem::after{display:none;animation:none}
+.it.goldset::after,.it.platinaset::after,.it.magicitem::after,.it.purpleitem::after{display:none;animation:none}
 body.inv-border-glow #t-inv .it.goldset::after{display:block;animation:goldset-sweep 3.2s linear infinite}
 body.inv-border-glow #t-inv .it.platinaset::after{display:block;animation:platinaset-sweep 3.2s linear infinite}
+body.inv-border-glow #t-inv .it.purpleitem::after{display:block;animation:purpleitem-sweep 3.2s linear infinite}
 .eqgrid .it.goldset::after{display:block;animation:goldset-sweep 3.2s linear infinite}
 .eqgrid .it.platinaset::after{display:block;animation:platinaset-sweep 3.2s linear infinite}
+.eqgrid .it.purpleitem::after{display:block;animation:purpleitem-sweep 3.2s linear infinite}
 .eqgrid .it.magicitem::after{display:block;animation:magicitem-sweep 7s linear infinite}
 @media(prefers-reduced-motion:reduce){body.inv-border-glow #t-inv .it.goldset::after,body.inv-border-glow #t-inv .it.platinaset::after,.eqgrid .it.goldset::after,.eqgrid .it.platinaset::after,.eqgrid .it.magicitem::after{animation:none}}
 
@@ -1265,3 +1271,168 @@ body.mobile-landscape.tyvo-active .tyvo-hud { top:calc(var(--mobile-top) + 106px
 /* Tab Khác 2.6.17: giảm trong suốt khung chat (nguồn cChatTransparency) */
 body.chat-transparency #worldChat{opacity:.72}
 body.chat-transparency #worldChat:hover{opacity:1}
+
+/* ---------- Che do treo may (AFK) — port nguon v119 ---------- */
+#afk{z-index:80;cursor:pointer;text-align:center;touch-action:manipulation;background:radial-gradient(#0f1b15e0,#030705f5);place-items:center;padding:20px;display:grid;position:absolute;inset:0}
+#afk .afkbox{background:linear-gradient(145deg,#1c2922ed,#0d1511f2);border:1px solid #a8864a;border-radius:14px;justify-items:center;gap:12px;width:min(100%,360px);padding:28px 22px;display:grid;box-shadow:0 12px 40px #000a,inset 0 1px #ffffff16}
+#afk .afkic{color:#e6c67a;border:1px solid #e6c67a;border-radius:50%;place-items:center;width:54px;height:54px;font-size:28px;display:grid}
+#afk .afkbox>b{color:#f2d58f;letter-spacing:.08em;font-size:18px}
+#afk .afkst{color:var(--text);line-height:1.9}
+#afk .afkst b{color:#f2d58f}
+#afk .afkbox small{color:var(--dim);margin-top:4px}
+.afk-saver-toggle{min-height:32px;box-shadow:none;color:#f1d489;white-space:nowrap;background:0 0;border:0;border-radius:0;flex:0 auto;padding:2px 0;font-size:11px}
+.afk-actions{flex-wrap:nowrap;justify-content:space-between;width:100%}
+
+/* ---------- bk90-picker: modal Dùng Võ Lâm Mật Tịch (nguồn v119) ---------- */
+#modal.bk90-skill-modal .mbox{box-sizing:border-box;background-color:#101a15;background-image:radial-gradient(at 8% 0,#c19b481f,#0000 42%),linear-gradient(145deg,#18251efa,#090f0cfc);border-color:#6f927c;width:min(100%,820px);max-height:min(90%,760px);padding:18px;box-shadow:0 18px 55px #000b,inset 0 1px #ffffff0c}
+.bk90-picker{gap:12px;display:grid}
+.bk90-picker-head{border-bottom:1px solid #71816b55;justify-content:space-between;align-items:center;gap:16px;padding:0 42px 10px 0;display:flex}
+.bk90-picker-head h3{color:#f3d68c;margin:0 0 5px;font-size:17px}
+.bk90-picker-head p{color:#adb9ad;margin:0;font-size:11px;line-height:1.5}
+.bk90-book-count{background:linear-gradient(145deg,#292417,#111612);border:1px solid #8a713b;border-radius:8px;flex:none;grid-template-columns:34px auto;align-items:center;gap:0 7px;min-width:84px;padding:6px 9px;display:grid;box-shadow:inset 0 1px #fff1}
+.bk90-book-count img{object-fit:contain;image-rendering:auto;grid-row:span 2;width:32px;height:32px}
+.bk90-book-count b{color:#f4d57f;font-size:13px;line-height:1.1}
+.bk90-book-count small{color:#aeb6a8;font-size:9px}
+.bk90-picker-summary{color:#aeb8aa;letter-spacing:.2px;align-items:center;gap:5px;font-size:10px;display:flex}
+.bk90-picker-summary span{color:#9be19a;font-size:13px;font-weight:700}
+.bk90-skill-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;display:grid}
+.bk90-skill-card{background:linear-gradient(145deg,#1d2b23f0,#101814fa);border:1px solid #384a40;border-radius:9px;grid-template-columns:46px minmax(0,1fr) auto;align-items:center;gap:9px;min-width:0;min-height:70px;padding:9px;transition:border-color .16s,background .16s,box-shadow .16s;display:grid;box-shadow:inset 0 1px #ffffff08}
+.bk90-skill-card.is-ready{background:linear-gradient(145deg,#302a1bd1,#121914fa);border-color:#85713d;box-shadow:inset 0 0 0 1px #e0bd5e12}
+.bk90-skill-card.is-ready:hover{border-color:#dfbd65;box-shadow:inset 0 0 0 1px #e0bd5e24,0 3px 12px #0005}
+.bk90-skill-card.is-training{background:linear-gradient(145deg,#1c3022eb,#0f1712fa);border-color:#557b57;box-shadow:inset 0 0 0 1px #7dd18412}
+.bk90-skill-card.is-training:hover{border-color:#8bc58d;box-shadow:inset 0 0 0 1px #7dd18424,0 3px 12px #0005}
+.bk90-skill-card.is-locked{opacity:.76}
+.bk90-skill-icon{box-sizing:border-box;object-fit:contain;width:44px;height:44px;image-rendering:pixelated;filter:drop-shadow(0 2px 2px #0008);background:radial-gradient(circle at 50% 35%,#34493d,#101713 76%);border:1px solid #52685b;border-radius:8px;padding:4px;display:grid}
+.bk90-skill-icon-fallback{color:#e4c678;place-items:center;font-size:22px}
+.bk90-skill-info>b{color:#f1e5c5;text-overflow:ellipsis;font-size:12px;line-height:1.35;overflow:hidden}
+.bk90-skill-info>small{color:#8f9e91;font-size:9px;line-height:1.35}
+.bk90-skill-status{color:#aab8a9;background:#0d1511;border:1px solid #46564b;border-radius:10px;justify-self:start;padding:2px 6px;font-size:9px;line-height:1.35}
+.is-ready .bk90-skill-status{color:#9be19a;background:#102017;border-color:#4d8054}
+.is-training .bk90-skill-status{color:#a8dca9;background:#102017;border-color:#4d8054}
+.is-learned .bk90-skill-status{color:#b4c5b7;border-color:#4b6455}
+.is-locked .bk90-skill-status{color:#dfbd72;border-color:#65543a}
+.bk90-skill-action{white-space:nowrap;justify-items:center;gap:1px;min-width:112px;min-height:42px;padding:5px 9px;display:grid}
+.bk90-skill-action span{font-size:11px;font-weight:700}
+.bk90-skill-action small{color:#e4c987;font-size:9px;line-height:1.15}
+.bk90-empty{color:#aeb8aa;text-align:center;border:1px dashed #546459;border-radius:8px;grid-column:1/-1;margin:0;padding:18px}
+@media(max-width:640px){
+#modal.bk90-skill-modal .mbox{max-height:calc(100% - 12px);padding:14px}
+.bk90-skill-grid{grid-template-columns:minmax(0,1fr)}
+.bk90-picker-head{gap:8px;padding-right:38px}
+.bk90-picker-head p{max-width:38ch}
+.bk90-picker-head{align-items:flex-start}
+.bk90-picker-head h3{font-size:14px}
+.bk90-book-count{grid-template-columns:28px auto;min-width:68px;padding:5px 6px}
+.bk90-book-count img{width:27px;height:27px}}
+
+/* ---------- trang thành tựu + danh hiệu (nguồn v119) ---------- */
+.achievement-page{gap:9px;display:grid}
+.achievement-overview{background:radial-gradient(at 0 0,#b8953a28,#0000 58%),linear-gradient(135deg,#22291f,#101713);border:1px solid #806b3e;border-radius:10px;grid-template-columns:42px minmax(0,1fr) auto;align-items:center;gap:10px;padding:10px 12px;display:grid;box-shadow:inset 0 1px #ffffff0a}
+.achievement-overview-sigil{color:#f3d47e;text-shadow:0 0 9px #f3d47e66;background:radial-gradient(circle,#594925,#1b2119 72%);border:1px solid #b99952;border-radius:50%;place-items:center;width:40px;height:40px;font-size:23px;display:grid}
+.achievement-overview-copy{gap:4px;min-width:0;display:grid}
+.achievement-overview-copy>small,.achievement-current-title small{color:#bba66e;letter-spacing:.1em;font-size:8px;font-weight:700}
+.achievement-overview-copy>b{color:#f1e4c2;font-size:13px}
+.achievement-overview-copy>b>span{color:#92998b;font-size:11px;font-weight:400}
+.achievement-progress{background:#080d0a;border:1px solid #615534;border-radius:5px;height:5px;overflow:hidden}
+.achievement-progress>i{border-radius:inherit;background:linear-gradient(90deg,#8b6d2e,#f0d27c);height:100%;transition:width .25s;display:block;box-shadow:0 0 8px #e7c66766}
+.achievement-percent{color:#f0d27c;font-variant-numeric:tabular-nums;font-size:19px}
+.achievement-percent small{font-size:10px}
+.achievement-current-title{background:linear-gradient(110deg,#17231b,#111713);border:1px solid #35483c;border-radius:8px;justify-content:space-between;align-items:center;gap:10px;padding:8px 10px;display:flex}
+.achievement-current-title>span{gap:3px;min-width:0;display:grid}
+.achievement-current-title>span>b{color:#a9b4a8;text-overflow:ellipsis;white-space:nowrap;font-size:11px;overflow:hidden}
+.achievement-current-title>span>b.is-wearing{color:#f0d27c}
+.achievement-title-count{text-align:right;flex:none}
+.achievement-title-count>b{color:#d5c58e;font-variant-numeric:tabular-nums;font-size:11px}
+.achievement-intro{color:var(--dim);margin:0;font-size:10px;line-height:1.4}
+.achievement-grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,270px),1fr));gap:7px;display:grid}
+.achievement-card{background:linear-gradient(145deg,#1c2821,#111713 76%);border:1px solid #384a40;border-radius:9px;align-content:start;gap:7px;min-width:0;padding:10px;display:grid;box-shadow:inset 0 1px #ffffff08}
+.achievement-card.is-earned{background:radial-gradient(at 100% 0,#a07e3120,#0000 54%),linear-gradient(145deg,#24271d,#111713 76%);border-color:#75633d}
+.achievement-card.is-locked{background:linear-gradient(145deg,#19211c,#101512 76%);border-color:#344139}
+.achievement-card-head{justify-content:space-between;align-items:center;gap:8px;display:flex}
+.achievement-card-seal{color:#788579;font-variant-numeric:tabular-nums;background:#121a15;border:1px solid #48574a;border-radius:50%;place-items:center;width:23px;height:23px;font-size:9px;display:grid}
+.achievement-card.is-earned .achievement-card-seal{color:#f0d27c;background:radial-gradient(circle,#554622,#201f17);border-color:#aa8a45;font-size:13px}
+.achievement-card-state{color:#879387;letter-spacing:.07em;border:1px solid #3d4d42;border-radius:10px;padding:3px 7px;font-size:8px;font-weight:700}
+.achievement-card.is-earned .achievement-card-state{color:#c8d28d;background:#293021;border-color:#5e633e}
+.achievement-card>h4{color:#e9e0cb;margin:0;font-size:12px;font-weight:600;line-height:1.35}
+.achievement-card.is-earned>h4{color:#f2e6c7}
+.achievement-reward{background:#090f0c66;border-radius:6px;justify-content:space-between;align-items:baseline;gap:8px;padding:5px 7px;display:flex}
+.achievement-reward>small{color:#818d81;letter-spacing:.08em;flex:none;font-size:7px;font-weight:700}
+.achievement-reward>b{color:#d1c7ad;text-align:right;font-size:9px;font-weight:500}
+.achievement-title-line{border-top:1px solid #ffffff12;align-items:center;gap:7px;min-width:0;padding-top:6px;display:flex}
+.achievement-title-sigil{color:#e7ca76;background:#2b271b;border:1px solid #79653d;border-radius:6px;flex:none;place-items:center;width:25px;height:25px;font-size:13px;display:grid}
+.achievement-title-copy{gap:2px;min-width:0;display:grid}
+.achievement-title-copy>small{color:#849084;letter-spacing:.05em;font-size:7px}
+.achievement-title-copy>b{text-overflow:ellipsis;white-space:nowrap;font-size:9px;overflow:hidden}
+.achievement-card-foot{justify-content:flex-end;align-items:center;min-height:27px;display:flex}
+.achievement-title-action{min-width:96px}
+.achievement-title-locked{color:#7e897e;font-size:8px}
+.achievement-how-to{background:#090f0c55;border-left:2px solid #806b3e;border-radius:0 5px 5px 0;gap:3px;padding:6px 7px;display:grid}
+.achievement-how-to>small{color:#bba66e;letter-spacing:.08em;font-size:7px;font-weight:700}
+.achievement-how-to>span{color:#b7beb3;font-size:9px;line-height:1.45}
+
+/* ---------- modal chi tiết kỹ năng (nguồn O_ v107) ---------- */
+.skill-detail{gap:10px;min-width:0;display:grid}
+.skill-detail-header{justify-content:space-between;align-items:center;gap:12px;min-height:48px;padding-right:40px;display:flex}
+.skill-detail-identity{align-items:center;gap:10px;min-width:0;display:flex}
+.skill-detail-identity>h3{color:#f0cf7a;text-overflow:ellipsis;min-width:0;margin:0;font-size:17px;line-height:1.3;overflow:hidden}
+.skill-detail-icon{object-fit:contain;width:42px;height:42px;image-rendering:pixelated;background:radial-gradient(circle at 50% 35%,#39483a,#101713 76%);border:1px solid #76663e;border-radius:8px;flex:none;padding:3px;display:block;box-shadow:inset 0 1px #fff2,0 2px 5px #0008}
+.skill-detail-icon-fallback{color:#e7cd7f;place-items:center;font-size:21px;display:grid}
+.skill-detail-level{color:#c1ccbf;font-variant-numeric:tabular-nums;white-space:nowrap;background:#101813;border:1px solid #45574b;border-radius:7px;flex:none;padding:5px 8px;font-size:11px}
+.skill-detail-desc{color:#b9c2b5;background:linear-gradient(90deg,#b3923d18,#b3923d05 72%,#0000);border-left:2px solid #c4a45b;border-radius:0 7px 7px 0;margin:0;padding:9px 11px;font-size:12px;line-height:1.5}
+.skill-detail-facts{flex-wrap:wrap;align-items:stretch;gap:6px;display:flex}
+.skill-detail-kind,.skill-detail-fact{color:#c3cec2;background:linear-gradient(145deg,#1b2922,#111915);border:1px solid #405248;border-radius:7px;align-items:center;gap:7px;min-height:34px;padding:5px 9px;font-size:11px;line-height:1.25;display:flex}
+.skill-detail-kind{color:#f0d58b;background:linear-gradient(145deg,#342d1c,#1b1b14);border-color:#786638;justify-content:center;font-weight:700}
+.skill-detail-kind.is-attack{color:#f0b496;background:linear-gradient(145deg,#39261f,#1c1714);border-color:#815340}
+.skill-detail-kind.is-passive{color:#cdb9ee;background:linear-gradient(145deg,#2b2438,#18151f);border-color:#62527b}
+.skill-detail-fact{align-content:center;gap:2px;display:grid}
+.skill-detail-fact small{color:#839287;letter-spacing:.7px;text-transform:uppercase;font-size:8px}
+.skill-detail-fact>b{color:#e5e6d9;font-size:11px;font-weight:600}
+.skill-detail-fact.is-limit>b{white-space:nowrap}
+.skill-detail-fact.is-limit>b>i{color:#aeb8aa;font-size:9px;font-style:normal;font-weight:400}
+.skill-detail-fact>i{color:#e5a77d;font-size:9px;font-style:normal}
+.skill-level-card{background:linear-gradient(145deg,#19231d,#101713);border:1px solid #435349;border-radius:8px;gap:5px;margin:0;padding:9px 11px;display:grid}
+.skill-level-card.is-next{background:linear-gradient(145deg,#272419,#121713);border-color:#675c3a}
+.skill-level-head{border-bottom:1px solid #ffffff12;justify-content:space-between;align-items:center;gap:10px;padding-bottom:5px;display:flex}
+.skill-level-head>b{color:#eee5cc;font-size:11px;font-weight:600}
+.skill-level-head>span{color:#e1c879;font-variant-numeric:tabular-nums;flex:none;font-size:9px}
+.skill-effect-list{grid-template-columns:repeat(auto-fit,minmax(220px,1fr));column-gap:16px;display:grid}
+.skill-effect-row{color:#c7d0c2;border-bottom:1px solid #ffffff0a;justify-content:space-between;align-items:baseline;gap:10px;min-width:0;padding:4px 0;font-size:10px;line-height:1.35;display:flex}
+.skill-effect-row>span{min-width:0}
+.skill-effect-row>b{color:#9fe2a0;font-variant-numeric:tabular-nums;text-align:right;flex:none;font-size:10px;font-weight:600}
+.skill-effect-empty{color:var(--dim);padding:3px 0;font-size:10px}
+.skill-damage-support{border-top:1px solid #ffffff12;gap:3px;margin-top:5px;padding-top:7px;display:grid}
+.skill-damage-support>h4{color:#d5decf;margin:0 0 3px;font-size:11px;font-weight:600}
+.skill-damage-row{color:#9fe2a0;border-bottom:1px solid #ffffff0a;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;gap:2px 10px;padding:4px 0;font-size:11px;line-height:1.4;display:grid}
+.skill-damage-link{min-width:0;color:inherit;font:inherit;text-align:left;cursor:pointer;overflow-wrap:anywhere;background:0 0;border:0;padding:0;display:block}
+.skill-damage-link:hover{text-underline-offset:3px;text-decoration:underline}
+.skill-damage-link:focus-visible{outline-offset:3px;border-radius:2px;outline:1px solid #d8c47a}
+.skill-damage-row>b{white-space:nowrap;font-variant-numeric:tabular-nums;font-weight:600}
+.skill-damage-row>small{color:#97aa96;grid-column:1/-1;font-size:9px}
+.skill-damage-row.is-inactive{color:#8a9789}
+.skill-damage-name{overflow-wrap:anywhere;min-width:0}
+.skill-damage-incoming{margin-top:2px}
+.skill-damage-group{gap:2px;display:grid}
+.skill-damage-group+.skill-damage-group{border-top:1px solid #ffffff12;margin-top:6px;padding-top:8px}
+.skill-damage-group-head{color:#d5decf;justify-content:space-between;align-items:baseline;gap:10px;font-size:11px;line-height:1.4;display:flex}
+.skill-damage-group-head>b{overflow-wrap:anywhere;min-width:0;font-weight:500}
+.skill-damage-group-head>span{color:#9fe2a0;font-variant-numeric:tabular-nums;flex:none;font-weight:600}
+.skill-damage-note{color:#97a594;margin:2px 0 4px;font-size:9px;line-height:1.45}
+.skill-damage-preview{margin-top:4px}
+.skill-damage-preview>summary{color:#96a593;cursor:pointer;font-size:10px;line-height:1.5}
+
+/* ---------- Bảng thử nghiệm: tạo vật phẩm theo ý (nguồn v119) ---------- */
+.admin-item-form{gap:9px;display:grid}
+.admin-item-form h3{color:var(--gold);margin:0;font-size:16px}
+.admin-item-form .desc{color:var(--dim);margin:3px 0 0;font-size:11px;line-height:1.4}
+.admin-item-fields{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;display:grid}
+.admin-item-meta{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;display:grid}
+.admin-item-field{color:#d9ceb3;align-content:start;gap:4px;min-width:0;font-size:11px;display:grid}
+.admin-item-field select,.admin-item-field input{width:100%;min-width:0;min-height:32px;padding:5px 8px;font-size:11px}
+.admin-item-section-title{color:var(--gold);margin-bottom:5px;font-size:12px;display:block}
+.admin-item-affixes{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;display:grid}
+.admin-item-affix{min-width:0;color:var(--dim);grid-template-columns:42px minmax(0,1fr);align-items:center;gap:5px;font-size:10px;display:grid}
+.admin-item-affix-controls{grid-template-columns:minmax(0,1fr) 64px;align-items:center;gap:4px;min-width:0;display:grid}
+.admin-item-affix-controls select{width:100%;min-width:0;min-height:30px;padding:4px 26px 4px 7px;font-size:10px}
+.admin-item-affix-controls input[type=number]{width:64px;min-width:0;min-height:30px;padding:4px 5px;font-size:10px}
+.admin-item-preview{border:1px solid var(--line);background:#0d1410;border-radius:6px;align-items:center;gap:8px;min-height:48px;padding:6px 8px;display:flex}
+.admin-item-preview img{object-fit:contain;width:36px;height:36px;image-rendering:pixelated;flex:none}

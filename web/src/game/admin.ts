@@ -7,18 +7,21 @@
 'use strict';
 import {
   ENH_MAX, FAC, INV_MAX, J, MAX_LEVEL, PTS_PER_LEVEL, SKILL_PTS_PER_LEVEL, STAGES,
+  attrName,
+  clamp,
   esc,
   pick,
+  SERIES,
   MON,
 } from './core';
 import { HT_MAX, SHARDS, matAdd } from './recipes';
 import { H, R, makeEnemy, recalc } from './combat';
 import { S, save } from './save';
-import { makeRoom, slotFor } from './loot';
+import { makeItem, makeRoom, slotFor } from './loot';
 import { makeSetItem } from './sets';
 import { RW } from './rewards';
 import { sexReqOk } from './stats';
-import { closeModal, log, modal, refresh, toast } from './ui';
+import { closeModal, itemHTML, log, modal, refresh, setInvDirty, toast } from './ui';
 
 const ADMIN_OPTS = [
   { k: 'lv', n: 'Lên thẳng cấp trần',
@@ -79,7 +82,117 @@ const ADMIN_OPTS = [
       r.so.n = (r.so.n || 0) + 5000;
       return 'Trùm Hoàng Kim & Boss Thế Giới sẵn sàng, +5.000 Vỏ Sò';
     } },
+  { k: 'item', n: 'Tạo vật phẩm theo ý',
+    d: 'Chọn mẫu trang bị, dòng ma thuật muốn có (mặc định giá trị cao nhất trong bậc, chỉnh được từng dòng), xem trước rồi tạo vào hành trang. Món mới bị khóa để tránh tự bán',
+    fn: () => { adminItemCreator(); return 'mở công cụ tạo đồ'; } },
+  { k: 'bk90', n: 'Tạo Võ Lâm Mật Tịch',
+    d: 'Thêm sách vào hành trang để lĩnh ngộ hoặc luyện chiêu cấp 90 (sách xếp chồng, không chiếm ô)',
+    fn: () => { adminBookModal(); return 'mở công cụ tạo sách'; } },
 ];
+
+/* ---------- tao vat pham theo y + tao sach (nguon UE/qE cua v119) ---------- */
+const affixMax = a => a.p.map(([mn, mx]) => mn === -1 && mx === -1 ? -1 : Math.max(mn, mx));
+function affixOptions() {
+  const best = {};
+  for (const a of J.affix) if (!best[a.a] || a.lvl > best[a.a].lvl) best[a.a] = a;
+  return Object.values(best).sort((x, y) => String(x.n || attrName(x.a)).localeCompare(String(y.n || attrName(y.a))));
+}
+function adminItemCreator() {
+  const tierDef = clamp(Math.round(S.lvl / 12), 1, 10);
+  const pool = affixOptions();
+  const opt = (v, l, sel) => `<option value="${v}"${sel ? ' selected' : ''}>${esc(l)}</option>`;
+  const details = J.items.map((g, d) => opt(d, g.n, d === 2)).join('');
+  const parts = d => (J.items[d] ? J.items[d].list : []).map(r => opt(r.k, `${r.n} · cấp ${r.lvl}`, false)).join('');
+  const aff = pool.map(a => opt(a.a, `${a.n || attrName(a.a)} · ${attrName(a.a)}`, false)).join('');
+  const series = SERIES.map((n, i) => opt(i, n, i === 0)).join('');
+  const lines = Array.from({ length: 6 }, (_, i) => `<label class="admin-item-field"><span>Dòng ${i + 1}</span><select data-ai-aff aria-label="Thuộc tính dòng ${i + 1}"><option value="">Không chọn</option>${aff}</select><input data-ai-val type="number" min="0" step="1" hidden aria-label="Giá trị dòng ${i + 1}"></label>`).join('');
+  modal(`<section class="admin-item-form"><header><h3>Tạo vật phẩm theo ý</h3></header>
+    <p class="desc">Chọn mẫu trang bị và các dòng ma thuật muốn có. Mỗi dòng mặc định giá trị cao nhất trong bậc; có thể chỉnh từng giá trị. Món mới được khóa để tránh tự bán.</p>
+    <div class="admin-item-fields"><label class="admin-item-field">Loại trang bị<select id="aiDetail">${details}</select></label><label class="admin-item-field">Mẫu<select id="aiPart"></select></label></div>
+    <div class="admin-item-meta"><label class="admin-item-field">Bậc đồ<input id="aiTier" type="number" min="1" max="10" step="1" value="${tierDef}"></label>
+    <label class="admin-item-field">Hệ<select id="aiSeries">${series}</select></label>
+    <label class="admin-item-field">Hiếm<select id="aiRar">${[0, 1, 2, 3, 4, 5].map(v => opt(v, ['Thường', 'Lam', 'Vàng', 'Tím', 'Hoàng Kim', 'Bạch Kim'][v] || v, v === 2)).join('')}</select></label>
+    <label class="admin-item-field">Cường hóa<input id="aiEnh" type="number" min="0" max="${ENH_MAX}" step="1" value="0"></label></div>
+    <label class="admin-item-field">Tên tùy chỉnh <input id="aiName" type="text" maxlength="60" placeholder="Để trống để dùng tên mẫu"></label>
+    <b class="admin-item-section-title">Thuộc tính ma thuật</b><div class="admin-item-affixes">${lines}</div>
+    <div class="admin-item-preview" id="aiPreview"></div>
+    <div class="btnrow"><button class="btn" id="aiCreate">Tạo vào hành trang</button><button class="btn" id="aiBack">Quay lại bảng thử nghiệm</button></div></section>`, () => {
+    const $id = id => document.getElementById(id);
+    const refreshParts = () => { $id('aiPart').innerHTML = parts(+$id('aiDetail').value); preview(); };
+    const preview = () => {
+      const it = buildDraft();
+      $id('aiPreview').innerHTML = it ? itemHTML(it) : '';
+    };
+    const readLines = () => {
+      const rows = [];
+      document.querySelectorAll('#mBody [data-ai-aff]').forEach((sel, i) => {
+        const a = +sel.value || 0; if (!a) return;
+        const valEl = document.querySelectorAll('#mBody [data-ai-val]')[i];
+        const row = J.affix.filter(x => x.a === a).sort((x, y) => y.lvl - x.lvl)[0];
+        if (!row) return;
+        const p = affixMax(row); const v = Math.max(0, Math.floor(+valEl.value || 0));
+        p[0] = v;
+        rows.push({ a, p, n: row.n, pre: rows.length % 2 === 0 ? 1 : 0 });
+      });
+      return rows;
+    };
+    const buildDraft = () => {
+      const d = +$id('aiDetail').value, k = +$id('aiPart').value;
+      const it = makeItem(d, k, clamp(Math.round(+$id('aiTier').value || tierDef), 1, 10), 0);
+      if (!it) return null;
+      it.s = +$id('aiSeries').value;
+      const rq = it.req.find(q => q[0] === 37); if (rq) rq[1] = it.s;
+      it.r = clamp(Math.round(+$id('aiRar').value || 0), 0, 5);
+      it.enh = clamp(Math.round(+$id('aiEnh').value || 0), 0, ENH_MAX);
+      const nm = String($id('aiName').value || '').trim(); if (nm) it.n = nm;
+      it.mag = readLines();
+      it.locked = true;
+      return it;
+    };
+    $id('aiDetail').onchange = refreshParts;
+    $id('aiPart').onchange = preview;
+    $id('aiTier').onchange = preview;
+    $id('aiSeries').onchange = preview;
+    $id('aiRar').onchange = preview;
+    $id('aiEnh').oninput = preview;
+    $id('aiName').oninput = preview;
+    document.querySelectorAll('#mBody [data-ai-aff]').forEach(sel => sel.onchange = () => {
+      const i = [...document.querySelectorAll('#mBody [data-ai-aff]')].indexOf(sel);
+      const valEl = document.querySelectorAll('#mBody [data-ai-val]')[i];
+      if (sel.value) { const row = J.affix.filter(x => x.a === +sel.value).sort((x, y) => y.lvl - x.lvl)[0]; valEl.value = row ? affixMax(row)[0] : 0; valEl.hidden = false; } else valEl.hidden = true;
+      preview();
+    });
+    document.querySelectorAll('#mBody [data-ai-val]').forEach(el => el.oninput = preview);
+    refreshParts();
+    $id('aiCreate').onclick = () => {
+      const it = buildDraft(); if (!it) { toast('Không tạo được mẫu'); return; }
+      if (S.inv.length >= INV_MAX) makeRoom({ uid: 0 }, true);
+      S.inv.unshift(it);
+      setInvDirty(true); R.dirty = true;
+      try { recalc(); } catch (e) { /* bo qua */ }
+      save(); refresh();
+      toast(`Đã tạo ${it.n} · khóa để tránh tự bán`);
+      log('<span style="color:#8fe34a">[Thử nghiệm]</span> Đã tạo ' + esc(it.n));
+      closeModal();
+    };
+    $id('aiBack').onclick = () => adminModal();
+  });
+}
+function adminBookModal() {
+  modal(`<h3>Tạo Võ Lâm Mật Tịch</h3><p class="desc">Thêm sách vào hành trang để lĩnh ngộ hoặc luyện chiêu cấp 90. Sách xếp chồng, không chiếm thêm ô nếu đã có sẵn.</p>
+    <div class="row"><input type="number" id="aiBk90Count" min="1" max="999" step="1" value="10" aria-label="Số quyển muốn tạo"></div>
+    <div class="btnrow"><button class="btn" id="aiBk90Ok">Tạo vào hành trang</button><button class="btn" id="aiBk90Back">Quay lại bảng thử nghiệm</button></div>`, () => {
+    document.getElementById('aiBk90Ok').onclick = () => {
+      const n = clamp(Math.floor(+document.getElementById('aiBk90Count').value || 1), 1, 999);
+      matAdd('misc', 'bk90', n);
+      save(); refresh();
+      toast(`Đã tạo ${n} Võ Lâm Mật Tịch`);
+      log('<span style="color:#8fe34a">[Thử nghiệm]</span> Đã tạo ' + n + ' Võ Lâm Mật Tịch');
+      adminModal();
+    };
+    document.getElementById('aiBk90Back').onclick = () => adminModal();
+  });
+}
 
 /* Moc ngay: gioi han "1 lan/ngay" cua ban goc. adminDaDung() tra ve false = VO HAN luot (ban clone dang dung
    ban nay). Muon bat lai gioi han: doi thanh `S.adminDay === adminHomNay()`. */

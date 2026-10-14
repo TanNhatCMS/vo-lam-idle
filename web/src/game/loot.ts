@@ -23,6 +23,7 @@ import {
   fmt,
   inWorld,
   irnd,
+  MON,
   pick,
   rnd,
   wpick,
@@ -88,8 +89,13 @@ export function rollMagic(it, levels, lucky = 0) {
   return out;
 }
 function magicCount(cls) {
-  const r = Math.random() * 100 - (cls === 'boss' ? 35 : cls === 'elite' ? 12 : 0) - (R.P ? R.P.lucky : 0) * 0.5;
-  return r < 3 ? irnd(5, 6) : r < 15 ? irnd(3, 4) : r < 50 ? irnd(1, 2) : 0;
+  /* nguon v119/v120: lucky ×.8; boss −55, elite −35; dải 6 / 4-5 / 2-3 / 0-1 */
+  const r = Math.random() * 100 - (R.P ? R.P.lucky : 0) * 0.8 - (cls === 'boss' ? 55 : cls === 'elite' ? 35 : 0);
+  let n = r < 5 ? 6 : r < 23 ? irnd(4, 5) : r < 58 ? irnd(2, 3) : irnd(0, 1);
+  /* v120: Bố Y + quái thường + reborn >= 7 + ải <= 40 -> 25% nâng đồ rơi lên Vàng (2-3 dòng) */
+  const reborn = (S.rw && S.rw.stat && +S.rw.stat.reborn) || 0;
+  if (S.chal === 'white' && cls === 'normal' && reborn >= 7 && S.stage <= 40 && n < 2 && Math.random() < 0.25) n = 2;
+  return S.chal === 'white' ? Math.min(n, 5) : n;   // Bố Y tối đa 5 dòng
 }
 /* cap tung dong thuoc tinh (pnaryMALevel): quanh cap mon do, 1..10 */
 export const magicLevels = (n, tier) => Array.from({ length: n }, () => clamp(tier + irnd(-1, 0), 1, 10));
@@ -118,13 +124,24 @@ export function makeItem(detail, particular, tier, nMagic) {
   it.r = rarityOf(it.mag.length);
   return it;
 }
-/* Roi do khi ha quai: so luong theo loai quai, mon theo RandRate/RandRange cua tep droprate */
+/* He so nhan so mon roi (nguon mt/monsterDropMultiplier): quai "thu thach" co tr > 2
+   nhan +5%/cap toi da x1.5; khong nhan trong Thap / pho ban / Boss The Gioi / dummy */
+function dropCountMul(e) {
+  if (e.dummy || e.wb || R.tower || R.tk || R.dg || R.tyvo) return 1;
+  const t = Number(e.tr ?? (MON[e.tid] && MON[e.tid].tr));
+  return Number.isFinite(t) && t > 2 ? 1 + Math.min(0.5, (t - 2) * 0.05) : 1;
+}
+/* Roi do khi ha quai (nguon Sa/Ta v119/v120): boss 2-4 mon, elite luon 1, thuong 15%*mt;
+   tong so nhan mt (boss/elite) × bonusDrop × dropMul, roi le theo xac suat phan thap phan */
 export function rollDrops(e) {
   const df = dropFile(e.L), items = df.items.filter(x => x[0] === 0 && x[1] <= 9);
-  const dm = R.P ? (R.P.dropMul || 1) : 1;   // tam phap Tham Bao cong ti le roi
-  const n = e.cls === 'boss' ? 3 : e.cls === 'elite' ? (Math.random() < Math.min(1, 0.5 * dm) ? 1 : 0) : (Math.random() < Math.min(1, 0.1 * dm) ? 1 : 0);
+  const dm = R.P ? (R.P.dropMul || 1) : 1;   // tam phap Tham Bao cong so mon roi
+  const mul = dropCountMul(e);
+  const base = e.cls === 'boss' ? irnd(2, 4) : e.cls === 'elite' ? 1 : +(Math.random() < Math.min(1, 0.15 * mul));
+  const o = base * (e.cls === 'normal' ? 1 : mul) * (e.bonusDrop || 1) * dm;
+  const fl = Math.floor(o), n = fl + (o > fl && Math.random() < o - fl ? 1 : 0);
   const out = [];
-  for (let i = 0; i < n * (e.bonusDrop || 1); i++) {
+  for (let i = 0; i < n; i++) {
     const x = wpick(items, r => r[3]); if (!x) continue;
     let [detail, part] = [x[1], x[2]];
     // JX mua vu khi o tiem; game idle khong co tiem -> mot nua so vu khi roi ra dung loai vu khi cua phai
