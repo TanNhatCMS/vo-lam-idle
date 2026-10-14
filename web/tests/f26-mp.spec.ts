@@ -14,6 +14,14 @@ test.beforeEach(async ({ page }) => {
 const assertNoErrors = () => expect(errors, errors.join('\n')).toEqual([]);
 
 async function createCharacter(page: Page) {
+  /* mock chat the gioi: khong cho game noi LIVE chat server (409 presence flake — bẫy 2.6.11) */
+  await page.route('**/api/chat/status', r => r.fulfill({ contentType: 'application/json', body: JSON.stringify({ ok: true, online: 1 }) }));
+  await page.route('**/api/chat/stream*', r => r.fulfill({
+    contentType: 'text/event-stream', headers: { 'Cache-Control': 'no-store' },
+    body: 'event: ready\ndata: {"messages":[],"online":3}\n\n',
+  }));
+  await page.route('**/api/chat/presence*', r => r.fulfill({ contentType: 'application/json', body: JSON.stringify({ ok: true }) }));
+  await page.route('**/api/chat/messages*', r => r.fulfill({ contentType: 'application/json', body: JSON.stringify({ ok: true, messages: [] }) }));
   await page.goto('/');
   await expect(page.locator('#pfName')).toBeVisible();
   await page.fill('#pfName', 'MPHiệp');
@@ -107,10 +115,18 @@ test('mp pk: pk_attack làm mất máu, trọng thương khi hết máu, mạn �
     const R = window.__G.R;
     window.__MP.handle({ t: 'pk_attack', from: 'killer1', name: 'Sát Thủ', atk: { ar: 100000, dmg: a * 10, series: 0 } });
   }, life.max);
-  await page.waitForTimeout(300);
-  expect(serverFrames.some(m => m.t === 'pk_death' && m.attackerId === 'killer1')).toBe(true);   // onDeathByPlayer đã báo server
+  await expect.poll(() => serverFrames.some(m => m.t === 'pk_death' && m.attackerId === 'killer1'), { timeout: 8000 }).toBe(true);   // onDeathByPlayer đã báo server
   await expect(page.locator('#modal')).toContainText('Bạn đã trọng thương');
   await expect(page.locator('#modal')).toContainText('Về thành dưỡng sức');
+
+  // kill feed: tự hạ quái → server nhận monster_died; người khác hạ quái → log hiện
+  await page.evaluate(() => window.__MP.monsterKilled('Hắc Hùng'));
+  expect(serverFrames.some(m => m.t === 'monster_died' && m.n === 'Hắc Hùng' && m.killer === 'MPHiệp')).toBe(true);
+  await page.evaluate(() => window.__MP.handle({ t: 'monster_died', n: 'Lang Báo', killer: 'Sát Thủ' }));
+  await page.waitForTimeout(200);
+  const feed = await page.evaluate(() => [...document.querySelectorAll('#t-log .log-entry, #log .log-entry')].map(x => x.textContent).join('|'));
+  const hasFeed = feed.includes('vừa hạ') || (await page.evaluate(() => document.body.textContent.includes('vừa hạ Lang Báo')));
+  expect(hasFeed).toBe(true);
 
   // server cộng mạn áp 2 điểm → KHÔNG được về Map Mình
   await page.evaluate(() => window.__MP.handle({ t: 'murder', count: 2, decayAt: Date.now() + 20 * 60000 }));

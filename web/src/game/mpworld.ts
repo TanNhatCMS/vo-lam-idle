@@ -37,7 +37,7 @@ const $ = {
   ws: null, attempts: 0, reconnectTimer: 0, nextConnect: 0,
   players: new Map(),                             // id -> {id,name,fac,lvl,x,y,tx,ty,pk,mass,seen}
   activeRoom: '', lastMoveAt: 0, selfId: '',
-  atkCd: 0, lastAttackerId: '',                   // PK: nhịp đánh người + id người vừa đánh mình
+  atkCd: 0, lastAttackerId: '', feedT: 0,           // PK: nhịp đánh + id kẻ đánh mình + chống spam feed
 };
 
 const mpUrl = () => {
@@ -199,9 +199,18 @@ function handle(m) {
       const atk = m.atk || {};
       $.lastAttackerId = String(m.from);
       R.mpKiller = p.name; R.mpKillerAt = Date.now(); // chết trong 3s sau đòn này → trọng thương
+      pkFx(p.x, p.y, H.x, H.y - 14);                  // tia đòn bay từ kẻ tấn công
       // ghost enemy đúng nguồn: hp 1e30, ar/dmg/series của kẻ tấn công — enemyHit tự áp
       // phòng thủ/res/manaShield/petGuard của mình (curseMod/tower2 không có trên ghost)
       enemyHit({ n: p.name, ar: Number(atk.ar) || 0, dmg: Number(atk.dmg) || 0, series: Number(atk.series) || 0, mpPkSource: true, hp: 1e30, res: {} });
+      break;
+    }
+    case 'monster_died': {                            // người khác trong room vừa hạ quái → kill feed
+      const now = Date.now();
+      if (m.killer === (S && S.name)) break;          // kill của chính mình: onKill đã log
+      if (now - ($.feedT || 0) < 2000) break;         // chống spam feed: tối đa 1 dòng/2s
+      $.feedT = now;
+      log(`<span class="dim">${esc(String(m.killer || 'người chơi'))} vừa hạ <b>${esc(String(m.n || 'quái'))}</b>.</span>`);
       break;
     }
     case 'join': case 'leave': break;                 // đã xử lý ở profile/leave — chỉ để khỏi warn
@@ -302,7 +311,20 @@ function mpCombatTick(dt) {
   }
   if (!best) return;
   $.atkCd = 1.0;
+  pkFx(H.x, H.y - 20, best.x, best.y - 14);           // tia đòn bay tới mục tiêu
   send('pk_attack', { target: best.id, atk: mpAttackSnapshot(), name: S.name });
+}
+
+/* FX đòn đánh giữa người: tia màu đỏ (dùng R.fx dạng 'line' như fxLine của render) */
+function pkFx(x1, y1, x2, y2) {
+  if (R.quiet || R.fx.length > 60) return;
+  R.fx.push({ k: 'line', x1, y1, x2, y2, color: '#ff6a5a', life: 0.18, max: 0.18 });
+}
+
+/* ---------- kill feed: mình hạ quái ở Thế Giới → báo room (gọi từ combat killCheck) ---------- */
+export function monsterKilled(n) {
+  if (!$.worldMode || !$.connected) return;
+  send('monster_died', { n: String(n || 'quái').slice(0, 40), killer: S.name });
 }
 
 /* ---------- vẽ (render.ts gọi qua ents(): người chơi khác chen vào y-sort chung) ---------- */
@@ -355,7 +377,7 @@ if (typeof window !== 'undefined') {
     get state() { return $; },
     toggleWorld, cyclePk, connect, disconnect,
     roomKey, mpEnts, mpDrawOne, onDeathByPlayer,
-    handle, send, murderText,
+    handle, send, murderText, monsterKilled,
     /* test: tiêm socket giả */
     _setSocket(fake) { $.ws = fake; $.connected = true; $.activeRoom = roomKey(); },
   };

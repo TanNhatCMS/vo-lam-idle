@@ -191,8 +191,9 @@ export class MpRoom {
         if (kws) kws.send(JSON.stringify({ t: "murder", count: newCount, decayAt: newDecay }));
         break;
       }
-      // phase 2 sau: monsters/ground_drop/drop_pickup — relay mui cho ca room
-      case "monsters": case "ground_drop": case "drop_pickup":
+      // phase 2 sau: monsters/ground_drop/drop_pickup — relay mui cho ca room;
+      // monster_died = kill feed (client hien log, khong dong bo trang thai quai)
+      case "monsters": case "ground_drop": case "drop_pickup": case "monster_died":
         this.broadcast(m, cid);
         break;
     }
