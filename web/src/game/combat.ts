@@ -89,7 +89,7 @@ export const zoneIdx = st => Math.min(ZONES.length - 1, Math.floor((st - 1) / ZO
 export const zoneOf = st => ZONES[zoneIdx(st)];
 export const inZone = st => ((st - 1) % ZONE_STAGES) + 1;
 export function stageLevel(st) {
-  if (st > STAGES) return Math.min(MAX_LEVEL, 160 + Math.floor((st - STAGES) / 2));   // ai sau vung cuoi kep o cap toi da: nhip len cap 99 (tests: pacing) da hieu chinh voi kep nay; bo kep thi cap 99 mat > 60 gio
+  if (st > STAGES) return Math.min(MAX_LEVEL, 500 + Math.floor((st - STAGES) / 2));   // 38 vung theo nguon 2026-10-14: cap toi da 500 (Dương Trung động); sau do nhip nua cap/ai
   const z = zoneOf(st); return Math.round(z.lo + (inZone(st) - 1) * (z.hi - z.lo) / (ZONE_STAGES - 1));
 }
 /* Cap quái thuc tế (port upstream fc 2026-10-11): o thach Bố Y (chal=white),

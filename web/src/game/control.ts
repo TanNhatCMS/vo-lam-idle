@@ -223,6 +223,9 @@ export function bindControls() {
   window.addEventListener('keydown', ev => {
     if (/INPUT|TEXTAREA|SELECT/.test((ev.target as HTMLElement).tagName)) return;
     const k = ev.key.length === 1 ? ev.key.toLowerCase() : ev.key; INPUT.keys[k] = true;
+    const jxAfk = (window as any).jxAfk;
+    if (jxAfk && (window as any).JXAFK) { ev.preventDefault(); ev.stopImmediatePropagation(); if ((k === 'b' || k === 'Escape') && !ev.repeat) jxAfk(false); return; }   // treo may: mo khoa bang B/Esc
+    if (k === 'b' && !ev.repeat && !ev.ctrlKey && !ev.metaKey && !ev.altKey && !SV.on && !R.tower && !R.tk && !R.tyvo && !R.dg && jxAfk) { ev.preventDefault(); jxAfk(true); }   // B = treo may
     if (SV.on) { if (!ev.repeat && (k === 'p' || k === 'Escape')) svPause(); return; }   // Luyen Cong: chi di chuyen + tam dung
     if (['w', 'a', 's', 'd', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(k) && !manual()) setCtrl('manual');
     if (ev.repeat) return;
@@ -243,10 +246,10 @@ export function drawJoystick(c) {
   if (!fixed && !(on && INPUT.moved)) return;
   const ox = fixed ? a.x : INPUT.ox, oy = fixed ? a.y : INPUT.oy;
   c.globalAlpha = on ? 0.35 : 0.12; c.fillStyle = '#000'; c.beginPath(); c.arc(ox, oy, JOY_R, 0, 7); c.fill();
-  const ring = img('ui/ring.png');                           // vong sang vang goc (tools/extract_ui.py), thieu thi ve vien
+  const ring = img('ui/ring.png');                           // vong sang vang (nguon v119: anh don 256x256, ve tinh)
   if (ring && ring.complete && ring.naturalWidth) {
-    const n = 4, fw = ring.naturalWidth / n, fr = Math.floor(performance.now() / 90) % n, sz = JOY_R * 2.6;
-    c.globalAlpha = on ? 0.9 : 0.4; c.drawImage(ring, fr * fw, 0, fw, ring.naturalHeight, ox - sz / 2, oy - sz / 2, sz, sz);
+    const sz = JOY_R * 2.6;
+    c.globalAlpha = on ? 0.55 : 0.2; c.drawImage(ring, ox - sz / 2, oy - sz / 2, sz, sz);
   } else { c.globalAlpha = on ? 0.8 : 0.35; c.strokeStyle = '#e6c67a'; c.lineWidth = 2; c.beginPath(); c.arc(ox, oy, JOY_R, 0, 7); c.stroke(); }
   if (on) {
     const dx = INPUT.x - ox, dy = INPUT.y - oy, l = Math.hypot(dx, dy), k = l > JOY_R ? JOY_R / l : 1;

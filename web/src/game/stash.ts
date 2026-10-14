@@ -212,7 +212,7 @@ let stashTab = 'item';
 function stashInvCell(it) { return itemCell(it).replace('<button class="it ', '<button draggable="true" data-stash-drag="inventory" class="it stash-draggable '); }
 function stashPotionInvCell(p) { const n = potStock(p.kind)[p.tier] || 0; return `<button type="button" class="it potion-inv-cell stash-draggable" data-stash-drag="inventory-potion" data-potion-kind="${p.kind}" data-potion-tier="${p.tier}" title="${esc(p.n)} · ${n} bình"><img src="${esc(p.ic || '')}" alt="" draggable="false"><i>${n}</i></button>`; }
 function stashCell(it, i) {
-  const frame = it.set && it.set.kind === 'gold' ? ' goldset' : it.set && it.set.kind === 'platina' ? ' platinaset' : !it.set && it.r === 1 ? ' magicitem' : '';
+  const frame = it.set && it.set.kind === 'gold' ? ' goldset' : it.set && it.set.kind === 'platina' ? ' platinaset' : !it.set && it.r === 3 ? ' purpleitem' : !it.set && it.r === 1 ? ' magicitem' : '';
   return `<button draggable="true" data-stash-drag="stash" class="it stash-draggable r${it.r}${frame}${reqOk(it) ? '' : ' bad'}" data-si="${i}" title="${esc(it.n + ' · ' + itemLevelLabel(it))}">${it.ic ? `<img src="${esc(it.ic)}" alt="" draggable="false">` : ''}<i>${itemLevelBadge(it)}</i>${it.s >= 0 ? `<b class="s5" style="background:${SERIES_COL[it.s]}"></b>` : ''}${it.enh ? `<em>+${it.enh}</em>` : ''}</button>`;
 }
 function stashGrid(items, capacity, render) {
@@ -388,7 +388,7 @@ export function stashModal(tab?) {
       <div class="btnrow"><button class="btn" id="stIn">Gửi vào kho</button><button class="btn" id="stOut">Rút ra</button><button class="btn" id="stInAll">Gửi hết</button><button class="btn" id="stOutAll">Rút hết</button></div>`;
   } else {
     body += `<p class="desc">Chuyển kho sang thiết bị khác: tải file kho (.jxkho) ở đây, nạp ở thiết bị kia. Nạp file sẽ <b>thay thế</b> kho hiện tại. File có chữ ký, sửa tay sẽ bị từ chối.</p>
-      <div class="btnrow"><button class="btn" id="stDl">Tải file kho</button><button class="btn red" id="stUp">Nạp file kho</button></div>`;
+      <div class="btnrow"><button class="btn" id="stDl">Tải file kho</button><button class="btn red" id="stUp">Nạp file kho</button><button class="btn red" id="stCodeUp">Nhập mã kho</button></div>`;
   }
   modal(`<h3>Kho chung <small>${fmt(st.gold)} lượng · ${stashUsed(st)} ô</small></h3><div class="dtabs" id="stTabs">${tabs.map(([k, n]) => `<button data-st="${k}" class="${k === stashTab ? 'on' : ''}">${n}</button>`).join('')}</div>${body}`, () => {
     const q = s => document.querySelectorAll('#mBody ' + s);
@@ -410,6 +410,7 @@ export function stashModal(tab?) {
     on('#stDl', () => { const blob = new Blob([stashFileText()], { type: 'application/json' }), a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `jxidle_kho_${new Date().toISOString().slice(0, 10)}.jxkho`; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500); toast('Đã tải file kho'); });
     on('#stUp', () => { const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.jxkho,.json'; inp.style.display = 'none';
       inp.onchange = () => { const f = inp.files && inp.files[0]; inp.remove(); if (!f) return; const r = new FileReader(); r.onload = () => stashImportFlow(String(r.result)); r.readAsText(f); }; document.body.appendChild(inp); inp.click(); });
+    on('#stCodeUp', () => khoCodeModal());
   });
 }
 function stashItemModal(i) {
@@ -424,5 +425,77 @@ function stashImportFlow(txt) {
   modal(`<h3>Nạp file kho</h3><p class="desc">File: <b>${stashUsed(st)}</b> ô đồ, <b>${fmt(st.gold)}</b> lượng. Kho hiện tại: ${stashUsed(cur)} ô đồ, ${fmt(cur.gold)} lượng. Nạp sẽ <b>thay thế</b> kho hiện tại.</p>
     <div class="btnrow"><button class="btn red" id="stOk">Thay thế kho</button><button class="btn" id="stNo">Hủy</button></div>`, () => {
     $('#stOk').onclick = () => { const r = stashImport(st); toast(r.msg); stashModal(); }; $('#stNo').onclick = () => stashModal('file');
+  });
+}
+
+/* ---------- ma kho (JXIDLE-KHO1): dan ma chep tu trang thong tin mon de nhap do vao hanh trang (nguon Pd/nv/wO) ---------- */
+const KHO_PREFIX = 'JXIDLE-KHO1:', KHO_MAX_ITEMS = 300;
+const khoNum = v => typeof v === 'number' && Number.isFinite(v) && Math.abs(v) <= 1e9;
+const khoInt = (v, lo, hi) => Number.isSafeInteger(v) && v >= lo && v <= hi;
+const khoPairs = (v, max) => Array.isArray(v) && v.length <= max && v.every(l => Array.isArray(l) && l.length === 2 && l.every(khoNum));
+const khoTriples = (v, max) => Array.isArray(v) && v.length <= max && v.every(l => Array.isArray(l) && l.length === 3 && l.every(khoNum));
+const khoMag = (v, max) => Array.isArray(v) && v.length <= max && v.every(l => l && khoInt(l.a, 0, 1e4) && Array.isArray(l.p) && l.p.length === 3 && l.p.every(khoNum) && (l.pre == null || l.pre === 0 || l.pre === 1) && (l.n == null || typeof l.n === 'string' && l.n.length <= 120));
+
+/* Doc ma kho -> danh sach item hop le; null neu khong phai ma kho (nguon Pd) */
+function khoCodeItems(txt) {
+  let t = String(txt || '').trim().replace(/^\uFEFF/, ''), n;
+  if (t.startsWith(KHO_PREFIX)) {
+    const b = t.slice(KHO_PREFIX.length);
+    if (!b || b.length > 2e6) throw Error('Mã kho rỗng hoặc quá lớn');
+    try { n = JSON.parse(decodeURIComponent(escape(atob(b)))); } catch { throw Error('Mã kho không hợp lệ'); }
+  } else if (t.startsWith('{')) {
+    try { n = JSON.parse(t); } catch { return null; }
+    if (!n || n.game !== 'jxidle-inventory') return null;
+  } else return null;
+  if (!n || n.game !== 'jxidle-inventory' || n.version !== 1 || !Array.isArray(n.items) || n.items.length < 1 || n.items.length > KHO_MAX_ITEMS) throw Error('Mã kho không đúng phiên bản hoặc vượt giới hạn 300 món');
+  return n.items.map(e => {
+    if (!e || !khoInt(e.d, 0, 10) || !khoInt(e.k, 0, 1e5) || typeof e.n !== 'string' || !e.n.trim() || e.n.length > 160 || !khoInt(e.lvl, 1, 1e4) || !khoInt(e.s, -1, 4) || typeof e.ic !== 'string' || e.ic.length > 512 || /^(?:[a-z]+:|\/)|(^|\/)\.\.(?:\/|$)|[<>"'`]/i.test(e.ic) || !khoTriples(e.base, 64) || !khoPairs(e.req, 100) || !khoMag(e.mag, 6) || !khoMag(e.ext, 2) || !khoNum(e.price) || e.price < 0 || !khoInt(e.r, 0, 5)) throw Error('Mã kho có item không hợp lệ');
+    if (e.enchaseCount != null && (!khoInt(e.enchaseCount, 1, 6) || e.enchaseCount > e.mag.length)) throw Error('Mã kho có số dòng khảm không hợp lệ');
+    const it = { d: e.d, k: e.k, n: e.n, ic: e.ic, lvl: e.lvl, s: e.s, base: e.base.map(([a, b, c]) => [a, b, c]), req: e.req.map(([a, b]) => [a, b]), price: e.price, mag: e.mag.map(l => ({ a: l.a, p: l.p.slice(), pre: l.pre === 0 ? 0 : 1, ...(l.n ? { n: l.n } : {}) })), ext: e.ext.map(l => ({ a: l.a, p: l.p.slice(), pre: l.pre === 0 ? 0 : 1, ...(l.n ? { n: l.n } : {}) })), r: e.r, locked: true };
+    if (e.enchaseCount != null) it.enchaseCount = e.enchaseCount;
+    if (e.set != null) {
+      const st = e.set;
+      if (!st || !['gold', 'platina'].includes(st.kind) || !khoInt(st.grp, 0, 1e6) || !khoInt(st.n1, 1, 99) || !khoInt(st.n2, 1, 99) || !khoInt(st.sid, 0, 999) || ![0, 1].includes(st.localPowerTier) || st.source != null && st.source !== 'tower2') throw Error('Mã kho có thông tin bộ trang bị không hợp lệ');
+      it.set = { kind: st.kind, grp: st.grp, n1: st.n1, n2: st.n2, sid: st.sid, localPowerTier: st.localPowerTier, ...(st.source === 'tower2' ? { source: 'tower2' } : {}) };
+      if (it.mag.length > 6 || it.ext.length > 2) throw Error('Mã kho có quá nhiều dòng trang bị');
+    } else if (!khoInt(e.p, 0, 1e6) || it.ext.length) throw Error('Mã kho có item thường không hợp lệ');
+    return it;
+  });
+}
+
+/* Xac nhan roi unshift vao hanh trang (nguon nv) */
+function khoImportFlow(items) {
+  if (!S.fac) { toast('Hãy mở một nhân vật trước khi nhập mã kho'); return; }
+  if (!Array.isArray(items) || !items.length) { toast('Mã kho không có vật phẩm'); return; }
+  const need = () => { const free = invMax() - invUsed(); return free < items.length ? `Hành trang không đủ chỗ: cần thêm ${items.length} ô, hiện còn ${Math.max(0, free)} ô trống` : ''; };
+  if (need()) { toast(need()); return; }
+  modal(`<h3>Thêm item vào hành trang?</h3><p class="desc">Thêm <b>${items.length}</b> món vào hành trang của <b>${esc(S.name || '')}</b>? Nhân vật hiện tại sẽ được giữ nguyên.</p>
+    <div class="btnrow"><button class="btn" id="khoImportCancel">Hủy</button><button class="btn" id="khoImportConfirm">Thêm vào hành trang</button></div>`, () => {
+    $('#khoImportCancel').onclick = () => closeModal();
+    $('#khoImportConfirm').onclick = () => {
+      if (need()) { toast(need()); return; }
+      if (!Number.isSafeInteger(S.uid) || S.uid < 1) S.uid = 1;
+      const added = items.map(it => ({ ...it, uid: S.uid++ }));
+      S.inv.unshift(...added);
+      setInvDirty(true); R.dirty = true; save();
+      refresh();
+      closeModal();
+      toast(`Đã nhập ${added.length} món từ mã kho vào hành trang`);
+    };
+  });
+}
+
+function khoCodeModal(prev = '') {
+  modal(`<h3>Nhập mã kho</h3><p class="desc">Dán mã JXIDLE-KHO1 đã chép từ trang thông tin món. Sau khi xác nhận, item sẽ được thêm vào Hành trang của nhân vật hiện tại.</p>
+    <textarea id="khoCodeText" rows="5" placeholder="JXIDLE-KHO1:"></textarea>
+    <div class="btnrow"><button class="btn red" id="khoCodeContinue">Nhập vào hành trang</button><button class="btn" id="khoCodeCancel">Hủy</button></div>`, () => {
+    $('#khoCodeText').value = prev;
+    $('#khoCodeContinue').onclick = () => {
+      const txt = String($('#khoCodeText').value || '').trim().replace(/^\uFEFF/, '');
+      if (!txt.startsWith(KHO_PREFIX)) { toast(`Mã cần bắt đầu bằng ${KHO_PREFIX}`); return; }
+      let items; try { items = khoCodeItems(txt); } catch (e) { toast(e.message || 'Mã kho không hợp lệ'); khoCodeModal(String($('#khoCodeText').value || '')); return; }
+      khoImportFlow(items);
+    };
+    $('#khoCodeCancel').onclick = () => stashModal('file');
   });
 }

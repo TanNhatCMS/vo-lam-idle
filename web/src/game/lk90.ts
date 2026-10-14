@@ -51,22 +51,33 @@ export function lk90Practice(id) {
   return { ok: true, msg: `Luyện ${s.n} lên cấp ${lv.lv[id]}` };
 }
 
-/* ---------- modal Lĩnh ngộ ---------- */
+/* ---------- modal Lĩnh ngộ — picker lưới thẻ theo nguồn v119 (bk90-picker) ---------- */
 export function lk90Body(r) {
   const list = SK90();
-  if (!list.length) return '<p class="lk90-empty">Môn phái này không có võ công cần Mật Tịch.</p>';
-  const lv = learned().lv;
-  const rows = list.map(s => {
-    const cur = lv[s.id], free = S.reborn > 0;
-    const state = cur
-      ? `<small class="lk90-on">Đã lĩnh ngộ · cấp ${cur}/${s.max || 20}${free ? ' · luyện không tốn sách?' : ''}</small>`
-      : `<small class="dim">${free ? 'Có thể học · không tốn sách' : 'Chưa lĩnh ngộ · dùng Mật Tịch để học'}</small>`;
-    return `<div class="lk90-row"><div class="lk90-mid"><b>${esc(s.n)}</b>${state}</div>
-      <div class="btnrow">${cur
-        ? `<button class="btn sm" data-lk-practice="${s.id}" ${cur >= (s.max || 20) || matHave('misc', 'bk90') < 1 || R.tyvo ? 'disabled' : ''}>Luyện chiêu (−1 Mật Tịch)</button>`
-        : `<button class="btn sm" data-lk-learn="${s.id}" ${R.tyvo || (!free && matHave('misc', 'bk90') < 1) ? 'disabled' : ''}>${free ? 'Lĩnh ngộ (miễn phí)' : 'Lĩnh ngộ (−1 Mật Tịch)'}</button>`}</div></div>`;
+  if (!list.length) return '<p class="bk90-empty">Môn phái này không có võ công cần Mật Tịch.</p>';
+  const lv = learned().lv, book = matHave('misc', 'bk90'), free = S.reborn > 0;
+  let ready = 0, trainable = 0;
+  const cards = list.map(s => {
+    const cur = lv[s.id] || 0, max = s.max || 20;
+    const canLearn = !R.tyvo && !cur && (free || book > 0);
+    const canTrain = !R.tyvo && cur > 0 && cur < max && book > 0;
+    if (canLearn) ready++;
+    if (canTrain) trainable++;
+    const status = cur
+      ? (cur >= max ? `Đã lĩnh ngộ · cấp ${cur}/${max} · đã luyện tối đa` : `Đã lĩnh ngộ · cấp ${cur}/${max}`)
+      : (R.tyvo ? 'Không thể đổi võ công trong lúc Tỷ Võ' : free ? 'Có thể học · không tốn sách' : book > 0 ? 'Có thể lĩnh ngộ' : 'Chưa lĩnh ngộ · cần Võ Lâm Mật Tịch');
+    const icon = s.ic ? `<img class="bk90-skill-icon" src="${esc(s.ic)}" alt="" draggable="false">` : '<span class="bk90-skill-icon bk90-skill-icon-fallback" aria-hidden="true">⚔</span>';
+    const btn = canLearn
+      ? `<button type="button" class="btn bk90-skill-action" data-lk-learn="${s.id}"><span>${free ? 'Học chiêu' : 'Lĩnh ngộ'}</span><small>${free ? 'Miễn phí' : '−1 Mật Tịch'}</small></button>`
+      : canTrain
+        ? `<button type="button" class="btn bk90-skill-action" data-lk-practice="${s.id}"><span>Luyện chiêu</span><small>−1 Mật Tịch · +1 cấp</small></button>`
+        : '';
+    return `<article class="bk90-skill-card${canLearn ? ' is-ready' : canTrain ? ' is-training' : cur ? ' is-learned' : ' is-locked'}">${icon}
+      <div class="bk90-skill-info"><b>${esc(s.n)}</b><small>Võ công bậc 90 · yêu cầu cấp ${s.req}${cur ? ` · cấp ${cur}/${max}` : ''}</small><span class="bk90-skill-status">${esc(status)}</span></div>${btn}</article>`;
   }).join('');
-  return `<p class="desc">Võ công cấp 90 chỉ mở qua <b>Võ Lâm Mật Tịch</b> — đang có <b>${matHave('misc', 'bk90')}</b> cuốn (trùm từ cấp 90 rơi, hoặc mua ở Kỳ Trân Các). Đã chuyển sinh: lĩnh ngộ <b>miễn phí</b>. Chiêu đã lĩnh ngộ luyện tiếp bằng sách, tối đa cấp ${list[0].max || 20}.</p>${rows}`;
+  return `<section class="bk90-picker"><header class="bk90-picker-head"><div><h3>Dùng Võ Lâm Mật Tịch</h3><p>Lĩnh ngộ chiêu mới tốn 1 sách. Chiêu đã lĩnh ngộ luyện tiếp bằng sách, +1 cấp/lần đến cấp tối đa. Đã chuyển sinh: học miễn phí.</p></div><div class="bk90-book-count"><img src="img/ep/mt90.webp" alt="" draggable="false"><b>×${book}</b><small>còn lại</small></div></header>
+    <div class="bk90-picker-summary"><span>${ready}</span> chiêu có thể lĩnh ngộ <i>·</i> <span>${trainable}</span> chiêu có thể luyện bằng sách</div>
+    <div class="bk90-skill-grid">${cards}</div></section>`;
 }
 export function lk90Bind(reload) {
   document.querySelectorAll('#mBody [data-lk-learn]').forEach(b => b.onclick = () => { const res = lk90Learn(+b.dataset.lkLearn); toast(res.msg); if (res.ok) reload(); });
@@ -74,6 +85,11 @@ export function lk90Bind(reload) {
 }
 export function lk90Modal() {
   if (!S.fac) return;
-  modal(`<h3>Lĩnh ngộ võ công 90 <small>Mật Tịch: ${matHave('misc', 'bk90')}</small></h3>${lk90Body(RW())}`, () => lk90Bind(lk90Modal));
+  modal(lk90Body(RW()), () => {
+    const m = document.querySelector('#modal'), box = document.querySelector('#modal .mbox');
+    if (m) m.classList.add('bk90-skill-modal');
+    if (box) box.classList.add('bk90-skill-mbox');
+    lk90Bind(lk90Modal);
+  });
 }
 window.lk90Modal = lk90Modal;

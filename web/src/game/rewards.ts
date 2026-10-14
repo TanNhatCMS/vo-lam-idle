@@ -323,31 +323,31 @@ function claimWeekQuest(i) { const q = weeklyQuests().list[i]; if (!q || q.done 
 
 /* ---------- 3. thanh tuu + danh hieu (deo 1 danh hieu: cong chi so nho) ---------- */
 export const ACH = [
-  ['lv30', 'Xuất sơn', () => S.lvl >= 30 || RW().stat.reborn > 0, { gold: 1000 }, ['lifemax_p', 3]],
-  ['lv50', 'Thiếu hiệp', () => (RW().lvGot || {})[50], { fd: 5 }, ['lifemax_p', 4]],
-  ['lv80', 'Danh chấn giang hồ', () => S.lvl >= 80 || RW().stat.reborn > 0, { gold: 5000, pts: 10 }, ['attackspeed_v', 3]],
-  ['lv100', 'Đại hiệp', () => (RW().lvGot || {})[95] || (RW().lvGot || {})[100], { fd: 10 }, ['allres_p', 4]],
-  ['lv150', 'Tông sư', () => (RW().lvGot || {})[99] || (RW().lvGot || {})[150], { fd: 20 }, ['allres_p', 6]],
-  ['k1000', 'Sát thủ', () => RW().stat.kills >= 1000, { fd: 10 }, ['manamax_p', 4]],
-  ['k10000', 'Vạn nhân địch', () => RW().stat.kills >= 10000, { set: 1 }, ['attackspeed_v', 5]],
-  ['b50', 'Diệt trùm', () => RW().stat.bosses >= 50, { fd: 20 }, ['allres_p', 3]],
-  ['zone8', 'Nửa giang sơn', () => S.maxStage >= STAGES / 2, { gold: 8000 }, ['fastwalkrun_p', 5]],
-  ['zone16', 'Trường Bạch sơn chủ', () => S.maxStage > STAGES, { set: 1, pts: 20 }, ['lifemax_p', 6]],
-  ['setfull', 'Hoàng Kim đủ bộ', () => enoughToActive(S.eq), { fd: 30 }, ['allres_p', 5]],
-  ['tower20', 'Leo tháp tầng 20', () => RW().stat.towerBest >= 20, { set: 1 }, ['attackspeed_v', 6]],
-  ['reborn1', 'Chuyển sinh', () => RW().stat.reborn >= 1, { fd: 50 }, ['lifemax_p', 8]],
-  ['gold5', 'Săn trùm Hoàng Kim', () => RW().stat.goldBoss >= 5, { fd: 20 }, ['lucky_v', 10]],
-  ['login30', 'Giang hồ lão luyện', () => RW().login.total >= 30, { set: 1 }, ['manamax_p', 6]],
+  ['lv30', 'Xuất sơn', () => S.lvl >= 30 || RW().stat.reborn > 0, { gold: 1000 }, ['lifemax_p', 3], 'Đạt cấp 30 bằng cách vượt ải và nhận kinh nghiệm.'],
+  ['lv50', 'Thiếu hiệp', () => (RW().lvGot || {})[50], { fd: 5 }, ['lifemax_p', 4], 'Đạt cấp 50, rồi vào Phần thưởng → Mốc cấp và nhận mốc cấp 50.'],
+  ['lv80', 'Danh chấn giang hồ', () => S.lvl >= 80 || RW().stat.reborn > 0, { gold: 5000, pts: 10 }, ['attackspeed_v', 3], 'Đạt cấp 80 bằng cách vượt ải và nhận kinh nghiệm.'],
+  ['lv100', 'Đại hiệp', () => (RW().lvGot || {})[95] || (RW().lvGot || {})[100], { fd: 10 }, ['allres_p', 4], 'Đạt cấp 95 và nhận mốc cấp 95 (hoặc mốc cấp cao hơn) trong Phần thưởng → Mốc cấp.'],
+  ['lv150', 'Tông sư', () => (RW().lvGot || {})[99] || (RW().lvGot || {})[150], { fd: 20 }, ['allres_p', 6], 'Đạt cấp 99 và nhận mốc cấp 99 (hoặc mốc cấp 150) trong Phần thưởng → Mốc cấp.'],
+  ['k1000', 'Sát thủ', () => RW().stat.kills >= 1000, { fd: 10 }, ['manamax_p', 4], 'Hạ tổng cộng 1.000 quái ở các bản đồ.'],
+  ['k10000', 'Vạn nhân địch', () => RW().stat.kills >= 10000, { set: 1 }, ['attackspeed_v', 5], 'Hạ tổng cộng 10.000 quái ở các bản đồ.'],
+  ['b50', 'Diệt trùm', () => RW().stat.bosses >= 50, { fd: 20 }, ['allres_p', 3], 'Hạ tổng cộng 50 trùm.'],
+  ['zone8', 'Nửa giang sơn', () => S.maxStage >= STAGES / 2, { gold: 8000 }, ['fastwalkrun_p', 5], 'Tiếp tục vượt ải đến ít nhất nửa tổng số ải của bản đồ.'],
+  ['zone16', 'Dương Trung động chủ', () => S.maxStage > STAGES, { set: 1, pts: 20 }, ['lifemax_p', 6], 'Mở hết bản đồ rồi vượt qua mốc ải cuối cùng.'],
+  ['setfull', 'Hoàng Kim đủ bộ', () => enoughToActive(S.eq), { fd: 30 }, ['allres_p', 5], 'Mặc đủ số món Hoàng Kim cùng một bộ để kích hoạt thuộc tính bộ.'],
+  ['tower20', 'Leo tháp tầng 20', () => RW().stat.towerBest >= 20, { set: 1 }, ['attackspeed_v', 6], 'Vào Phần thưởng → Tháp I và vượt qua tầng 20.'],
+  ['reborn1', 'Chuyển sinh', () => RW().stat.reborn >= 1, { fd: 50 }, ['lifemax_p', 8], 'Đạt cấp 100, rồi vào Phần thưởng → Chuyển sinh và thực hiện lần chuyển sinh đầu tiên.'],
+  ['gold5', 'Săn trùm Hoàng Kim', () => RW().stat.goldBoss >= 5, { fd: 20 }, ['lucky_v', 10], 'Khi luyện công ngoài thành, hạ 5 Trùm Hoàng Kim xuất hiện theo thời gian.'],
+  ['login30', 'Giang hồ lão luyện', () => RW().login.total >= 30, { set: 1 }, ['manamax_p', 6], 'Mở game và điểm danh trong 30 ngày khác nhau; không cần liên tiếp.'],
   /* thành tựu mới theo nguồn v107 (dex8/dex16/dexs3/dexs10/reborn/tower2/yt) */
-  ['reborn3', 'Tam Trùng Sinh', () => RW().stat.reborn >= 3, { fd: 30 }, ['lifemax_p', 10]],
-  ['reborn5', 'Ngũ độ trùng sinh', () => RW().stat.reborn >= 5, { fd: 50 }, ['lifemax_p', 12]],
-  ['yt100', 'Hành hiệp trượng nghĩa', () => (RW().stat.ytQuests || 0) >= 100, { fd: 20 }, ['lucky_v', 5]],
-  ['yt1000', 'Danh chấn giang hồ', () => (RW().stat.ytQuests || 0) >= 1000, { set: 1 }, ['lucky_v', 10]],
-  ['tower2champ', 'Chinh phục Tháp II', () => (RW().stat.tower2Best || 0) >= 100, { fd: 50 }, ['attackspeed_v', 8]],
-  ['dex8', 'Bách khoa: Vùng', () => ZONES.filter(z => z.m.filter(id => MON[id]).length && z.m.filter(id => MON[id]).every(id => S.seen && S.seen[id])).length >= 8, { fd: 20 }, ['lucky_v', 1]],
-  ['dex16', 'Bách khoa: Toàn cảnh', () => ZONES.every(z => z.m.filter(id => MON[id]).every(id => S.seen && S.seen[id])), { fd: 50 }, ['lucky_v', 2]],
-  ['dexs3', 'Bách khoa: Bộ', () => dexGoldSets() >= 3, { fd: 20 }, ['lucky_v', 1]],
-  ['dexs10', 'Bách khoa: Đại sưu tầm', () => dexGoldSets() >= 10, { fd: 50 }, ['lucky_v', 2]],
+  ['reborn3', 'Tam Trùng Sinh', () => RW().stat.reborn >= 3, { fd: 30 }, ['lifemax_p', 10], 'Chuyển sinh tổng cộng 3 lần trong Phần thưởng → Chuyển sinh.'],
+  ['reborn5', 'Ngũ độ trùng sinh', () => RW().stat.reborn >= 5, { fd: 50 }, ['lifemax_p', 12], 'Chuyển sinh tổng cộng 5 lần.'],
+  ['yt100', 'Hành hiệp trượng nghĩa', () => (RW().stat.ytQuests || 0) >= 100, { fd: 20 }, ['lucky_v', 5], 'Hoàn thành 100 nhiệm vụ Dã Tẩu.'],
+  ['yt1000', 'Danh chấn vạn dặm', () => (RW().stat.ytQuests || 0) >= 1000, { set: 1 }, ['lucky_v', 10], 'Hoàn thành 1.000 nhiệm vụ Dã Tẩu.'],
+  ['tower2champ', 'Chinh phục Tháp II', () => (RW().stat.tower2Best || 0) >= 100, { fd: 50 }, ['attackspeed_v', 8], 'Vào Phần thưởng → Tháp II và vượt qua tầng 100.'],
+  ['dex8', 'Bách khoa: Vùng', () => ZONES.filter(z => z.m.filter(id => MON[id]).length && z.m.filter(id => MON[id]).every(id => S.seen && S.seen[id])).length >= 8, { fd: 20 }, ['lucky_v', 1], 'Xem đủ quái của 8 vùng trong Bách khoa.'],
+  ['dex16', 'Bách khoa: Toàn cảnh', () => ZONES.every(z => z.m.filter(id => MON[id]).every(id => S.seen && S.seen[id])), { fd: 50 }, ['lucky_v', 2], 'Xem đủ quái của mọi vùng trong Bách khoa.'],
+  ['dexs3', 'Bách khoa: Bộ', () => dexGoldSets() >= 3, { fd: 20 }, ['lucky_v', 1], 'Sưu tầm đủ món của 3 bộ Hoàng Kim cùng phái.'],
+  ['dexs10', 'Bách khoa: Đại sưu tầm', () => dexGoldSets() >= 10, { fd: 50 }, ['lucky_v', 2], 'Sưu tầm đủ món của 10 bộ Hoàng Kim cùng phái.'],
 ];
 /* đếm bộ Hoàng Kim của phái đã sưu tầm đủ món (GC() của nguồn) */
 export function dexGoldSets() {
@@ -1499,7 +1499,26 @@ function giftBody(r) {
   }
   if (giftTab === 'quest') return `<p class="desc"><b>Hằng ngày</b> — làm mới mỗi ngày. Mỗi việc: lượng + 5 Phúc Duyên.</p>${dailyQuests().list.map((q, i) => `<div class="qrow"><span>${esc(q.t)}</span><small>${q.have}/${q.need}</small><button class="btn sm" data-q="${i}" ${q.done || q.have < q.need ? 'disabled' : ''}>${q.done ? 'Đã nhận' : 'Nhận'}</button></div>`).join('')}
       <p class="desc" style="margin-top:10px"><b>Hằng tuần</b> — làm mới vào thứ Hai, mục tiêu lớn hơn. Mỗi việc: ${fmt(WQ_REWARD.gold)} lượng + ${WQ_REWARD.fd} Phúc Duyên.</p>${weeklyQuests().list.map((q, i) => `<div class="qrow"><span>${esc(q.t)}</span><small>${q.have}/${q.need}</small><button class="btn sm" data-w="${i}" ${q.done || q.have < q.need ? 'disabled' : ''}>${q.done ? 'Đã nhận' : 'Nhận'}</button></div>`).join('')}`;
-  if (giftTab === 'ach') return `<p class="desc">Hoàn thành để nhận thưởng; đeo 1 danh hiệu để cộng chỉ số.</p>${ACH.map(([id, n, , g, t]) => `<div class="qrow${r.ach[id] ? '' : ' lock'}"><span><b>${n}</b><small>${giftText(g)} · danh hiệu: ${escRich(attrText(t[0], [t[1], 0, 0]))}</small></span><small></small><button class="btn sm" data-t="${id}" ${r.ach[id] ? '' : 'disabled'}>${r.title === id ? 'Đang đeo' : 'Đeo'}</button></div>`).join('')}`;
+  if (giftTab === 'ach') {
+    /* trang thành tựu v119: tổng quan % + danh hiệu đang đeo + lưới thẻ (CÁCH ĐẠT / PHẦN THƯỞNG / DANH HIỆU) */
+    const earned = ACH.filter(([id]) => r.ach[id]).length, pct = Math.round(earned / ACH.length * 100);
+    const pr = titleProgress();
+    const worn = r.title && ACH.find(a => a[0] === r.title && a[4]);
+    const cards = ACH.map(([id, n, , g, t, how], i) => {
+      const got = !!r.ach[id], isWorn = r.title === id;
+      const titleLine = `<div class="achievement-title-line"><span class="achievement-title-sigil" aria-hidden="true">✦</span><span class="achievement-title-copy"><small>DANH HIỆU</small><b style="color:var(--gold)">«${esc(n)}»</b><small>${escRich(attrText(t[0], [t[1], 0, 0]))}</small></span></div>`;
+      const foot = got
+        ? `<button type="button" class="btn sm achievement-title-action${isWorn ? ' on' : ''}" data-t="${id}" aria-pressed="${isWorn}">${isWorn ? 'Bỏ sử dụng' : 'Sử dụng'}</button>`
+        : `<span class="achievement-title-locked">Hoàn thành để mở danh hiệu</span>`;
+      return `<article class="achievement-card${got ? ' is-earned' : ' is-locked'}"><div class="achievement-card-head"><span class="achievement-card-seal" aria-hidden="true">${got ? '✓' : String(i + 1).padStart(2, '0')}</span><span class="achievement-card-state">${got ? 'ĐÃ ĐẠT' : 'CHƯA ĐẠT'}</span></div>
+        <h4>${esc(n)}</h4><div class="achievement-how-to"><small>CÁCH ĐẠT</small><span>${esc(how || 'Hoàn thành điều kiện của thành tựu này.')}</span></div>
+        <div class="achievement-reward"><small>PHẦN THƯỞNG</small><b>${giftText(g)}</b></div>${titleLine}<div class="achievement-card-foot">${foot}</div></article>`;
+    }).join('');
+    return `<section class="achievement-page"><header class="achievement-overview"><span class="achievement-overview-sigil" aria-hidden="true">✦</span><div class="achievement-overview-copy"><small>HÀNH TRÌNH GIANG HỒ</small><b>${earned}<span> / ${ACH.length}</span> thành tựu</b><div class="achievement-progress" role="progressbar" aria-valuemin="0" aria-valuemax="${ACH.length}" aria-valuenow="${earned}"><i style="width:${pct}%"></i></div></div><strong class="achievement-percent">${pct}<small>%</small></strong></header>
+      <div class="achievement-current-title"><span><small>DANH HIỆU ĐANG SỬ DỤNG</small><b class="${worn ? 'is-wearing' : ''}">${worn ? '«' + esc(worn[1]) + '»' : 'Chưa đeo danh hiệu'}</b></span><span class="achievement-title-count"><small>ĐÃ MỞ</small><b>${pr.owned}/${pr.total}</b></span></div>
+      <p class="achievement-intro">Thành tựu tự nhận thưởng khi hoàn thành. Mỗi thẻ ghi cách đạt và phần thưởng; danh hiệu có thể sử dụng ngay tại đây.</p>
+      <div class="achievement-grid">${cards}</div></section>`;
+  }
   if (giftTab === 'chest') return `<p class="desc">Điểm Phúc Duyên: <b>${r.fd}</b> (điểm danh, nhiệm vụ, thành tựu, trùm). Mỗi lần mở: ${FD_COST} điểm.</p>
       <div class="chips">${FD_TABLE.map(([w, g]) => `<span class="chip2">${giftText(g)} · ${w}%</span>`).join('')}</div>
       <div class="btnrow"><button class="btn" id="gChest" ${r.fd >= FD_COST ? '' : 'disabled'}>Mở rương Phúc Duyên</button></div>`;

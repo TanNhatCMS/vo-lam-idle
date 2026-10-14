@@ -53,13 +53,13 @@ import { donKhoModal } from './donkho';
 import { THAN_MA_MAX, THAN_MA_TRAIN_BONUS, horseLevel, isThanMa } from './horse';
 import { logModal } from './consolelog';
 import { bindQuickBar, jrModal, quickBarHTML } from './journal';
-import { BOOK_ICONS, BOOK_NAMES, bookPoints, titleModal, titleProgress, titleWorn, useBook } from './rewards';
+import { BOOK_ICONS, BOOK_NAMES, bookPoints, RW, titleModal, titleProgress, titleWorn, useBook } from './rewards';
 import { CHALLENGES, chalName, clanModal, dexSet, dexSetsDone } from './depth';
 import { SK_KIND_VI, skKind, skillAuraHint, skillBuffHint, skillTypeLabel } from './skillsys';
 import { bindBuilds, buildsHTML, chargePointRefund, pointRefundCost, respecModal, respecQuote, sumObj } from './builds';
 import { bindTodo, codexModal, powerModal, suggestModal, todoHTML, tutorialModal } from './guide';
 import { adminModal } from './admin';
-import { UI_FS, UI_FS_NAME, GAME_SPEEDS, gameSpeed, guard, onZoneChange, setCompact, setUiPref, uiPrefs } from './loop';
+import { UI_FS, UI_FS_NAME, GAME_SPEEDS, gameSpeed, guard, onZoneChange, setAfk, setCompact, setUiPref, uiPrefs } from './loop';
 import { uiBump, uiSetTab } from './store';
 import {
   GROUND_MAX,
@@ -358,7 +358,7 @@ export function findItem(uid) { uid = +uid; return S.inv.find(i => i.uid === uid
 export function itemCell(it, orderIndex = null, currentPower = null) {
   if (!it) return '';
   const orderable = Number.isInteger(orderIndex);
-  const frame = it.set && it.set.kind === 'gold' ? ' goldset' : it.set && it.set.kind === 'platina' ? ' platinaset' : !it.set && it.r === 1 ? ' magicitem' : '';
+  const frame = it.set && it.set.kind === 'gold' ? ' goldset' : it.set && it.set.kind === 'platina' ? ' platinaset' : !it.set && it.r === 3 ? ' purpleitem' : !it.set && it.r === 1 ? ' magicitem' : '';
   const eligible = reqOk(it), itemTitle = [itemLevelLabel(it), !eligible ? 'Chưa mặc được: ' + reqProblems(it).join('; ') : ''].filter(Boolean).join(' · ');
   const better = orderable && eligible && betterThanEquipped(it, currentPower, true);
   return `<button class="it${orderable ? ' inv-reorder-cell' : ''} r${it.r}${frame}${eligible ? '' : ' bad'}" data-uid="${it.uid}" title="${esc(itemTitle)}"${orderable ? ` data-inv-order="${orderIndex}"` : ''}>${it.ic ? `<img src="${esc(it.ic)}" alt="" draggable="false">` : ''}<i>${itemLevelBadge(it)}</i>${it.s >= 0 ? `<b class="s5" style="background:${SERIES_COL[it.s]}"></b>` : ''}${better ? '<em>▲</em>' : ''}${it.locked ? '<u class="lk">🔒</u>' : ''}</button>`;
@@ -531,7 +531,7 @@ function invOrderBind() {
 }
 export function itemHTML(it) {
   const isPlatina = it.set && it.set.kind === 'platina';
-  const frame = it.set && it.set.kind === 'gold' ? ' goldset' : isPlatina ? ' platinaset' : !it.set && it.r === 1 ? ' magicitem' : '';
+  const frame = it.set && it.set.kind === 'gold' ? ' goldset' : isPlatina ? ' platinaset' : !it.set && it.r === 3 ? ' purpleitem' : !it.set && it.r === 1 ? ' magicitem' : '';
   const titleColor = isPlatina ? '#ffed35' : RAR_COL[it.r];
   const horseMeta = it.d === 10 && (it.hlv || it.thanma) ? `<small class="tm-item-level">${isThanMa(it) ? 'Thần Mã' : 'Ngựa'} · thuần dưỡng ${horseLevel(it)}/${THAN_MA_MAX} · chỉ số gốc +${Math.round(horseLevel(it) * THAN_MA_TRAIN_BONUS * 100)}%${isThanMa(it) ? (it.locked ? ' · đã khóa bảo vệ' : ' · đang mở khóa') : ''}</small>` : '';
   return `<div class="idet" data-item-uid="${Number(it.uid)}"><div class="pic r${it.r}${frame}">${it.ic ? `<img src="${esc(it.ic)}" alt="" draggable="false">` : ''}</div><div><h4 class="${isPlatina ? 'platina-name' : ''}" style="color:${titleColor}">${esc(it.n)}${it.enh ? ` <span class="enh">+${it.enh}</span>` : ''}</h4>
@@ -905,26 +905,64 @@ function skillEffectLines(s, L) {
   }
   return out;
 }
-/* Thong tin ky nang: mo ta, yeu cau, hieu qua o cap hien tai va cap ke tiep, sat thuong / noi luc / tam danh */
+/* Hỗ trợ sát thương (addskilldamage — nguồn ei/ai): p[0] = id chiêu được tăng, p[2] = % */
+function supportOut(s, L) {
+  const out = [];
+  for (const name in s.attr || {}) {
+    if (!/^addskilldamage/.test(name)) continue;
+    const p = skVal(s, name, L); if (!p || !p[0] || !SK[p[0]]) continue;
+    out.push({ id: p[0], n: SK[p[0]].n, pct: p[2] || 0 });
+  }
+  return out;
+}
+function supportIn(id) {
+  const f = FAC[S.fac]; if (!f) return [];
+  const out = [];
+  for (const sid of f.skills) {
+    const s = SK[sid]; if (!s) continue;
+    for (const name in s.attr || {}) {
+      if (!/^addskilldamage/.test(name)) continue;
+      const p = skVal(s, name, Math.max(1, S.sk[sid] || 1)); if (!p || +p[0] !== +id) continue;
+      out.push({ id: sid, n: s.n, learned: !!S.sk[sid], pct: p[2] || 0 });
+    }
+  }
+  return out;
+}
+const pctText = v => `${v >= 0 ? '+' : ''}${Number(v.toFixed(2))}%`;
+/* Thong tin ky nang (nguon O_ v107): header icon + facts + ho tro sat thuong in/out + hieu qua cap hien tai/ke tiep */
 function skillModal(id) {
   const s = SK[id]; if (!s) return;
-  const L = S.sk[id] || 0, act = isAttack(s), show = Math.max(1, L), next = L < s.max ? L + 1 : 0;
-  const lines = (lv) => skillEffectLines(s, lv).map(t => `<div>${escRich(t)}</div>`).join('') || '<div class="dim">—</div>';
+  const is90 = String(s.learn) === '90';
+  const lk = (RW().lk90 || {}).lv || {};
+  const L = is90 ? (lk[id] || 0) : (S.sk[id] || 0), act = isAttack(s), show = Math.max(1, L), next = L < s.max ? L + 1 : 0;
+  const lines = (lv) => skillEffectLines(s, lv).map(t => `<div class="skill-effect-row">${escRich(t)}</div>`).join('') || '<div class="skill-effect-empty">Chưa có thuộc tính ở cấp này.</div>';
   let atk = '';
   if (act) {
-    const a = activeInfo(R.P, s, show + (L ? 0 : 0));
-    atk = `<div class="card stats"><span>Sát thương mỗi đòn</span><span>${fmt(a.tot)}</span><span>DPS ước tính</span><span>${fmt(a.dps)}</span><span>Nội lực tiêu hao</span><span>${Math.round(a.cost)}</span><span>Tầm đánh</span><span>${Math.round(a.rad)}</span><span>Mục tiêu</span><span>${a.targets > 1 ? 'nhiều (tối đa ' + a.targets + ')' : 'đơn'}</span></div>`;
+    const a = activeInfo(R.P, s, show);
+    atk = `<div class="card stats"><span>Sát thương mỗi đòn</span><span>${fmt(a.tot)}</span><span>DPS ước tính</span><span>${fmt(a.dps)}</span><span>${s.cost === 2 ? 'Sinh lực' : 'Nội lực'} tiêu hao</span><span>${Math.round(a.cost)}</span><span>Tầm đánh</span><span>${Math.round(a.rad)}</span><span>Mục tiêu</span><span>${a.targets > 1 ? 'nhiều (tối đa ' + a.targets + ')' : 'đơn'}</span></div>`;
   }
-  modal(`<h3>${esc(s.n)} <small>${L}/${s.max}</small></h3>
-    <p class="desc">${esc(s.d || 'Không có mô tả.')}</p>
-    <div class="idet"><span class="tag${act ? ' attack' : skKind(s) !== 'passive' && skKind(s) !== 'none' ? ' ' + skKind(s) : ''}">${skillTypeLabel(s)}</span><small class="dim">Yêu cầu cấp ${s.req}${S.lvl < s.req ? ` (bạn cấp ${S.lvl})` : ''}${skillBuffHint(s) || skillAuraHint(s) ? ' · ' + (skillBuffHint(s) || skillAuraHint(s)) : ''}</small></div>
-    ${atk}
-    <div class="sl"><b>${L ? 'Cấp hiện tại ' + L : 'Nếu học (cấp 1)'}</b>${lines(show)}</div>
-    ${next && L ? `<div class="sl"><b>Cấp kế tiếp ${next}</b>${lines(next)}</div>` : ''}
-    <div class="btnrow">${act && L ? '<button class="btn" id="skMain">Chọn làm chiêu chính</button>' : ''}<button class="btn" id="skPlus" ${canLearn(s) ? '' : 'disabled'}>+ Cộng điểm</button><button class="btn red" id="skMinus" ${L ? '' : 'disabled'}>− Rút điểm</button></div>`, () => {
+  const kind = skKind(s);
+  const out = supportOut(s, show), inc = supportIn(id);
+  const outHTML = out.length ? `<div class="skill-damage-support skill-damage-outgoing"><h4>Hỗ trợ sát thương cho:</h4>${out.map(o => `<div class="skill-damage-row"><button type="button" class="skill-damage-link" data-support-skill="${o.id}">${esc(o.n)}</button><b>${pctText(o.pct)}</b></div>`).join('')}</div>` : '';
+  const inHTML = inc.length ? `<section class="skill-level-card skill-damage-incoming"><header class="skill-level-head"><b>Được hỗ trợ</b></header><p class="skill-damage-note">Tổng hỗ trợ từ các chiêu đã học; các mức % được cộng dồn.</p>${inc.map(o => `<div class="skill-damage-row${o.learned ? '' : ' is-inactive'}"><button type="button" class="skill-damage-link" data-support-skill="${o.id}">${esc(o.n)}</button><b>${pctText(o.pct)}</b><small>${o.learned ? 'Đã học' : 'Chưa học'}</small></div>`).join('')}</section>` : '';
+  const buffHint = skillBuffHint(s) || skillAuraHint(s);
+  modal(`<div class="skill-detail">
+    <header class="skill-detail-header"><div class="skill-detail-identity">${s.ic ? `<img class="skill-detail-icon" src="${esc(s.ic)}" alt="" draggable="false">` : '<span class="skill-detail-icon skill-detail-icon-fallback" aria-hidden="true">⚔</span>'}<h3>${esc(s.n)}</h3></div><small class="skill-detail-level">${L}/${s.max}</small></header>
+    <p class="skill-detail-desc">${esc(s.d || 'Không có mô tả.')}</p>
+    <div class="skill-detail-facts"><span class="skill-detail-kind is-${kind}">${skillTypeLabel(s)}</span><span class="skill-detail-fact"><small>Yêu cầu</small><b>Cấp ${s.req}</b>${S.lvl < s.req ? `<i>Bạn cấp ${S.lvl}</i>` : ''}</span>${is90 ? '<span class="skill-detail-fact"><small>Phân loại</small><b>Võ công bậc 90</b></span>' : `<span class="skill-detail-fact is-limit"><small>Giới hạn</small><b>Cấp ${s.max}</b></span>`}${buffHint ? `<span class="skill-detail-fact"><small>Trạng thái</small><b>${esc(buffHint)}</b></span>` : ''}</div>
+    ${outHTML}${inHTML}${atk}
+    <section class="skill-level-card">
+      <header class="skill-level-head"><b>${L ? 'Hiệu quả hiện tại' : 'Hiệu quả khi học'}</b><span>Cấp ${show}</span></header>
+      <div class="skill-effect-list">${lines(show)}</div>
+    </section>
+    ${next && L ? `<section class="skill-level-card is-next"><header class="skill-level-head"><b>Hiệu quả cấp kế tiếp</b><span>Cấp ${next}</span></header><div class="skill-effect-list">${lines(next)}</div></section>` : ''}
+    <div class="btnrow">${act && L && !is90 ? '<button class="btn" id="skMain">Chọn làm chiêu chính</button>' : ''}${is90 ? '<button class="btn" id="skBook">Dùng Võ Lâm Mật Tịch</button>' : `<button class="btn" id="skPlus" ${canLearn(s) ? '' : 'disabled'}>+ Cộng điểm</button><button class="btn red" id="skMinus" ${S.sk[id] ? '' : 'disabled'}>− Rút điểm</button>`}</div>
+  </div>`, () => {
+    document.querySelectorAll('#mBody [data-support-skill]').forEach(b => b.onclick = () => skillModal(+b.dataset.supportSkill));
     const m = $('#skMain'); if (m) m.onclick = () => { if (R.tyvo) { toast('Không thể đổi võ công trong lúc Tỷ Võ'); return; } S.main = s.id; S.mainLock = true; R.dirty = true; recalc(); renderSkill(); toast('Chiêu chính: ' + s.n); skillModal(id); };
-    $('#skPlus').onclick = () => { if (R.tyvo) { toast('Không thể đổi võ công trong lúc Tỷ Võ'); return; } if (!canLearn(s)) return; S.skPts--; S.sk[id] = (S.sk[id] || 0) + 1; uiSfx('learn'); R.dirty = true; recalc(); renderSkill(); save(); skillModal(id); };
-    $('#skMinus').onclick = () => { if (unlearnSkill(id)) skillModal(id); };
+    const bk = $('#skBook'); if (bk) bk.onclick = () => { const f = (window as any).lk90Modal; if (f) f(); };
+    const plus = $('#skPlus'); if (plus) plus.onclick = () => { if (R.tyvo) { toast('Không thể đổi võ công trong lúc Tỷ Võ'); return; } if (!canLearn(s)) return; S.skPts--; S.sk[id] = (S.sk[id] || 0) + 1; uiSfx('learn'); R.dirty = true; recalc(); renderSkill(); save(); skillModal(id); };
+    const minus = $('#skMinus'); if (minus) minus.onclick = () => { if (unlearnSkill(id)) skillModal(id); };
   });
 }
 function renderSkill() {
@@ -1274,8 +1312,7 @@ function saveIdentity(name, sex) {
   toast(`Đã lưu: ${S.name} · ${S.sex ? 'Nữ' : 'Nam'}`);
 }
 function supportModal() {
-  modal(`<h3>Ủng hộ bạn</h3><p class="desc">Game miễn phí và chạy trên chính thiết bị của bạn. Nếu thấy vui, một ly cà phê nhỏ là động lực để tiếp tục giữ gìn và phát triển bản chơi offline này.</p>
-    <div class="card lootf" style="text-align:center"><img src="ui/support-qr.png" alt="Mã ủng hộ" style="max-width:220px;width:70%;margin:6px auto;display:block"><small class="dim">Quét mã để ủng hộ — hoàn toàn tự nguyện.</small></div>
+  modal(`<h3>Ủng hộ bạn</h3><p class="desc">Game miễn phí và chạy trên chính thiết bị của bạn. Cứ chơi vui vẻ — đó chính là cách ủng hộ tốt nhất!</p>
     <div class="btnrow"><button class="btn" id="bSupOk">Đóng</button></div>`, () => { $('#bSupOk').onclick = () => closeModal(); });
 }
 let settingTab = 'display', accountTab = 'save';
@@ -1285,6 +1322,7 @@ function renderMore() {
   const setPane = (k, html) => `<div class="setting-pane${settingTab === k ? '' : ' hidden'}" role="tabpanel" data-setting-pane="${k}">${html}</div>`;
   const sw = (id, on, label, extra = '') => `<label class="ios-switch-row"><span>${label}</span><input type="checkbox" id="${id}" ${on ? 'checked' : ''}${extra}><span class="ios-switch" aria-hidden="true"></span></label>`;
   $('#t-more').innerHTML = `
+    <h3>Thao tác nhanh</h3><div class="card"><div class="btnrow afk-actions"><button class="btn sm" id="qAfk" title="Giảm hiệu ứng, tắt tiếng và tiếp tục mô phỏng khi treo máy">Treo máy</button><label class="ios-switch-row afk-saver-toggle" title="Giới hạn 15 FPS trên điện thoại, 30 FPS trên máy tính và ưu tiên hơn siêu khung hình"><span>Tiết kiệm pin</span><input type="checkbox" id="qSaver" ${p.saver ? 'checked' : ''}><span class="ios-switch" aria-hidden="true"></span></label></div></div>
     <h3>Độ khó</h3><div class="card setting-switches"><div class="difficulty-setting">
       <div class="difficulty-segment" role="group" aria-label="Chọn độ khó">${DIFFS.map((d, i) => `<button type="button" class="difficulty-option${diffOf() === d ? ' on' : ''}" data-diff="${i}" aria-pressed="${diffOf() === d}" ${S.chal === 'hard' ? 'disabled' : ''}>${d.n}</button>`).join('')}</div>
       <small class="dim difficulty-description">${esc(diffOf().d)}${S.chal === 'hard' ? ' · Thử thách Huyết chiến: khóa Khó' : ''}</small>
@@ -1346,6 +1384,8 @@ function renderMore() {
     <h3>Trợ giúp & Tiện ích</h3><div class="card lootf">
       <div class="btnrow"><button class="btn" id="bTut">Hướng dẫn</button><button class="btn" id="bCodex">Bách khoa</button><button class="btn" id="bStashM">Kho chung</button><button class="btn" id="bClan">Gia tộc</button><button class="btn" id="bJournal">Sổ tay</button><button class="btn" id="bLog">Nhật ký</button><button class="btn" id="bSug">Gợi ý cộng điểm</button></div></div>
     <h3>Nguồn dữ liệu</h3><div class="card small dim">Kỹ năng, quái, trang bị, thuộc tính và tỉ lệ rơi đồ trích từ dữ liệu Võ Lâm Truyền Kỳ 1 (bản fan chơi offline, phi thương mại).</div>`;
+  $('#qAfk').onclick = () => setAfk(true);
+  $('#qSaver').addEventListener('change', e => { setUiPref({ saver: e.target.checked }); renderMore(); });
   document.querySelectorAll('#t-more [data-account-tab]').forEach(b => b.onclick = () => { accountTab = b.dataset.accountTab; renderMore(); });
   document.querySelectorAll('#t-more [data-setting-tab]').forEach(b => b.onclick = () => { settingTab = b.dataset.settingTab; renderMore(); });
   document.querySelectorAll('#t-more [data-diff]').forEach(b => b.onclick = () => { S.diff = +b.dataset.diff; R.enemies = []; R.spawnT = 0.3; save(); toast('Độ khó: ' + diffOf().n); renderMore(); });
@@ -1359,6 +1399,8 @@ function renderMore() {
   bindSw('cJoy', v => { S.joy = v ? 'fixed' : 'float'; save(); });
   bindSw('cLowFx', v => { S.lowFx = v; save(); });
   bindSw('uSaver', v => setUiPref({ saver: v }));
+  bindSw('qSaver', v => setUiPref({ saver: v }));
+  const qAfkBtn = $('#qAfk'); if (qAfkBtn) qAfkBtn.onclick = () => { const f = (window as any).jxAfk; if (f) f(true); };
   bindSw('cInvBorderGlow', v => setUiPref({ invBorderGlow: v }));
   bindSw('sOn', v => { setSnd({ on: v }); renderMore(); });
   bindSw('mOn', v => { setSnd({ music: v }); });
