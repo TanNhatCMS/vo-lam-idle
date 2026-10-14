@@ -101,20 +101,102 @@ export function upgradeOre(key) {
 const itemKind = it => it.d === 0 ? MELEE_KIND[it.k] : it.d === 1 ? RANGE_KIND[it.k] : AFFIX_KEY[DETAIL_SLOT[it.d]];
 /* hang magicattriblevel cho thuoc tinh a: cap 1..n theo thu tu cap */
 export const oreRows = a => J.affixLevel.filter(r => r.a === a).sort((x, y) => x.lvl - y.lvl);
+
+/* ---------- kham v152: trang suc (jewelry) + Bo Y + pre-parity (port Wd/Gd/Qd/$d/Jd/tf/rf) ----------
+   Nguon: Ad=[3,4,9] = trang suc (nhan/day chuyen/ngoc boi); Wd dem o kham qua field
+   enchaseCount (do nguon dem co san) fallback vio?mag.length:0; Bố Y cap 5 dong (thuong 6),
+   trang suc toi da 3 dong (Bố Y 2); chong trung thuoc tinh trong cua so o kham (Gd);
+   khoang phai dung PARITY dong (Xd: index chan -> pre 1); affix vo ich trong idle bi chan (Hl);
+   mon Bố Y phai dung che do (Au: r<2, <=5 dong, khong set/vio/kim, hoac ngua). */
+const JEWELRY_D = [3, 4, 9];
+const IDLE_USELESS_AFFIX = new Set(['staminamax_v', 'staminareplenish_v', 'stamina_v', 'visionradius_p', 'fasthitrecover_v',
+  'indestructible_b', 'knockback_p', 'addphysicsmagic_v', 'addcoldmagic_v', 'addfiremagic_v', 'addlightingmagic_v', 'addpoisonmagic_v']);
+export const isJewelry = it => !!it && JEWELRY_D.includes(it.d);
+export const enchaseSlots = it => {
+  if (!it) return 0;
+  const c = Number(it.enchaseCount);
+  return clamp(Number.isInteger(c) && c >= 0 ? c : (it.vio ? (it.mag || []).length : 0), 0, VIO_SLOTS);
+};
+const preAtLine = i => +(i % 2 === 0);                       // Xd: dong 1/3/5 (index 0,2,4) -> pre 1
+const attrNameOf = a => (J.attr || [])[a];                   // attr la mang name-key theo index = affix id
+const idleUseless = a => IDLE_USELESS_AFFIX.has(attrNameOf(a));
+const enchaseCap = () => (S.chal === 'white' ? 5 : VIO_SLOTS);          // qd: Xa=5 / md=6
+const jewelryCap = () => (S.chal === 'white' ? 2 : 3);                   // Ud
+/* Bo Y cho phep kham mon dung che do (Au): r<2, <=5 dong, khong set/vio/kim (plv), hoac ngua (thanma). */
+const boyoItemOk = it => !!it && (!!it.thanma || ((it.r || 0) < 2 && (it.mag || []).length <= 5 && !it.set && !it.vio && !(it.plv > 0)));
+const canEnchant = it => {                                   // Qd
+  if (!it || it.set || !(it.d >= 0 && it.d <= 9)) return false;
+  if (S.chal === 'white' && !boyoItemOk(it)) return false;
+  const lines = (it.mag || []).length;
+  if (!lines) return it.r === 0;
+  const jew = isJewelry(it) && enchaseSlots(it) === 0 && (it.r === 0 || it.r === 1);
+  return S.chal === 'white' ? it.r === 1 || jew : !!it.vio || (it.r === 1 && enchaseSlots(it) > 0) || jew;
+};
+const boyoHint = it => S.chal === 'white' ? 'Chỉ khảm đồ Trắng/Xanh chưa đủ dòng'
+  : isJewelry(it) ? 'Chỉ khảm trang sức Trắng/Xanh chưa khảm hoặc đồ Tím chưa đủ dòng'
+    : 'Chỉ khảm đồ trắng hoặc đồ Tím chưa đủ dòng';          // Jd
+/* Gate cho UI (forge/loot): '' = khảm được, khác = lý do chặn (gộp Qd + cap dòng). */
+export const enchaseGate = it => {
+  if (it && it.set) return 'Đồ bộ không khảm được';
+  if (!canEnchant(it)) return boyoHint(it);
+  const n = (it.mag || []).length;
+  if (n >= enchaseCap()) return `Đã đủ ${enchaseCap()} dòng`;
+  if (isJewelry(it) && enchaseSlots(it) >= jewelryCap()) return `Trang sức đã đủ ${jewelryCap()} dòng khảm`;
+  return '';
+};
+export const enchaseGateCap = () => enchaseCap();
+/* $d: khoáng có gắn được lên món — whitelist theo LOẠI trang bị (w dict của affixLevel);
+   trang sức: bảng affix góc (w mảng theo d) phải có dòng cùng a+pre cho phép d của trang sức. */
+const affixApplies = (it, row) => {
+  if (!it || !row) return false;
+  const kind = itemKind(it);
+  if (!kind || !((row.w || {})[kind] > 0)) return false;
+  if (isJewelry(it)) {
+    return (J.affix || []).some(x => x.a === row.a && x.pre === row.pre && x.w && x.w[it.d] > 0
+      && (x.s < 0 || x.s === it.s) && !idleUseless(x.a));
+  }
+  return row.s < 0 || row.s === it.s;
+};
+const dupAffix = (it, row) => {                              // Gd: trùng trong cửa sổ ô khảm của trang sức
+  if (!isJewelry(it)) return false;
+  const n = enchaseSlots(it);
+  return n > 0 && (it.mag || []).slice(-n).some(x => Number(x.a) === Number(row.a));
+};
+/* ef: dòng kế tiếp có loại khoáng nào dùng được không — không thì báo trước "không có thuộc tính phù hợp". */
+const oreTypeExistsForLine = (it, lineIdx) => {
+  if (!itemKind(it)) return false;
+  const pre = preAtLine(lineIdx);
+  return (J.affixLevel || []).some(r => r.pre === pre && affixApplies(it, r) && !idleUseless(r.a) && !dupAffix(it, r));
+};
+/* tf: check chốt 1 khoáng cụ thể (parity → hệ/trang sức → vô ích → trùng). */
+const enchaseOreCheck = (it, htLvl, key) => {
+  const o = oreParse(key), rows = oreRows(o.a);
+  if (!rows.length) return 'Khoáng không hợp lệ';
+  const row = rows[clamp(Math.floor((htLvl + o.lvl) / 2), 1, rows.length) - 1];
+  const lines = (it.mag || []).length;
+  if (row.pre !== preAtLine(lines)) return `Khoáng này không hợp loại thuộc tính dòng ${lines + 1}`;
+  if (isJewelry(it)) {
+    if (!affixApplies(it, row)) return `Thuộc tính này không phù hợp với hệ ${SERIES[it.s]} của trang sức`;
+  } else {
+    if (row.s >= 0 && row.s !== it.s) return `Khoáng hệ ${SERIES[row.s]}, món hệ ${SERIES[it.s]}`;
+    if (!affixApplies(it, row)) return 'Thuộc tính này không gắn được vào loại trang bị này';
+  }
+  if (idleUseless(row.a)) return 'Thuộc tính khoáng này không có tác dụng trong bản idle';
+  if (dupAffix(it, row)) return 'Trang sức không thể khảm trùng thuộc tính';
+  return row;
+};
 export function enchaseCheck(it, htLvl, key) {
   if (!owned(it)) return 'Món không còn trong hành trang';
   if (!it || it.set || !(it.d >= 0 && it.d <= 9)) return 'Món này không khảm được';
   const o = oreParse(key), n = (it.mag || []).length;
-  if (n === 0 ? it.r > 0 : !it.vio) return 'Chỉ khảm đồ trắng hoặc đồ Tím chưa đủ dòng';
-  if (n >= VIO_SLOTS) return 'Đã đủ 6 dòng';
+  if (!canEnchant(it)) return boyoHint(it);
+  if (n >= enchaseCap()) return `Đã đủ ${enchaseCap()} dòng`;
+  if (isJewelry(it) && enchaseSlots(it) >= jewelryCap()) return `Trang sức đã đủ ${jewelryCap()} dòng khảm`;
   if (o.place !== n) return `Khoáng này ứng dòng ${o.place + 1}, món đang cần dòng ${n + 1}`;
+  if (!oreTypeExistsForLine(it, n)) return `Loại trang bị này không có thuộc tính khảm phù hợp cho dòng ${n + 1}`;
   if (matHave('ht', htLvl) < 1) return 'Không có Huyền Tinh cấp này';
   if (matHave('ore', key) < 1) return 'Không có khoáng thạch này';
-  const rows = oreRows(o.a); if (!rows.length) return 'Khoáng không hợp lệ';
-  const row = rows[clamp(Math.floor((htLvl + o.lvl) / 2), 1, rows.length) - 1];
-  if (row.s >= 0 && row.s !== it.s) return `Khoáng hệ ${SERIES[row.s]}, món hệ ${SERIES[it.s]}`;
-  if (!((row.w || {})[itemKind(it)] > 0)) return 'Thuộc tính này không gắn được vào loại trang bị này';
-  return row;
+  return enchaseOreCheck(it, htLvl, key);
 }
 export function enchase(it, htLvl, key) {
   const row = enchaseCheck(it, htLvl, key);
@@ -123,7 +205,12 @@ export function enchase(it, htLvl, key) {
   if (rcInt(0, 99) < RCP_R.enchase.fail_pct) return { ok: false, lost: true, msg: 'Khảm thất bại (5%): mất Huyền Tinh và khoáng thạch' };
   const place = it.mag.length;
   const p = row.p.map(([mn, mx]) => mn === -1 && mx === -1 ? -1 : rcInt(Math.min(mn, mx), Math.max(mn, mx)));
-  it.mag.push({ a: row.a, p, n: row.n, pre: place % 2 === 0 ? 1 : 0, vlv: oreParse(key).lvl });
+  /* vo: mon co localPowerScale (Thiên Cực req>=200) → 2 gia tri dau nhan scale (port af vo(e)) */
+  const reqLvl = (it.req || []).find(r => Array.isArray(r) && Number(r[0]) === 36);
+  const scale = Math.max(Number(reqLvl && reqLvl[1]) || 0, Number(it.forgeLevel) || 0) >= 200 ? 1.25 : 1;
+  if (scale > 1) for (let i = 0; i < Math.min(2, p.length); i++) if (p[i] > 0) p[i] = Math.round(p[i] * scale);
+  it.mag.push({ a: row.a, p, n: row.n, pre: preAtLine(place), vlv: oreParse(key).lvl });
+  it.enchaseCount = Math.min(VIO_SLOTS, enchaseSlots(it) + 1);
   it.vio = 1; it.r = 3;
   if (typeof betterThanEquipped === 'function' && S.autoEquip && S.inv.includes(it) && betterThanEquipped(it)) equip(it, true);   // du dong de manh hon do dang mac thi tu mac
   return { ok: true, msg: `Khảm dòng ${place + 1}: ${row.n}` };

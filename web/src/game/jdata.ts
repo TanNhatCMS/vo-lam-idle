@@ -16,6 +16,7 @@ export const JW: any = {};                                  // vung, ban do, chi
 export const JFX: any = { m: {}, s: {}, c: {}, f: {} };      // hieu ung chieu
 export const JMO: any = {};                                  // vat can ban do
 export const JS: any = { music: {}, npc: {}, skill: {}, ui: {} };  // nhac + am thanh
+export const JX_VI: any = { names: {}, attributeLabels: {}, skillNames: {}, attributeDescriptionOverrides: {} };  // dich Han -> Viet (upstream window.JX_VI)
 
 const TARGETS: [string, any][] = [
   ['/jdata/jx.json', JX],
@@ -23,6 +24,7 @@ const TARGETS: [string, any][] = [
   ['/jdata/jfx.json', JFX],
   ['/jdata/jmo.json', JMO],
   ['/jdata/jsnd.json', JS],
+  ['/jdata/jxvi.json', JX_VI],
 ];
 
 async function getJson(url: string, ms = 15000): Promise<any> {
@@ -56,6 +58,13 @@ export function loadJData(): Promise<void> {
           return Math.floor(100 * Math.pow(n, 2.2) * (1 + n / 500));
         });
       }
+      /* Nguon: window.JX_VI = {...}; Object.assign(window.JX.attrDesc, JX_VI.attributeDescriptionOverrides)
+         (5 mo ta "Sat thuong ky nang he Kim/Moc/Thuy/Hoa/Tho"). Ta gan vao JX_VI da export
+         + expose window.JX_VI cho chat.ts viMessage (dich tin nhan chua ten Han). */
+      if (JX_VI.attributeDescriptionOverrides && JX.attrDesc) {
+        Object.assign(JX.attrDesc, JX_VI.attributeDescriptionOverrides);
+      }
+      if (typeof window !== 'undefined') (window as unknown as { JX_VI?: unknown }).JX_VI = JX_VI;
     });
   }
   return inflight;

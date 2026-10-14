@@ -34,7 +34,7 @@ import { S } from './save';
 import { goldEnhance, setCounts, setMembers } from './sets';
 import { hiddenActive, sexOk, sexReqOk, slotOfEquipped, wrongFaction } from './stats';
 import { addItem, betterThanEquipped, log, setInvDirty, toast } from './ui';
-import { canFuse, canPlatBase, enchaseCheck, fuseCost, mats, oreParse, VIO_SLOTS } from './recipes';
+import { canFuse, canPlatBase, enchaseCheck, enchaseGate, fuseCost, mats, oreParse, VIO_SLOTS } from './recipes';
 import { RCP } from './rcp';
 import { invMax, invUsed } from './invs';
 import { randomForgeProfile } from './forge';
@@ -216,17 +216,18 @@ function goiY(it) {
   const out = [];
   if (!it) return out;
   const n = (it.mag || []).length;
-  if (typeof enchaseCheck === 'function' && typeof mats === 'function' && typeof oreParse === 'function' && typeof VIO_SLOTS === 'number') {
-    if (n >= VIO_SLOTS) out.push('Khảm: đã đủ 6 dòng — không khảm thêm được');
+  if (typeof enchaseGate === 'function' && typeof enchaseCheck === 'function' && typeof mats === 'function' && typeof oreParse === 'function') {
+    const gate = enchaseGate(it);
+    if (gate) out.push(`Khảm: ${gate} — không khảm thêm được`);
     else {
       const hts = Object.keys(mats().ht).map(Number).sort((a, b) => a - b);
       const ores = Object.keys(mats().ore).filter(k => oreParse(k).place === n);
       if (hts.length && ores.length) {
         const row = enchaseCheck(it, hts[0], ores[0]);
         out.push(typeof row === 'string'
-          ? `Khảm dòng ${n + 1}/6: ${row}`
-          : `Khảm dòng ${n + 1}/6: Huyền Tinh cấp ${hts[0]} + ${typeof forgeNS.oreLabel === 'function' ? forgeNS.oreLabel(ores[0]) : 'khoáng thạch'} · thất bại 5% mất đá`);
-      } else out.push(`Khảm dòng ${n + 1}/6: cần Huyền Tinh cấp bất kỳ + khoáng thạch dòng ${n + 1}`);
+          ? `Khảm dòng ${n + 1}: ${row}`
+          : `Khảm dòng ${n + 1}: Huyền Tinh cấp ${hts[0]} + ${typeof forgeNS.oreLabel === 'function' ? forgeNS.oreLabel(ores[0]) : 'khoáng thạch'} · thất bại 5% mất đá`);
+      } else out.push(`Khảm dòng ${n + 1}: cần Huyền Tinh cấp bất kỳ + khoáng thạch dòng ${n + 1}`);
     }
   }
   if (typeof canFuse === 'function' && canFuse(it)) {

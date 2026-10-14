@@ -24,7 +24,8 @@ import {
   PLAT_MAX,
   PLAT_UP,
   SHARDS,
-  VIO_SLOTS,
+  enchaseGate,
+  enchaseGateCap,
   buyHT,
   canFuse,
   canPlatBase,
@@ -103,13 +104,13 @@ function afterRc(r, reopen) {
   R.dirty = true; setInvDirty(true); save(); reopen();
 }
 function enchaseCard(it) {
-  const n = (it.mag || []).length, can = !it.set && it.d >= 0 && it.d <= 9 && (n === 0 ? it.r === 0 : it.vio) && n < VIO_SLOTS;
-  if (!can) return `<div class="card"><b>Khảm Tím</b> <small class="dim">${it.set ? 'Đồ bộ không khảm được' : n >= VIO_SLOTS ? 'Đã đủ 6 dòng' : 'Chỉ khảm đồ trắng hoặc đồ Tím chưa đủ dòng'}</small></div>`;
+  const n = (it.mag || []).length, gate = enchaseGate(it), cap = enchaseGateCap();
+  if (gate) return `<div class="card"><b>Khảm Tím</b> <small class="dim">${gate}</small></div>`;
   const hts = Object.keys(mats().ht).map(Number).sort((a, b) => a - b);
   const allOres = Object.keys(mats().ore);
   const u = hts[0] || 1;
   const ores = allOres.filter(k => typeof enchaseCheck(it, u, k) !== 'string');
-  return `<div class="card"><b>Khảm Tím</b> <small class="dim">dòng ${n + 1}/6 (${n % 2 ? 'ẩn' : 'hiện'}) · thất bại 5% mất đá</small><br>
+  return `<div class="card"><b>Khảm Tím</b> <small class="dim">dòng ${n + 1}/${cap} (${n % 2 ? 'ẩn' : 'hiện'}) · thất bại 5% mất đá</small><br>
     <div class="btnrow"><select id="cHt">${hts.map(l => `<option value="${l}">Huyền Tinh cấp ${l} ×${matHave('ht', l)}</option>`).join('') || '<option value="">Chưa có Huyền Tinh</option>'}</select></div>
     <div class="btnrow"><select id="cOre">${ores.map(k => `<option value="${k}">${esc(oreLabel(k, u))}</option>`).join('') || `<option value="">${allOres.length ? `Không có khoáng phù hợp dòng ${n + 1}` : 'Chưa có khoáng thạch'}</option>`}</select></div>
     <small class="dim">Danh sách chỉ hiện khoáng phù hợp; khoáng khác vẫn được giữ trong túi và có thể dùng cho món khác.</small>

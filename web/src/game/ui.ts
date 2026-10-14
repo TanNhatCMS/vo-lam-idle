@@ -1172,7 +1172,7 @@ function lootPanelHTML() {
     return `<article class="ground-loot-row ${matched ? 'is-match' : 'is-skipped'}${selected ? ' is-target' : ''}${bagBlocked ? ' is-bag-blocked' : ''}">
       <button type="button" class="ground-loot-icon" data-ground-preview="${Number(it.uid)}" style="--rarity:${RAR_COL[clamp(it.r | 0, 0, RAR_COL.length - 1)]}" title="Xem trước ${esc(it.n)}" aria-label="Xem trước ${esc(it.n)}">${it.ic ? `<img src="${esc(it.ic)}" alt="">` : '◇'}</button>
       <span class="ground-loot-copy"><b title="${esc(it.n)}">${esc(it.n)}</b><small>${esc(itemMeta)}</small><small class="ground-loot-verdict">${matched ? '✓' : '·'} ${esc(verdict)}${detail ? ` · ${esc(detail)}` : ''}</small></span>
-      <button type="button" class="btn sm ground-pick" data-ground-pick="${Number(it.uid)}" aria-label="Nhặt tay ${esc(it.n)}" ${bagBlocked ? 'disabled title="Hành trang đầy; món này chưa thể thay món yếu nhất"' : ''}>${bagBlocked ? 'Túi đầy' : 'Nhặt tay'}</button>
+      <button type="button" class="btn sm ground-pick" data-ground-pick="${Number(it.uid)}" aria-label="Nhặt tay ${esc(it.n)}" ${bagBlocked ? 'disabled title="Hành trang đầy; món này chưa thể thay món yếu nhất"' : selected ? 'disabled title="Đang đồng bộ lượt nhặt"' : ''}>${bagBlocked ? 'Túi đầy' : selected ? 'Đang nhặt' : 'Nhặt tay'}</button>
     </article>`;
   }).join('');
   const advOpen = (adv => adv != null ? adv : f.mode === 'custom')($('#autoLootPanel')?.querySelector('.loot-advanced')?.open);

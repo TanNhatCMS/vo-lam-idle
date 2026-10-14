@@ -27,7 +27,9 @@ test('mobile: modal vua chieu ngang, dung giua, UI khong bi xep', async ({ brows
   await page.fill('#pfName', 'MobModal');
   await page.locator('.facpick button').first().click();
   await expect(page.locator('#bNotice')).toBeVisible();
-  await page.locator('#bNotice').click();
+  /* bNotice không bao giờ "stable" với Playwright trên mobile (React re-render 10Hz + main
+     thread bận — bẫy đã biết): dispatch click bằng JS, không qua actionability check */
+  await page.evaluate(() => { const b = document.getElementById('bNotice'); if (b) b.click(); });
   const skip = page.locator('#tSkip');
   if (await skip.isVisible({ timeout: 3000 }).catch(() => false)) await skip.click();
   await expect(page.locator('#qBar .qb')).toHaveCount(19);

@@ -47,10 +47,11 @@ const PROFILE_CHALLENGE = { nopot: 'Không dùng thuốc', white: 'Bố Y', hard
 const CHAT_API = 'https://vo-lam-idle.tannhatcms.io.vn';
 const MAX_MESSAGES = 80;
 
-/* Ten mien (JX_VI.names: Han -> Viet) — giong core.js ban nguon; duong du lieu nay
-   khong co trong game ta nen viMessage la identity pass-through (khong anh huong gi).
-   Tinh regex LAN (doc window.JX_VI ben trong ham — module nay co the duoc SSR dung
-   luc next build, khong duoc dung window o top-level). */
+/* Ten mien (JX_VI.names: Han -> Viet) — giong core.js ban nguon. Data nam trong
+   game/jdata/jxvi.json (loadJData gan window.JX_VI): dich tin nhan chua ten Han
+   (do share/tin nhan tu may choi ban nguon). Tinh regex LAN (doc window.JX_VI
+   ben trong ham — module nay co the duoc SSR dung luc next build, khong duoc
+   dung window o top-level). */
 const viName = s => { const text = String(s); return (typeof window !== 'undefined' && window.JX_VI && window.JX_VI.names[text]) || text; };
 let viNameRe = null, viNameReDone = false;
 const viMessage = s => {

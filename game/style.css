@@ -1436,3 +1436,13 @@ body.chat-transparency #worldChat:hover{opacity:1}
 .admin-item-affix-controls input[type=number]{width:64px;min-width:0;min-height:30px;padding:4px 5px;font-size:10px}
 .admin-item-preview{border:1px solid var(--line);background:#0d1410;border-radius:6px;align-items:center;gap:8px;min-height:48px;padding:6px 8px;display:flex}
 .admin-item-preview img{object-fit:contain;width:36px;height:36px;image-rendering:pixelated;flex:none}
+
+/* ==== Thế Giới multiplayer: nút Map Mình/Thế Giới + PK (2.6.21, nguồn v152) ==== */
+.mp-wrap{position:absolute;left:8px;bottom:8px;display:flex;gap:6px;z-index:30;pointer-events:auto}
+.mp-status{border:1px solid #b99a5c;border-radius:14px;background:#000a;color:#e8e2d0;font-size:11px;line-height:1;padding:6px 10px;box-shadow:0 2px 8px #000b}
+.mp-status[data-state="ok"]{color:#8fe08f;border-color:#5c9a5c}
+.mp-status[data-state="wait"]{color:#f3d88a}
+.mp-status[data-state="error"]{color:#ff9a9a;border-color:#9a5c5c}
+.mp-pk{border:1px solid #b99a5c;border-radius:14px;background:#000a;color:#e8e2d0;font-size:11px;line-height:1;padding:6px 10px;box-shadow:0 2px 8px #000b}
+.mp-pk[data-state="on"]{color:#ffd24a;border-color:#c9a54c}
+.mp-pk[data-state="mass"]{color:#ff5b5b;border-color:#9a3c3c;font-weight:700}

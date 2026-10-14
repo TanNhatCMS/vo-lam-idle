@@ -13,6 +13,7 @@ import { RW } from './rewards';
 import { matAdd, matHave } from './recipes';
 import { CV, img, isMobileUI, resizeArena, snapCamera, draw, setCanvas } from './render';
 import { initWorldChat } from './chat';
+import { mpWire, mpTick } from './mpworld';
 import { AUD, sndCfg, audApply, audInit, uiSfx, playMusic, preloadZoneSounds, audioSuspendForBackground, audioResumeFromBackground } from './audio';
 import {
   curTab,
@@ -107,6 +108,7 @@ function frame(now) {
   if (S.fac && !document.hidden) {
     if (!R.town && !SV.on) jrAdd('sec', dt);              // so tay: giay choi that (khong tinh thanh / Luyen Cong)
     const gdt = dt * gameSpeed(); guard('mo phong', () => simulateFrame(gdt));
+    guard('mp', () => mpTick(dt));                        // Thế Giới multiplayer: gửi move + nội suy người chơi khác
     drawCnt = (drawCnt + 1) % (fullFps() ? 1 : saverStep());
     if (fullFps() || drawCnt === 0) guard('ve', () => drawLerp(gdt));
   }
@@ -208,6 +210,7 @@ export async function boot() {
   bindControls();
   initAfk();                       // overlay treo may + phuc hoi cau hinh (nguon v119)
   initWorldChat();                 // khung chat the gioi (offline: xem nhat ky he thong)
+  mpWire();                        // Thế Giới multiplayer: nút Map Mình/Thế Giới + F9 PK (nguồn v152)
   window.addEventListener('resize', fitApp); window.addEventListener('orientationchange', fitApp);
   if (window.visualViewport) window.visualViewport.addEventListener('resize', fitApp);
   const unlock = () => { audInit(); const z = zoneOf(Math.min(S.stage, STAGES)); preloadZoneSounds(z); if (AUD.music && sndCfg().music && AUD.music.paused) AUD.music.play().catch(() => {}); else if (!AUD.music && S.fac) playMusic(R.town ? W.town.id : z.id); };

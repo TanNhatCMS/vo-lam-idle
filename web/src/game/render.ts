@@ -18,10 +18,11 @@ import { JFX } from './jdata';
 import { lootMatch } from './loot';
 import { OBS } from './mapobs';
 import { drawPet, titleWorn } from './rewards';
+import { S } from './save';
+import { mpEnts, mpDrawOne } from './mpworld';
 import { drawJxHero } from './look';
 import { drawAuras, drawCurseAuras } from './aurafx';
 import { TK_WAVES } from './activities';
-import { S } from './save';
 import { heroSeries } from './stats';
 
 /* ======================= VE SAN DAU (canvas) ======================= */
@@ -47,11 +48,18 @@ export function fxLine(a, b, atk) {
 export { JFX };
 export const FX_SCALE = 1.4, FX_MAX = 60;
 export const dir16 = (vx, vy) => (((Math.round(Math.atan2(-vx, vy) / (Math.PI / 8)) % 16) + 16) % 16);
-/* hieu ung tai cho nguoi ra chieu (PreCastSpr cua skills.txt) */
+/* hieu ung tai cho nguoi ra chieu (PreCastSpr cua skills.txt)
+   v152: tianren cast pre = JFX.c[5] → anim nhanh ms 56 + tag "tianren-cast-<id>" chong nhan doi
+   (nguon G_); kunlun pre = JFX.c[4] → ms 56 khong tag. */
 export function castFx(atk) {
   const f = atk && atk.id && JFX.f && JFX.f[atk.id], c = f && f.pre && JFX.c && JFX.c[f.pre];
   if (!c || R.quiet || R.fx.length > FX_MAX) return;
-  R.fx.push({ k: 'boom', s: c, x: H.x, y: H.y - 6, t: 0, life: animDur(c), dir: 0 });
+  const fac = S && S.fac;
+  const isTn = fac === 'tianren' && c === JFX.c[5], isKl = fac === 'kunlun' && c === JFX.c[4];
+  const tag = isTn ? `tianren-cast-${atk.id}` : null;
+  if (tag && R.fx.some(x => x.tag === tag && x.t === 0)) return;
+  const s = (isTn || isKl) ? { ...c, ms: 56 } : c;
+  R.fx.push({ k: 'boom', s, x: H.x, y: H.y - 6, t: 0, life: animDur(s), dir: 0, ...(tag ? { tag } : {}) });
 }
 /* kieu phong dan cua chieu (MisslesForm / ChildSkillNum trong skills.txt, KSkill::CastMissles):
    0 tuong, 1 hang, 2 quat, 3 vong, 4 ngau nhien, 5 vung, 6 tai muc tieu, 7 tai nguoi ra chieu, >= 8 can chien */
@@ -74,6 +82,25 @@ export function skillFx(a, b, atk) {
   if (form === 1) { for (let i = 0; i < n; i++) mis(x2, y2, i * 0.09); return; }          // hang (lien tiep theo huong)
   if (form === 0) { const px = -dy / d, py = dx / d; for (let i = 0; i < n; i++) { const o = (i - (n - 1) / 2) * 34; mis(x2 + px * o, y2 + py * o); } return; }   // tuong
   for (let i = 0; i < n; i++) mis(x2 + rnd(-60, 60), y2 + rnd(-40, 40), i * 0.05);         // ngau nhien / vung
+}
+/* ---------- glow vu khi +5/+8/+10 (nguon v152 Py): hat bay len quanh nhan vat,
+   mau theo he vu khi (khong he = vang), cuong manh theo enh: 5→1 hat, 8→2, 10→3 ---------- */
+export function stepGlow(c, dt) {
+  const w = S.eq && S.eq.weapon, enh = (w && w.enh) || 0;
+  const glow = enh >= 5 ? { c: w.s >= 0 ? SERIES_COL[w.s] : '#ffe9a8', n: enh >= 10 ? 3 : enh >= 8 ? 2 : 1 } : null;
+  const P = R.glowP || (R.glowP = []);
+  if (glow && !S.lowFx && Math.random() < 0.12 * glow.n) {
+    const ang = Math.random() * Math.PI * 2;
+    P.push({ x: H.x + Math.cos(ang) * rnd(8, 20), y: H.y - 26 + Math.sin(ang) * rnd(6, 16), vy: -rnd(6, 16), life: 0.7, c: glow.c, s: 1 + glow.n * 0.5 });
+  }
+  c.save();
+  for (const p of P) {
+    p.life -= dt; p.y += p.vy * dt;
+    c.globalAlpha = clamp(p.life, 0, 1) * 0.85;
+    c.fillStyle = p.c; c.beginPath(); c.arc(p.x, p.y, p.s || 1.4, 0, 7); c.fill();
+  }
+  c.restore();
+  R.glowP = P.filter(p => p.life > 0).slice(-80);
 }
 export const animDur = s => Math.min(1.2, s.n * s.ms / 1000);
 export function drawFxSprite(s, dir, t, x, y, loop) {
@@ -317,8 +344,9 @@ export function draw(dt) {
   R.corpses = R.corpses.filter(e => e.actT < 1.6);
   drawPet(c, dt);                                                           // dong hanh (rewards.js)
   // ke dich (sap theo y de nguoi o duoi ve sau); bãi quái có thể có 240 con — chỉ vẽ con trong khung nhìn
-  const ents = R.enemies.filter(e => !e.dead && onScreen(e.x, e.y, 170)).concat([{ hero: true, y: H.y }]).sort((a, b) => a.y - b.y);
+  const ents = R.enemies.filter(e => !e.dead && onScreen(e.x, e.y, 170)).concat([{ hero: true, y: H.y }], mpEnts()).sort((a, b) => a.y - b.y);
   for (const e of ents) {
+    if (e.mp) { mpDrawOne(c, e); continue; }                                  // người chơi Thế Giới (mpworld)
     if (e.hero) {
       c.fillStyle = '#0007'; c.beginPath(); c.ellipse(H.x, H.y, 16, 6, 0, 0, 7); c.fill();
       drawAuras(c, 'under', H.x, H.y, HERO_SCALE * 0.6);        // vong sang chan (La Han Tran...), nguon v107
@@ -338,6 +366,7 @@ export function draw(dt) {
       label(H.x, ly, `${S.name || (FAC[S.fac] && FAC[S.fac].n) || ''} · Lv${S.lvl}`, NAME_COL.hero, 12, R.life / Math.max(1, R.P.life), '#4fd04f');
       if (!drawn && !(hw && drawSprite(img(hw.img), hw.sz, H.x, H.y, 0.9, H.face < 0, R.deadT > 0 ? 0.35 : 1))) { c.fillStyle = SERIES_COL[heroSeries()]; c.beginPath(); c.arc(H.x, H.y - 20, 14, 0, 7); c.fill(); }
       drawAuras(c, 'over', H.x, H.y, HERO_SCALE * 0.6);         // vong sang than/dau (Bat dong Minh Vuong...), nguon v107
+      stepGlow(c, dt);                                          // hat glow vu khi +5/+8/+10 (v152 Py)
       if (R.hurtT > 0) { c.fillStyle = '#f004'; c.beginPath(); c.arc(H.x, H.y - 24, 20, 0, 7); c.fill(); }
       continue;
     }
