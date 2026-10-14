@@ -74,7 +74,7 @@ import { tyvoDamageCap, tyvoDailyTick, tyvoFighterAI, tyvoSpawnOpponent, tyvoSto
 import { S } from './save';
 import { rollSetDrop } from './sets';
 import { takeStock } from './shop';
-import { calc, power } from './stats';
+import { basicAttack, calc, power } from './stats';
 import { autoEquipAll, log, sweepJunk } from './ui';
 import type { GameState, Hero } from './types';
 
@@ -268,6 +268,15 @@ function bossUlt(e) {
   addText(H.x + rnd(-10, 10), H.y - 36, '-' + fmt(d), '#ff3a2a', 15);
 }
 export function heal(v, quiet) { const b = R.life; R.life = Math.min(R.P.life, R.life + v); if (!quiet && R.life - b > 1) addText(H.x, H.y - 44, '+' + fmt(R.life - b), '#7f7', 11); }
+
+/* PK Thế Giới (mpworld): snapshot đòn đánh thường gửi qua pk_attack — nguồn chỉ gửi
+   {ar, dmg, series} (ghost mpPkSource), phía NẠN NHÂN tự lăn hit/sát thương bằng
+   phòng thủ của mình qua enemyHit. dmg = tổng parts đòn đánh thường (basicAttack). */
+export function mpAttackSnapshot() {
+  const a = basicAttack(R.P);
+  let dmg = 0; for (const el in a.parts) dmg += a.parts[el];
+  return { ar: R.P.ar, dmg: Math.round(dmg), series: R.P.series };
+}
 
 /* ---------- tu dung thuoc (potion.txt): hoi dan theo thoi gian, tru ngan luong ---------- */
 export const POT_TIER_LV = [0, 1, 20, 40, 70, 100]; // cap nhan vat mo khoa bac thuoc 1..5
@@ -518,16 +527,23 @@ function waveCleared() {
   if (typeof onStageChange === 'function') onStageChange();
 }
 function heroDeath() {
+  // mpKiller chỉ tính nếu bị NGƯỜI CHƠI đánh trong 3s cuối (tránh ghi oan khi quái kết liễu)
+  const mpKiller = (Date.now() - (R.mpKillerAt || 0) < 3000) ? (R.mpKiller || '') : '';
+  R.mpKiller = ''; R.mpKillerAt = 0;
   if (R.enemies.some(e => e.goldBoss && !e.dead)) RW().gbT = GB_RETRY;   // thua trum Hoang Kim: 5 phut sau quay lai
   petRealmAbort(true);                                   // guc trong bi canh: roi ra, khong mat cooldown
   jrDeath(R.tower ? 'Luyện Công' : R.wbArena ? 'Boss Thế Giới' : R.tyvo ? 'Tỷ Võ' : 'đánh ải');   // so tay: nhat ky lan guc
   R.deadT = 3; R.life = 0; R.enemies = [];
-  log('<span class="bad">Bạn đã trọng thương.</span>');
+  log(mpKiller ? `<span class="bad">Bạn bị ${esc(mpKiller)} đánh trọng thương.</span>` : '<span class="bad">Bạn đã trọng thương.</span>');
   if (R.tyvo) { tyvoStop(false, 'loss'); return; }          // Tỷ Võ: gục = đứt chuỗi, giữ nguyên tiến trình
   if (R.tk) { tkExit(true, false); return; }               // gục ở Tống Kim: kết thúc trận, vẫn nhận lệnh
   if (R.tower) { towerExit(true); return; }               // gục trong thap: roi thap, khong lui ai
   if (R.dg) { dgFail(); return; }                          // gục trong phó bản/thuyền/boss tuần: kết thúc hoạt động
   if (R.wbArena) { log('<span class="dim">Boss Thế Giới vẫn chờ ở bí cảnh — hồi sức rồi vào lại.</span>'); return; }
+  if (mpKiller) {                                          // nguồn: chết bởi người chơi KHÔNG lùi ải, modal dưỡng sức
+    if (typeof window !== 'undefined' && window.__MP) window.__MP.onDeathByPlayer(mpKiller);
+    return;
+  }
   if (S.stage > 1) { S.stage--; S.push = false; R.farm = 0; log(`Lùi về ải ${S.stage} để luyện công.`); }
   if (typeof onStageChange === 'function') onStageChange();
 }

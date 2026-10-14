@@ -16,5 +16,10 @@
     "directory": "game",
     "html_handling": "auto-trailing-slash",
     "not_found_handling": "none"
-  }
+  },
+  // The Gioi multiplayer: Durable Object MpRoom (1 instance/room, SQLite) — xem chat-proxy.js
+  "durable_objects": {
+    "bindings": [{ "name": "MP_ROOM", "class_name": "MpRoom" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["MpRoom"] }]
 }

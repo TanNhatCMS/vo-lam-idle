@@ -15,11 +15,11 @@
    Phase 2 (khi có server): đồng bộ quái (monsters/mapHosts), đòn đánh người (pk_attack/
    enemy_damage), đồ rơi chung (ground_drop/drop_pickup) — plumbing sẵn, chưa kích hoạt.
    Kill switch: window.JX_MP_OFF = true → không tạo nút, không nối. window.__MP = test hooks. */
-import { FAC, SERIES_COL, WORLD, clamp } from './core';
-import { R, H } from './combat';
+import { FAC, SERIES_COL, WORLD, clamp, esc } from './core';
+import { R, H, enemyHit, mpAttackSnapshot } from './combat';
 import { SV } from './survival';
 import { S } from './save';
-import { modal, toast, closeModal } from './ui';
+import { log, modal, toast, closeModal } from './ui';
 import { goTown } from './control';
 
 const MP_MODE_KEY = 'volam_mp_mode';
@@ -37,6 +37,7 @@ const $ = {
   ws: null, attempts: 0, reconnectTimer: 0, nextConnect: 0,
   players: new Map(),                             // id -> {id,name,fac,lvl,x,y,tx,ty,pk,mass,seen}
   activeRoom: '', lastMoveAt: 0, selfId: '',
+  atkCd: 0, lastAttackerId: '',                   // PK: nhịp đánh người + id người vừa đánh mình
 };
 
 const mpUrl = () => {
@@ -187,7 +188,23 @@ function handle(m) {
       break;
     case 'pk_death':                                  // người khác chết vì ta → server đã cộng mạn áp
       if (typeof m.murder === 'number') { $.murderCount = m.murder | 0; $.murderDecayAt = Number(m.murderDecayAt) || 0; statusRefresh(); }
+      if (m.victim && m.killer) {
+        const vp = $.players.get(String(m.victim));
+        if (vp && m.victim !== $.selfId) log(`<span class="bad">${esc(String(m.killerName || 'người chơi'))} trọng thương ${esc(vp.name)}.</span>`);
+      }
       break;
+    case 'pk_attack': {                               // có người đánh mình (nguồn xm → ghost mpPkSource)
+      const p = $.players.get(String(m.from || ''));
+      if (!p || R.deadT > 0 || !R.P) break;
+      const atk = m.atk || {};
+      $.lastAttackerId = String(m.from);
+      R.mpKiller = p.name; R.mpKillerAt = Date.now(); // chết trong 3s sau đòn này → trọng thương
+      // ghost enemy đúng nguồn: hp 1e30, ar/dmg/series của kẻ tấn công — enemyHit tự áp
+      // phòng thủ/res/manaShield/petGuard của mình (curseMod/tower2 không có trên ghost)
+      enemyHit({ n: p.name, ar: Number(atk.ar) || 0, dmg: Number(atk.dmg) || 0, series: Number(atk.series) || 0, mpPkSource: true, hp: 1e30, res: {} });
+      break;
+    }
+    case 'join': case 'leave': break;                 // đã xử lý ở profile/leave — chỉ để khỏi warn
     /* Phase 2 — plumbing nhận, chưa kích hoạt hành vi game: */
     case 'monsters': case 'monster_skill': case 'enemy_attack': case 'enemy_damage':
     case 'player_skill': case 'ground_drop': case 'drop_pickup': case 'pk_attack':
@@ -238,7 +255,10 @@ function pkButtonRefresh() {
 
 /* ---------- trọng thương (nguồn: chết bởi người chơi → modal Về thành dưỡng sức) ---------- */
 export function onDeathByPlayer(killerName) {
-  modal(`<h3>Bạn đã trọng thương</h3><p class="desc">Bạn bị ${String(killerName || 'đối thủ')} đánh trọng thương.</p>
+  // báo server: ta chết vì $.lastAttackerId → server cộng mạn áp cho kẻ đó
+  if ($.lastAttackerId) send('pk_death', { attackerId: $.lastAttackerId });
+  log(`<span class="bad">Bạn bị ${esc(String(killerName || 'đối thủ'))} đánh trọng thương.</span>`);
+  modal(`<h3>Bạn đã trọng thương</h3><p class="desc">Bạn bị ${esc(String(killerName || 'đối thủ'))} đánh trọng thương. Hồi sức ở thành rồi hẵng quay lại.</p>
     <div class="btnrow pk-death-actions"><button type="button" class="btn sm detail-count-btn" id="pkReturnTown">Về thành dưỡng sức</button></div>`, () => {
     const b = document.getElementById('pkReturnTown');
     if (b) b.onclick = () => { closeModal(); goTown(); };
@@ -255,6 +275,7 @@ export function mpTick(dt) {
       $.lastMoveAt = now;
       send('move', { x: Math.round(H.x), y: Math.round(H.y), map: roomKey() });
     }
+    mpCombatTick(dt);
   }
   // nội suy di chuyển + dọn người biến mất quá 30s
   const now = Date.now();
@@ -263,6 +284,25 @@ export function mpTick(dt) {
     p.x += (p.tx - p.x) * k; p.y += (p.ty - p.y) * k;
     if (now - p.seen > 30000) $.players.delete(id);
   }
+}
+
+/* ---------- PK: tự động đánh người chơi trong tầm (nguồn autoPkPlayers) ----------
+   1 đòn/giây khi: bật PK + setting "Chủ động tấn công người chơi" + mục tiêu trong
+   tầm 384px; PK thường chỉ chọn người đã bật PK, Đồ Sát chọn mọi người. Server kiểm
+   tra lại luật trước khi chuyển tiếp. */
+function mpCombatTick(dt) {
+  $.atkCd -= dt;
+  if ($.atkCd > 0 || !$.pkMode || R.deadT > 0 || !R.P) return;
+  if (!(S && S.autoPkPlayers === true)) return;
+  let best = null, bd = 1e9;
+  for (const p of $.players.values()) {
+    if (!$.massacreMode && !p.pk) continue;
+    const d = Math.hypot(p.x - H.x, p.y - H.y);
+    if (d < 384 && d < bd) { bd = d; best = p; }
+  }
+  if (!best) return;
+  $.atkCd = 1.0;
+  send('pk_attack', { target: best.id, atk: mpAttackSnapshot(), name: S.name });
 }
 
 /* ---------- vẽ (render.ts gọi qua ents(): người chơi khác chen vào y-sort chung) ---------- */

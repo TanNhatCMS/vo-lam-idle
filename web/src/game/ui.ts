@@ -1082,9 +1082,10 @@ export function renderAutoPanel() {
     <section class="auto-section"><h4>Chiến đấu</h4>
       ${row('Tự tìm và đuổi theo mục tiêu', 'cAutoFind', S.autoFind !== false)}
       ${row('Tự đánh quái', 'cAutoAttack', !manual())}
+      ${row('Chủ động tấn công người chơi', 'cAutoPkPlayers', S.autoPkPlayers === true)}
       ${row('Ưu tiên Boss / Tinh anh', 'cBossPrio', S.autoBossPriority !== false)}
       <div class="auto-range"><span>Phạm vi tìm</span><div id="autoRange" role="group" aria-label="Phạm vi tìm mục tiêu">${range}</div></div>
-      <small class="dim">Ưu tiên quái trong phạm vi đã chọn; hết quái gần thì tự tìm bãi tiếp theo. Tắt tìm mục tiêu thì nhân vật chỉ đánh quái đang ở trong tầm chiêu.</small>
+      <small class="dim">Ưu tiên quái trong phạm vi đã chọn; hết quái gần thì tự tìm bãi tiếp theo. Tắt tìm mục tiêu thì nhân vật chỉ đánh quái đang ở trong tầm chiêu. Đánh người chơi cần bật PK (F9) và đang ở Thế Giới; PK thường chỉ đánh người đã bật PK, Đồ Sát đánh mọi người cùng map ngoài trời.</small>
     </section>
     <section class="auto-section"><h4>Kỹ năng</h4>
       ${row('Xoay chiêu khi farm', 'cRot', S.rot !== false)}
@@ -1121,6 +1122,7 @@ export function renderAutoPanel() {
 function bindAutoSettings() {
   $('#cAutoFind').onchange = e => { S.autoFind = e.target.checked; save(); };
   $('#cAutoAttack').onchange = e => { setCtrl(e.target.checked ? 'auto' : 'manual'); R.moveTo = null; renderPad(); save(); };
+  $('#cAutoPkPlayers').onchange = e => { S.autoPkPlayers = e.target.checked; save(); };   // PK Thế Giới: chủ động đánh người (mpworld)
   $('#cBossPrio').onchange = e => { S.autoBossPriority = e.target.checked; save(); };
   $('#autoRange').querySelectorAll('[data-auto-range]').forEach(b => b.onclick = () => {
     S.autoRange = b.dataset.autoRange;

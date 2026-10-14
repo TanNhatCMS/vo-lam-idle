@@ -295,7 +295,7 @@ export function activeInfo(P, s, L) {
   info.dps = (tot - (parts.poison || 0) * (1 - POISON_EFF) + (parts.phys || 0) * crit / 100 * (CRIT_MULT - 1)) * expectedHits(info) * rate * (info.melee ? MELEE_UPTIME : 1);   // chi mang chi nhan doi phan vat ly (giong heroHit)
   return info;
 }
-function basicAttack(P) {
+export function basicAttack(P) {
   const phys = (P.wmin + P.wmax) / 2 * (1 + P.physPct / 100) * P.physStat;
   const parts = { phys }; for (const e in P.add) if (P.add[e]) parts[e] = P.add[e];
   let tot = 0; for (const e in parts) { parts[e] *= P.dmgMul || 1; tot += parts[e]; }
