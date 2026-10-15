@@ -120,9 +120,9 @@ test('mp pk: pk_attack làm mất máu, trọng thương khi hết máu, mạn �
   await expect(page.locator('#modal')).toContainText('Về thành dưỡng sức');
 
   // kill feed: tự hạ quái → server nhận monster_died; người khác hạ quái → log hiện
-  await page.evaluate(() => window.__MP.monsterKilled('Hắc Hùng'));
-  expect(serverFrames.some(m => m.t === 'monster_died' && m.n === 'Hắc Hùng' && m.killer === 'MPHiệp')).toBe(true);
-  await page.evaluate(() => window.__MP.handle({ t: 'monster_died', n: 'Lang Báo', killer: 'Sát Thủ' }));
+  await page.evaluate(() => window.__MP.monsterKilled({ n: 'Hắc Hùng', mpKey: 'k9' }));
+  expect(serverFrames.some(m => m.t === 'monster_died' && m.n === 'Hắc Hùng' && m.killer === 'MPHiệp' && m.key === 'k9')).toBe(true);
+  await page.evaluate(() => window.__MP.handle({ t: 'monster_died', key: 'kx', n: 'Lang Báo', killer: 'Sát Thủ' }));
   await page.waitForTimeout(200);
   const feed = await page.evaluate(() => [...document.querySelectorAll('#t-log .log-entry, #log .log-entry')].map(x => x.textContent).join('|'));
   const hasFeed = feed.includes('vừa hạ') || (await page.evaluate(() => document.body.textContent.includes('vừa hạ Lang Báo')));

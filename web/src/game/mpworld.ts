@@ -16,7 +16,7 @@
    enemy_damage), đồ rơi chung (ground_drop/drop_pickup) — plumbing sẵn, chưa kích hoạt.
    Kill switch: window.JX_MP_OFF = true → không tạo nút, không nối. window.__MP = test hooks. */
 import { FAC, SERIES_COL, WORLD, clamp, esc } from './core';
-import { R, H, enemyHit, mpAttackSnapshot } from './combat';
+import { R, H, enemyHit, mpAttackSnapshot, makeEnemy } from './combat';
 import { SV } from './survival';
 import { S } from './save';
 import { log, modal, toast, closeModal } from './ui';
@@ -38,6 +38,7 @@ const $ = {
   players: new Map(),                             // id -> {id,name,fac,lvl,x,y,tx,ty,pk,mass,seen}
   activeRoom: '', lastMoveAt: 0, selfId: '',
   atkCd: 0, lastAttackerId: '', feedT: 0,           // PK: nhịp đánh + id kẻ đánh mình + chống spam feed
+  host: '', mpSeq: 0, hbT: 0,                       // sync quái: host id, key sequence, nhịp heartbeat 5s
 };
 
 const mpUrl = () => {
@@ -61,17 +62,21 @@ const murderMinutesLeft = () => murderActive()
 const murderText = () => murderActive()
   ? `Đồ Sát · còn ${$.murderCount} mạng · khoảng ${murderMinutesLeft()} phút đến khi về 0. Chưa thể về Map Mình.` : '';
 
-/* kF nguồn: room key theo chế độ đang chơi + chế độ thử thách (white/standard) */
+/* kF nguồn mở rộng: room Theo STAGE (người cùng ải gặp nhau, thấy nhau đánh); mode
+   instanced (tháp/phó bản/Tống Kim/Tỷ Võ/Luyện Công) là room RIÊNG TƯ (p: tiền tố).
+   Nền sync quái (host spawn + ledger enemy_damage) đã có handler — CHƯA wire vào
+   combat/field (cần refactor seeded spawn + field slot, xem memory 2.6.24). */
 export const roomKey = () => {
   const chal = S && S.chal === 'white' ? 'white' : 'standard';
   if (R.town) return `town:${chal}`;
-  if (SV && SV.on) return `survival:${SV.zone && SV.zone.id || 'field'}:${chal}`;
-  if (R.tk) return `tong-kim:${chal}`;
-  if (R.tyvo) return `ty-vo:${chal}`;
-  if (R.tower) return `tower:${R.tower.id || 1}:${R.tower.floor || 1}:${chal}`;
-  if (R.dg) return `activity:${R.dg.kind || 'dungeon'}:${R.zoneShown || 'room'}:${chal}`;
+  if (SV && SV.on) return `p:luyen-cong:${SV.zone && SV.zone.id || 'field'}:${chal}`;
+  if (R.tk) return `p:tong-kim:${chal}`;
+  if (R.tyvo) return `p:ty-vo:${chal}`;
+  if (R.tower) return `p:tower:${R.tower.id || 1}:${R.tower.floor || 1}:${chal}`;
+  if (R.dg) return `p:hoat-dong:${R.dg.kind || 'dungeon'}:${R.zoneShown || 'room'}:${chal}`;
   return `field:${(S && S.stage) || 1}:${chal}`;
 };
+const isHost = () => !$.host || $.host === $.selfId;   // thiếu thông tin host → coi như host (không chết chờ)
 
 function setStatus(text, state) {
   $.statusText = text; $.statusState = state || '';
@@ -102,8 +107,7 @@ function connect() {
     send('profile', profilePayload());
     send('pk_mode', { mode: $.pkMode ? ($.massacreMode ? 'massacre' : 'pk') : 'off' });
     statusRefresh();
-  };
-  ws.onmessage = ev => {
+  };  ws.onmessage = ev => {
     let m; try { m = JSON.parse(ev.data); } catch (_) { return; }
     if (m && m.t) handle(m);
   };
@@ -150,8 +154,12 @@ function handle(m) {
     case 'welcome':
       $.selfId = m.id || $.selfId;
       $.pkProtocolReady = m.protocol !== 1;          // server cũ protocol 1: chưa có Đồ Sát
+      $.host = String(m.host || '');                 // host room (người chạy spawn quái)
       if (typeof m.murder === 'number') { $.murderCount = m.murder | 0; $.murderDecayAt = Number(m.murderDecayAt) || 0; }
       statusRefresh();
+      break;
+    case 'host':                                     // host rời room → server chỉ định người mới
+      $.host = String(m.id || '');
       break;
     case 'profile': {                                 // người vào room / cập nhật hồ sơ
       const id = String(m.id || '');
@@ -205,12 +213,36 @@ function handle(m) {
       enemyHit({ n: p.name, ar: Number(atk.ar) || 0, dmg: Number(atk.dmg) || 0, series: Number(atk.series) || 0, mpPkSource: true, hp: 1e30, res: {} });
       break;
     }
-    case 'monster_died': {                            // người khác trong room vừa hạ quái → kill feed
+    case 'monster_died': {                            // người khác trong room vừa hạ quái → kill feed + đồng bộ hp
       const now = Date.now();
       if (m.killer === (S && S.name)) break;          // kill của chính mình: onKill đã log
+      if (m.key) {
+        const e = R.enemies.find(x => x.mpKey === m.key && !x.dead);
+        if (e) { e.hp = 0; e.mpRelay = true; }        // hp về 0 → killCheck tự xử (đã báo nên không echo)
+      }
       if (now - ($.feedT || 0) < 2000) break;         // chống spam feed: tối đa 1 dòng/2s
       $.feedT = now;
       log(`<span class="dim">${esc(String(m.killer || 'người chơi'))} vừa hạ <b>${esc(String(m.n || 'quái'))}</b>.</span>`);
+      break;
+    }
+    case 'enemy_damage': {                            // ai đó đánh con quái chung → trừ đúng hp bản copy mình
+      const e = R.enemies.find(x => x.mpKey === m.key && !x.dead);
+      if (e) e.hp -= Math.max(0, Number(m.dmg) || 0);
+      break;
+    }
+    case 'monsters': {                                // host công bố bộ quái của room (spawn/heartbeat/sync_req)
+      if (!$.worldMode || isHost()) break;
+      const list = Array.isArray(m.list) ? m.list : [];
+      const want = list.map(x => String(x.key)).sort().join(',');
+      const have = R.enemies.filter(e => !e.dead).map(e => e.mpKey).sort().join(',');
+      if (!list.length || want === have) break;       // cùng bộ: giữ nguyên (hp đã chạy qua ledger)
+      R.enemies = list.map(x => {
+        const ang = Math.random() * Math.PI * 2, r = 140 + Math.random() * 100;
+        const e = makeEnemy(x.tid | 0, Math.max(1, Number(x.L) || 1), x.cls || 'normal',
+          clamp(H.x + Math.cos(ang) * r, 0, WORLD.w), clamp(H.y + Math.sin(ang) * r, 0, WORLD.h));
+        e.mpKey = String(x.key); e.hp = Math.min(e.hp, Math.max(1, Number(x.hp) || e.hp));
+        return e;
+      });
       break;
     }
     case 'join': case 'leave': break;                 // đã xử lý ở profile/leave — chỉ để khỏi warn
@@ -285,6 +317,7 @@ export function mpTick(dt) {
       send('move', { x: Math.round(H.x), y: Math.round(H.y), map: roomKey() });
     }
     mpCombatTick(dt);
+    hostHeartbeat(dt);
   }
   // nội suy di chuyển + dọn người biến mất quá 30s
   const now = Date.now();
@@ -322,9 +355,36 @@ function pkFx(x1, y1, x2, y2) {
 }
 
 /* ---------- kill feed: mình hạ quái ở Thế Giới → báo room (gọi từ combat killCheck) ---------- */
-export function monsterKilled(n) {
+export function monsterKilled(e) {
   if (!$.worldMode || !$.connected) return;
-  send('monster_died', { n: String(n || 'quái').slice(0, 40), killer: S.name });
+  if (e && e.mpKey && e.mpRelay) return;            // chết do relay từ người khác: không echo
+  send('monster_died', { key: (e && e.mpKey) || '', n: String((e && e.n) || 'quái').slice(0, 40), killer: S.name });
+}
+
+/* ---------- đồng bộ quái: host spawn + công bố, mọi người chung hp qua ledger ----------
+   Host = id nhỏ nhất (server chỉ định). suppressSpawn: follower KHÔNG tự spawn (chờ list
+   của host). afterSpawn: host gán key + công bố; follower gửi sync_req xin list. Heartbeat
+   5s tái công bố (bù mất tin, idempotent — cùng bộ key thì người nhận bỏ qua). */
+const suppressSpawn = () => $.worldMode && $.connected && !isHost();
+const monsterSnapshot = () => R.enemies.filter(e => !e.dead).map(e => {
+  if (!e.mpKey) e.mpKey = 'k' + (++$.mpSeq);
+  return { key: e.mpKey, tid: e.tid, cls: e.cls, L: e.L, hp: Math.max(1, Math.round(e.hp)) };
+});
+function afterSpawn() {
+  if (!$.worldMode || !$.connected || R.town) return;
+  if (isHost()) send('monsters', { list: monsterSnapshot() });
+  else send('sync_req', {});                        // xin host công bố lại bộ hiện tại
+}
+function enemyDamage(key, dmg) {
+  if ($.worldMode && $.connected && key) send('enemy_damage', { key, dmg: Math.max(0, Math.round(dmg)) });
+}
+/* host heartbeat: 5s công bố lại (bù mất tin; follower cùng bộ key thì bỏ qua) */
+function hostHeartbeat(dt) {
+  if (!isHost()) return;
+  $.hbT -= dt;
+  if ($.hbT > 0) return;
+  $.hbT = 5;
+  if (R.enemies.some(e => !e.dead && !R.town)) send('monsters', { list: monsterSnapshot() });
 }
 
 /* ---------- vẽ (render.ts gọi qua ents(): người chơi khác chen vào y-sort chung) ---------- */
@@ -378,6 +438,7 @@ if (typeof window !== 'undefined') {
     toggleWorld, cyclePk, connect, disconnect,
     roomKey, mpEnts, mpDrawOne, onDeathByPlayer,
     handle, send, murderText, monsterKilled,
+    suppressSpawn, afterSpawn, enemyDamage,          // đồng bộ quái (combat.ts gọi)
     /* test: tiêm socket giả */
     _setSocket(fake) { $.ws = fake; $.connected = true; $.activeRoom = roomKey(); },
   };

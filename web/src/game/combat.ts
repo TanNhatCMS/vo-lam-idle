@@ -447,7 +447,7 @@ function stallOut() {
   spawnWave();
 }
 function killCheck() {
-  for (const e of R.enemies) if (e.hp <= 0 && !e.dead) { e.dead = true; if (!R.tyvo) onKill(e); if (fieldActive()) fieldKilled(e); npcSfx(MON[e.tid].anim, 'die', 0.5); if (!R.quiet) { e.act = 'die'; e.actT = 0; R.corpses.push(e); } if (!e.dummy && !e.mpPkSource && typeof window !== 'undefined' && window.__MP) window.__MP.monsterKilled(e.n || MON[e.tid].n); }
+  for (const e of R.enemies) if (e.hp <= 0 && !e.dead) { e.dead = true; if (!R.tyvo) onKill(e); if (fieldActive()) fieldKilled(e); npcSfx(MON[e.tid].anim, 'die', 0.5); if (!R.quiet) { e.act = 'die'; e.actT = 0; R.corpses.push(e); } if (!e.dummy && !e.mpPkSource && typeof window !== 'undefined' && window.__MP) window.__MP.monsterKilled(e); }
   if (fieldActive()) {
     R.enemies = R.enemies.filter(e => !e.dead);
     if (fieldWaveCleared()) {

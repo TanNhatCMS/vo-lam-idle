@@ -102,6 +102,15 @@ export class MpRoom {
       try { ws.send(data); } catch (e) { /* socket mat: close se don */ }
     }
   }
+  // host = id nho nhat con online (dung thu tu chuoi) — nguoi chay spawn quai cho room
+  currentHost() {
+    const ids = this.rows().map(r => r.id).sort();
+    return ids[0] || null;
+  }
+  reassignHost(exceptId = null) {
+    const ids = this.rows().map(r => r.id).filter(id => id !== exceptId).sort();
+    if (ids.length) this.broadcast({ t: "host", id: ids[0] });
+  }
   // man ap hieu dung: moi diem 10 phut, het thoi gian thi ve 0
   effMurder(row) {
     if (!row || !row.murder) return { count: 0, decay: 0 };
@@ -121,7 +130,9 @@ export class MpRoom {
 
     const self = this.rowOf(cid);
     const selfMurder = this.effMurder(self);
-    pair[1].send(JSON.stringify({ t: "welcome", id: cid, protocol: 2, murder: selfMurder.count, murderDecayAt: selfMurder.decay }));
+    const hostId = this.currentHost();
+    pair[1].send(JSON.stringify({ t: "welcome", id: cid, protocol: 2, murder: selfMurder.count, murderDecayAt: selfMurder.decay, host: hostId }));
+    if (hostId === cid) this.broadcast({ t: "host", id: cid });
     for (const r of this.rows()) {
       if (r.id === cid) continue;
       pair[1].send(JSON.stringify({ t: "profile", id: r.id, name: r.name, faction: r.faction, level: r.level, pkMode: !!r.pk, massacre: !!r.mass }));
@@ -194,6 +205,7 @@ export class MpRoom {
       // phase 2 sau: monsters/ground_drop/drop_pickup — relay mui cho ca room;
       // monster_died = kill feed (client hien log, khong dong bo trang thai quai)
       case "monsters": case "ground_drop": case "drop_pickup": case "monster_died":
+      case "enemy_damage": case "sync_req":
         this.broadcast(m, cid);
         break;
     }
@@ -202,7 +214,9 @@ export class MpRoom {
   webSocketClose(ws) {
     const cid = this.state.getTags(ws)[0];
     if (!cid) return;
+    const wasHost = this.currentHost() === cid;
     this.sql.exec("DELETE FROM players WHERE id = ?", cid);
     this.broadcast({ t: "leave", id: cid });
+    if (wasHost) this.reassignHost();
   }
 }
