@@ -88,7 +88,9 @@ function setStatus(text, state) {
   }
 }
 const statusRefresh = () => {
-  if (!$.worldMode) setStatus('Map Mình', 'local');
+  // text/data-state đúng nguồn: 'Map · Local' local, 'Thế giới · đang nối' wait,
+  // connected = ok + số người (nguồn để text rỗng — ta giữ số người cho dễ đọc)
+  if (!$.worldMode) setStatus('Map · Local', 'local');
   else if (!$.connected) setStatus('Thế giới · đang nối', 'wait');
   else setStatus(`Thế giới · ${$.players.size} người${$.pkMode ? ` · ${$.massacreMode ? 'ĐỒ SÁT' : 'PK'}` : ''}`, 'ok');
   pkButtonRefresh();
@@ -282,10 +284,11 @@ function cyclePk() {
   pkButtonRefresh(); statusRefresh();
 }
 function pkButtonRefresh() {
-  const el = document.getElementById('mpPkMode');
+  const el = document.getElementById('mpPkStatus');
   if (!el) return;
+  // đúng nguồn: text + data-state pk-off/pk-on/pk-kill (CSS nguồn .pk-status)
   el.textContent = $.massacreMode ? 'ĐỒ SÁT' : $.pkMode ? 'PK · BẬT' : 'PK · TẮT';
-  el.dataset.state = $.massacreMode ? 'mass' : $.pkMode ? 'on' : 'off';
+  el.dataset.state = $.massacreMode ? 'pk-kill' : $.pkMode ? 'pk-on' : 'pk-off';
   el.setAttribute('aria-pressed', String($.pkMode));
   const hint = murderActive() ? `${murderText()} ` : '';
   el.title = $.worldMode && $.connected
@@ -411,15 +414,22 @@ let stopped = () => typeof window !== 'undefined' && window.JX_MP_OFF === true;
 export function mpWire() {
   if (stopped() || typeof document === 'undefined') return;
   try { $.worldMode = localStorage.getItem(MP_MODE_KEY) === 'world'; } catch (_) {}
-  const battle = document.getElementById('battle');
-  if (battle && !document.getElementById('mpStatus')) {
-    const wrap = document.createElement('div');
-    wrap.className = 'mp-wrap';
-    wrap.innerHTML = `<button type="button" id="mpStatus" class="mp-status" aria-pressed="false">Map Mình</button>
-      <button type="button" id="mpPkMode" class="mp-pk" hidden>PK · TẮT</button>`;
-    battle.appendChild(wrap);
-    wrap.querySelector('#mpStatus').addEventListener('click', () => toggleWorld(!$.worldMode));
-    wrap.querySelector('#mpPkMode').addEventListener('click', cyclePk);
+  // nút nằm SẴN trong header (TopBar.tsx: #mpStatus + #mpPkStatus cạnh heroName, đúng
+  // nguồn index.html .hero-identity) — chỉ bind; React island mount trước boot nên có sẵn,
+  // thiếu thì thử lại 1 lần (tránh lệch thứ tự render)
+  const st = document.getElementById('mpStatus'), pk = document.getElementById('mpPkStatus');
+  if (st && !st.dataset.mpBound) {
+    st.dataset.mpBound = 'true';
+    st.addEventListener('click', () => toggleWorld(!$.worldMode));
+  }
+  if (pk && !pk.dataset.mpBound) {
+    pk.dataset.mpBound = 'true';
+    pk.addEventListener('click', cyclePk);
+  }
+  if ((!st || !pk) && !mpWire.retried) {
+    mpWire.retried = true;
+    setTimeout(() => { mpWire.retried = false; mpWire(); }, 500);
+    return;
   }
   if (!mpWire.bound) {
     mpWire.bound = true;

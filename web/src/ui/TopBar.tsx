@@ -60,7 +60,7 @@ export default function TopBar() {
       </div>
       <div className="topmid">
         <div className="row">
-          <span className="hero-identity"><b id="heroName">{displayName}</b></span>
+          <span className="hero-identity"><b id="heroName">{displayName}</b><button id="mpStatus" className="mp-status" type="button" data-state="local" aria-pressed="false" aria-label="Đang ở Map Mình. Bấm để vào Thế Giới." title="Bấm để chuyển giữa Map Mình và Thế Giới">Map · Local</button><button id="mpPkStatus" className="mp-status pk-status" type="button" data-state="pk-off" aria-pressed="false" aria-label="Chế độ PK đang tắt. Bấm để bật hoặc nhấn F9." title="Bấm hoặc nhấn F9 để bật/tắt chế độ PK" hidden>PK · TẮT</button></span>
           <span id="stageLbl">{fac ? `Ải ${S.stage} · đợt ${S.wave}/${WAVES}` : ''}</span>
           <span className="top-power" aria-label="Lực Chiến"><span>Lực Chiến</span><b id="topPowerValue">{fac && P ? fmt(R.power) : 0}</b></span>
         </div>

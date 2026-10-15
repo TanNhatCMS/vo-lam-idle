@@ -52,10 +52,10 @@ test('mp: nút Map Mình/Thế Giới, nối room giả, nhận người chơi, 
   // nút trạng thái mặc định: Map Mình
   const st = page.locator('#mpStatus');
   await expect(st).toBeVisible();
-  await expect(st).toHaveText('Map Mình');
+  await expect(st).toHaveText('Map · Local');
 
   // bấm -> vào Thế Giới (nối WS giả) -> trạng thái ok + có 1 người khác
-  await st.click();
+  await page.evaluate(() => document.getElementById('mpStatus').click());   // header button nhay vi tri (re-render 10Hz) → dispatch JS
   await expect(st).toHaveText(/Thế giới · 1 người/, { timeout: 8000 });
   const players = await page.evaluate(() => window.__MP.state.players.size);
   expect(players).toBe(1);
@@ -65,7 +65,7 @@ test('mp: nút Map Mình/Thế Giới, nối room giả, nhận người chơi, 
   expect(rk).toMatch(/^field:\d+:standard$/);
 
   // F9: tắt -> PK thường -> Đồ Sát -> tắt
-  const pk = page.locator('#mpPkMode');
+  const pk = page.locator('#mpPkStatus');
   await expect(pk).toBeVisible();
   await page.keyboard.press('F9');
   await expect(pk).toHaveText('PK · BẬT');
@@ -75,8 +75,8 @@ test('mp: nút Map Mình/Thế Giới, nối room giả, nhận người chơi, 
   await expect(pk).toHaveText('PK · TẮT');
 
   // về Map Mình: nút về trạng thái local, WS ngắt
-  await st.click();
-  await expect(st).toHaveText('Map Mình');
+  await page.evaluate(() => document.getElementById('mpStatus').click());   // header button nhay vi tri (re-render 10Hz) → dispatch JS
+  await expect(st).toHaveText('Map · Local');
   await expect(pk).toBeHidden();
   await assertNoErrors();
 });
@@ -99,10 +99,10 @@ test('mp pk: pk_attack làm mất máu, trọng thương khi hết máu, mạn �
   await createCharacter(page);
 
   // vào Thế Giới, nhận Sát Thủ
-  await page.locator('#mpStatus').click();
+  await page.evaluate(() => document.getElementById('mpStatus').click());   // dispatch JS (re-render 10Hz)
   await expect(page.locator('#mpStatus')).toHaveText(/Thế giới · 1 người/, { timeout: 8000 });
   await page.keyboard.press('F9');                 // bật PK thường
-  await expect(page.locator('#mpPkMode')).toHaveText('PK · BẬT');
+  await expect(page.locator('#mpPkStatus')).toHaveText('PK · BẬT');
 
   // đòn pk_attack (dmg lớn hơn máu): ghost enemyHit → mất máu
   const atk = { ar: 100000, dmg: 999999, series: 0 };
@@ -130,10 +130,10 @@ test('mp pk: pk_attack làm mất máu, trọng thương khi hết máu, mạn �
 
   // server cộng mạn áp 2 điểm → KHÔNG được về Map Mình
   await page.evaluate(() => window.__MP.handle({ t: 'murder', count: 2, decayAt: Date.now() + 20 * 60000 }));
-  await page.locator('#mpStatus').click();
+  await page.evaluate(() => document.getElementById('mpStatus').click());   // dispatch JS (re-render 10Hz)
   await expect(page.locator('#mpStatus')).toHaveText(/Thế giới/, { timeout: 4000 });   // vẫn ở Thế Giới
   const murder = await page.evaluate(() => window.__MP.state.murderCount);
   expect(murder).toBe(2);
-  await expect(page.locator('#mpPkMode')).toBeVisible();   // chưa bị đá về local
+  await expect(page.locator('#mpPkStatus')).toBeVisible();   // chưa bị đá về local
   await assertNoErrors();
 });

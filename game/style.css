@@ -1437,12 +1437,16 @@ body.chat-transparency #worldChat:hover{opacity:1}
 .admin-item-preview{border:1px solid var(--line);background:#0d1410;border-radius:6px;align-items:center;gap:8px;min-height:48px;padding:6px 8px;display:flex}
 .admin-item-preview img{object-fit:contain;width:36px;height:36px;image-rendering:pixelated;flex:none}
 
-/* ==== Thế Giới multiplayer: nút Map Mình/Thế Giới + PK (2.6.21, nguồn v152) ==== */
-.mp-wrap{position:absolute;left:8px;bottom:8px;display:flex;gap:6px;z-index:30;pointer-events:auto}
-.mp-status{border:1px solid #b99a5c;border-radius:14px;background:#000a;color:#e8e2d0;font-size:11px;line-height:1;padding:6px 10px;box-shadow:0 2px 8px #000b}
-.mp-status[data-state="ok"]{color:#8fe08f;border-color:#5c9a5c}
-.mp-status[data-state="wait"]{color:#f3d88a}
-.mp-status[data-state="error"]{color:#ff9a9a;border-color:#9a5c5c}
-.mp-pk{border:1px solid #b99a5c;border-radius:14px;background:#000a;color:#e8e2d0;font-size:11px;line-height:1;padding:6px 10px;box-shadow:0 2px 8px #000b}
-.mp-pk[data-state="on"]{color:#ffd24a;border-color:#c9a54c}
-.mp-pk[data-state="mass"]{color:#ff5b5b;border-color:#9a3c3c;font-weight:700}
+/* ==== Thế Giới: nút Map Local / PK trong header cạnh tên nhân vật (2.6.25 —
+   markup + màu lấy y nguyên nguồn .mp-status/.pk-status, data-state local/ok/error/wait
+   và pk-off/pk-on/pk-kill) ==== */
+.mp-status{color:#e1c477;white-space:nowrap;cursor:pointer;background:#18180f;border:1px solid #74633d;border-radius:8px;flex:none;padding:1px 4px;font-family:inherit;font-size:8px;line-height:1.35}
+.mp-status[data-state=ok]{color:#a8dca9;background:#102017;border-color:#47794d}
+.mp-status[data-state=error]{color:#ff9c8b;background:#241310;border-color:#875046}
+.mp-status[data-state=local]{color:#b5d9e5;background:#111c22;border-color:#58717d}
+.mp-status[data-state=wait]{color:#e1c477;background:#18180f;border-color:#74633d}
+.mp-status.pk-status[data-state=pk-on]{color:#ff9d89;background:#2b1511;border-color:#a64b3e}
+.mp-status.pk-status[data-state=pk-kill]{color:#ff6359;background:#37110e;border-color:#d43b32}
+.mp-status.pk-status[data-state=pk-off]{color:#a9b49f;background:#111710;border-color:#596257}
+.mp-status.pk-status:disabled{opacity:.55;cursor:not-allowed}
+.mp-status:focus-visible{outline-offset:2px;outline:2px solid #f1d37c}
